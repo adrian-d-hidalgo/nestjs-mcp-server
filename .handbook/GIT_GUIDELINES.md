@@ -1,13 +1,16 @@
-# Git Guidelines
+# Git Guidelines <!-- omit in toc -->
 
 This document defines the Git workflow, branch naming conventions, commit message standards, and pull request process for the MCP Server NestJS module library. Its objective is to ensure a consistent, maintainable, and collaborative development process, while enforcing best practices and compatibility with the @modelcontextprotocol/sdk. Use this guide to understand how to contribute, manage branches, and maintain code quality in this project.
 
-# Table of Contents
+## Table of Contents <!-- omit in toc -->
 
 - [Branch Structure](#branch-structure)
 - [Workflow Diagram](#workflow-diagram)
 - [Branch Naming Conventions](#branch-naming-conventions)
 - [Commit Guidelines](#commit-guidelines)
+  - [Format](#format)
+  - [Types](#types)
+  - [Examples](#examples)
 - [Pull Request Process](#pull-request-process)
 - [Handling Conflicts](#handling-conflicts)
 - [Branch Protection and Pull Request Rules](#branch-protection-and-pull-request-rules)
@@ -16,10 +19,10 @@ This document defines the Git workflow, branch naming conventions, commit messag
 - [Automatic Sync from Main to Develop](#automatic-sync-from-main-to-develop)
 - [Special Workflow Cases](#special-workflow-cases)
   - [Bugfixes vs Hotfixes vs Relfixes vs Devfixes](#bugfixes-vs-hotfixes-vs-relfixes-vs-devfixes)
-  - [Bugfix](#bugfix)
-  - [Hotfix](#hotfix)
-  - [Relfix](#relfix)
-  - [Devfix](#devfix)
+    - [Bugfix](#bugfix)
+    - [Hotfix](#hotfix)
+    - [Relfix](#relfix)
+    - [Devfix](#devfix)
   - [Releases](#releases)
   - [SemVer Versioning](#semver-versioning)
 - [Version Progression Validation](#version-progression-validation)

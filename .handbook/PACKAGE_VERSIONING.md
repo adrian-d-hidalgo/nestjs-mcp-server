@@ -1,21 +1,19 @@
-# Package Versioning Guidelines
+# Package Versioning Guidelines <!-- omit in toc -->
 
 This document describes the versioning policy and release process for all packages in the MCP Server NestJS module library. Its objective is to ensure clear, progressive, and predictable versioning for all releases, maintain compatibility with the @modelcontextprotocol/sdk, and provide guidance for stable and pre-release workflows. Use this guide to understand how to version, tag, and publish packages in this project.
 
-## Table of Contents
+## Table of Contents <!-- omit in toc -->
 
-- [Package Versioning Guidelines](#package-versioning-guidelines)
-  - [Table of Contents](#table-of-contents)
-  - [Overview](#overview)
-  - [Version Format](#version-format)
-  - [Pre-release Identifiers](#pre-release-identifiers)
-  - [Tagging and Publishing](#tagging-and-publishing)
-  - [Progressive Versioning](#progressive-versioning)
-  - [Version Progression Validation](#version-progression-validation)
-  - [Branching and Release Flow](#branching-and-release-flow)
-  - [Release Flow](#release-flow)
-  - [Automation](#automation)
-  - [Best Practices](#best-practices)
+- [Overview](#overview)
+- [Version Format](#version-format)
+- [Pre-release Identifiers](#pre-release-identifiers)
+- [Tagging and Publishing](#tagging-and-publishing)
+- [Progressive Versioning](#progressive-versioning)
+- [Version Progression Validation](#version-progression-validation)
+- [Branching and Release Flow](#branching-and-release-flow)
+- [Release Flow](#release-flow)
+- [Automation](#automation)
+- [Best Practices](#best-practices)
 
 ## Overview
 

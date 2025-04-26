@@ -1,23 +1,21 @@
-# Tech Stack
+# Tech Stack <!-- omit in toc -->
 
 This document provides an overview of the core technologies, tools, and configurations used in the MCP Server NestJS module library. Its objective is to clarify the project's technical foundation, ensure consistency across development environments, and help contributors understand the stack requirements for building, testing, and maintaining modules compatible with the @modelcontextprotocol/sdk.
 
-# Table of Contents
+# Table of Contents <!-- omit in toc -->
 
-- [Tech Stack](#tech-stack)
-- [Table of Contents](#table-of-contents)
-  - [Framework](#framework)
-  - [Language \& Transpilation](#language--transpilation)
-  - [Package Management](#package-management)
-  - [Linting](#linting)
-  - [Code Formatter](#code-formatter)
-  - [Testing](#testing)
-  - [Build](#build)
-  - [Logger](#logger)
-  - [Documentation](#documentation)
-  - [Environment Management](#environment-management)
-  - [CI/CD](#cicd)
-  - [Other](#other)
+- [Framework](#framework)
+- [Language \& Transpilation](#language--transpilation)
+- [Package Management](#package-management)
+- [Linting](#linting)
+- [Code Formatter](#code-formatter)
+- [Testing](#testing)
+- [Build](#build)
+- [Logger](#logger)
+- [Documentation](#documentation)
+- [Environment Management](#environment-management)
+- [CI/CD](#cicd)
+- [Other](#other)
 
 This project is built primarily with **NestJS** as the main framework. All modules, services, and controllers are designed following NestJS best practices and conventions.
 

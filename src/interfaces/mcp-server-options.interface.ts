@@ -85,7 +85,7 @@ export interface McpFeatureOptions {
   /**
    * Services that provide MCP capabilities.
    * Each service should be decorated with one of the capability decorators:
-   * @McpTool, @McpPrompt, or @McpResource
+   * @Tool, @Prompt, or @Resource
    */
   capabilities?: Provider[];
 

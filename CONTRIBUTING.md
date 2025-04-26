@@ -2,6 +2,125 @@
 
 Thank you for your interest in contributing to NestJS MCP Server!
 
+---
+
+## Developer Environment & Project Structure
+
+### 📁 Project Structure
+
+```
+.
+├── src/                  # Core library source code
+│   ├── mcp.module.ts     # Main NestJS module for MCP integration
+│   ├── mcp.service.ts    # MCP server service wrapper
+│   ├── mcp.controller.ts # HTTP/SSE controller for MCP endpoints
+│   └── registry/         # Discovery, logger, and registry utilities
+├── examples/             # Example MCP servers (resources, tools, prompts, mixed)
+│   └── ...               # Each with its own app.module.ts and service
+├── test/                 # Unit and integration tests
+├── .devcontainer/        # Devcontainer configs for VS Code & Codespaces
+├── package.json          # Project scripts and dependencies
+├── tsconfig.json         # TypeScript configuration
+├── eslint.config.mjs     # ESLint configuration
+└── README.md             # Project documentation
+```
+
+---
+
+### 🚀 Setup
+
+#### In the Cloud: Codespaces
+
+1. Click the **Open in GitHub Codespaces** badge or button in the repo.
+2. Wait for the environment to initialize (Node.js, PNPM, NestJS CLI, etc. are pre-installed).
+3. Start developing immediately in your browser or VS Code.
+
+#### Locally: DevContainers
+
+1. Clone the repository:
+   ```sh
+   git clone https://github.com/adrian-d-hidalgo/nestjs-mcp-server.git
+   cd nestjs-mcp-server
+   ```
+2. Install [Docker](https://www.docker.com/) and [VS Code](https://code.visualstudio.com/).
+3. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+4. Open the project folder in VS Code.
+5. Open the Command Palette:
+   - On **Windows/Linux**: `Ctrl+Shift+P`
+   - On **macOS**: `Cmd+Shift+P`
+   - Search for and select: `Dev Containers: Open Folder in Container`
+6. Wait for the container to build and initialize.
+7. Develop with all tools pre-installed and configured.
+
+##### Working with Git & GitHub CLI in DevContainers
+
+- The DevContainer includes an up-to-date version of Git and the GitHub CLI (`gh`).
+- Use all standard Git commands (`git status`, `git commit`, `git push`, etc.) in the integrated terminal.
+- Use the GitHub CLI for advanced GitHub operations:
+  - Authenticate: `gh auth login`
+  - Create issues/PRs: `gh issue create`, `gh pr create`
+  - List PRs: `gh pr list`
+- All Git operations are performed inside the container, ensuring a consistent environment.
+
+#### Manual Setup (pnpm)
+
+1. Install [Node.js](https://nodejs.org/) v22+ and [PNPM](https://pnpm.io/).
+2. Clone the repository:
+   ```sh
+   git clone https://github.com/adrian-d-hidalgo/nestjs-mcp-server.git
+   cd nestjs-mcp-server
+   ```
+3. Install dependencies:
+   ```sh
+   pnpm install
+   # or
+   npm install
+   ```
+4. Run an example server:
+   ```sh
+   pnpm start:resources
+   # or
+   pnpm start:tools
+   # or
+   pnpm start:prompts
+   ```
+5. The server will be available at [http://localhost:3000](http://localhost:3000).
+
+---
+
+## Running Examples
+
+You can run the provided example servers to test and explore the MCP Server module integration:
+
+- **Start the server:**
+
+  ```sh
+  pnpm start:resources
+  # or
+  pnpm start:tools
+  # or
+  pnpm start:prompts
+  ```
+
+  The server will be available at [http://localhost:3000](http://localhost:3000).
+
+- **Inspector Playground:**
+  Launch the MCP Inspector playground to interactively test and debug your MCP server examples:
+  ```sh
+  pnpm start:inspector
+  ```
+  This opens a UI tool (from `@modelcontextprotocol/inspector`) for exploring, invoking, and validating your MCP endpoints and server behavior in real time.
+
+---
+
+## Reporting Issues
+
+- Use the [GitHub issue tracker](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues).
+- Search existing issues before creating a new one.
+- Provide clear reproduction steps, environment details, and error messages if applicable.
+
+---
+
 ## How to Contribute
 
 - **Open an Issue First:** Before submitting a pull request (PR), please [open an issue](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues) to discuss your proposed change, bug, or feature. This helps us coordinate efforts and avoid duplicate work.
@@ -10,6 +129,17 @@ Thank you for your interest in contributing to NestJS MCP Server!
 - Add or update tests as appropriate.
 - Run `pnpm lint` and `pnpm test` before submitting.
 - Submit a pull request with a clear description of your changes, referencing the related issue.
+
+---
+
+## Pull Request Guidelines
+
+- Follow the existing code style and linting rules
+- Include tests for new functionality
+- Update documentation as needed
+- Keep changes focused and atomic
+- Provide a clear description of changes
+- For more details, see the [handbook](.handbook/) (if available)
 
 ## Development Workflow
 
