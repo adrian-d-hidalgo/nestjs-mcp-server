@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { McpModule } from '../../src/mcp.module';
+
 import { MixedModule } from './mixed.module';
 
 @Module({

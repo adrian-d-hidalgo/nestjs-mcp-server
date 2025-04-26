@@ -1,16 +1,16 @@
 import { Injectable, SetMetadata, applyDecorators } from '@nestjs/common';
 
 import {
-  MCP_PROMPT,
-  MCP_RESOURCE,
-  MCP_TOOL,
-  MCP_CAPABILITY_PROVIDER,
-} from './metadata.constants';
-import {
   PromptOptions,
   ResourceOptions,
   ToolOptions,
 } from '../interfaces/capabilities.interface';
+import {
+  MCP_CAPABILITY_PROVIDER,
+  MCP_PROMPT,
+  MCP_RESOURCE,
+  MCP_TOOL,
+} from './metadata.constants';
 
 /**
  * Decorator for capability providers that implement MCP capabilities

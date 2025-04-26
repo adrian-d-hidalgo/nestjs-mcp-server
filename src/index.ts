@@ -1,6 +1,6 @@
 // Core components
-export * from './mcp.module';
 export * from './mcp.controller';
+export * from './mcp.module';
 export * from './mcp.service';
 
 // Interfaces

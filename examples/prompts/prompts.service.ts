@@ -1,6 +1,7 @@
-import { z } from 'zod';
-import { McpCapabilityProvider, Prompt } from '../../src';
 import { GetPromptResult } from '@modelcontextprotocol/sdk/types';
+import { z } from 'zod';
+
+import { McpCapabilityProvider, Prompt } from '../../src';
 
 @McpCapabilityProvider()
 export class PromptsService {

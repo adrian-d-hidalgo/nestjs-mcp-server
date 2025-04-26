@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Delete, Req, Res } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 import { McpService } from './mcp.service';

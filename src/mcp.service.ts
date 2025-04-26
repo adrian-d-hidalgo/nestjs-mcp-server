@@ -1,15 +1,14 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
-
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 import { McpServerOptions } from './interfaces/mcp-server-options.interface';
-import { McpRegistry } from './registry/mcp.registry';
 import { McpLoggerService } from './registry/mcp-logger.service';
+import { McpRegistry } from './registry/mcp.registry';
 
 @Injectable()
 export class McpService {

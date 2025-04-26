@@ -1,11 +1,9 @@
-import { Injectable } from '@nestjs/common';
 import {
   McpServer,
   ResourceTemplate,
 } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { Injectable } from '@nestjs/common';
 
-import { DiscoveryService } from './discovery.service';
-import { McpLoggerService } from './mcp-logger.service';
 import {
   MCP_PROMPT,
   MCP_RESOURCE,
@@ -17,6 +15,9 @@ import {
   TemplateCallbacks,
   ToolOptions,
 } from '../interfaces/capabilities.interface';
+
+import { DiscoveryService } from './discovery.service';
+import { McpLoggerService } from './mcp-logger.service';
 
 @Injectable()
 export class McpRegistry {

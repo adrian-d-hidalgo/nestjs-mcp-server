@@ -1,10 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import {
-  DiscoveryService as NestDiscoveryService,
   MetadataScanner,
+  DiscoveryService as NestDiscoveryService,
   Reflector,
 } from '@nestjs/core';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
+
 import { MCP_CAPABILITY_PROVIDER } from '../decorators/metadata.constants';
 
 interface ProviderWithMetadata<T = unknown> {

@@ -1,6 +1,7 @@
-import { z } from 'zod';
-import { McpCapabilityProvider, Tool } from '../../src';
 import { CallToolResult } from '@modelcontextprotocol/sdk/types';
+import { z } from 'zod';
+
+import { McpCapabilityProvider, Tool } from '../../src';
 
 @McpCapabilityProvider()
 export class ToolsService {

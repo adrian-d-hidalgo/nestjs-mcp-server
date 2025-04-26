@@ -1,18 +1,18 @@
+import { Implementation } from '@modelcontextprotocol/sdk/types';
 import { DynamicModule, Module } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
-import { Implementation } from '@modelcontextprotocol/sdk/types';
 
-import { McpService } from './mcp.service';
-import { McpController } from './mcp.controller';
-import { McpRegistry } from './registry/mcp.registry';
-import { DiscoveryService } from './registry/discovery.service';
-import { McpLoggerService } from './registry/mcp-logger.service';
 import {
   McpFeatureOptions,
   McpLoggingOptions,
   McpServerModuleOptions,
   ServerOptions,
 } from './interfaces/mcp-server-options.interface';
+import { McpController } from './mcp.controller';
+import { McpService } from './mcp.service';
+import { DiscoveryService } from './registry/discovery.service';
+import { McpLoggerService } from './registry/mcp-logger.service';
+import { McpRegistry } from './registry/mcp.registry';
 
 const DEFAULT_OPTIONS = {
   serverInfo: {

@@ -1,4 +1,5 @@
 import { ReadResourceResult } from '@modelcontextprotocol/sdk/types';
+
 import { McpCapabilityProvider, Resource } from '../../src';
 
 interface Product {

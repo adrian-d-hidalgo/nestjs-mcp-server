@@ -1,9 +1,10 @@
-import { McpCapabilityProvider, Resource, Tool, Prompt } from '../../src';
 import {
-  ReadResourceResult,
   CallToolResult,
   GetPromptResult,
+  ReadResourceResult,
 } from '@modelcontextprotocol/sdk/types';
+
+import { McpCapabilityProvider, Prompt, Resource, Tool } from '../../src';
 
 @McpCapabilityProvider()
 export class MixedService {
