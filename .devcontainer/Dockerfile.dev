@@ -10,8 +10,8 @@ RUN apt-get update && \
   curl \
   && rm -rf /var/lib/apt/lists/*
 
-# Install pnpm
-RUN npm install -g pnpm nestjs/cli
+# Install PNPM and NestJS CLI
+RUN npm install -g pnpm @nestjs/cli
 
 # Copy package files
 COPY package.json pnpm-lock.yaml ./
