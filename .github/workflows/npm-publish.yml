@@ -1,0 +1,50 @@
+name: Build and Deploy to NPM on Tag
+
+on:
+  push:
+    tags:
+      - 'v*' # Activar solo cuando se crea un tag que comienza con 'v'
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0 # Importante para acceder al historial completo
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install PNPM
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build package
+        run: pnpm run build
+
+      - name: Determine NPM tag
+        id: determine_tag
+        run: |
+          if [[ $GITHUB_REF == *"-alpha"* ]]; then
+            echo "NPM_TAG=alpha" >> $GITHUB_ENV
+          elif [[ $GITHUB_REF == *"-beta"* ]]; then
+            echo "NPM_TAG=beta" >> $GITHUB_ENV
+          elif [[ $GITHUB_REF == *"-rc"* ]]; then
+            echo "NPM_TAG=rc" >> $GITHUB_ENV
+          else
+            echo "NPM_TAG=latest" >> $GITHUB_ENV
+          fi
+
+      - name: Publish to NPM
+        run: pnpm publish --no-git-checks --tag ${{ env.NPM_TAG }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
