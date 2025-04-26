@@ -1,6 +1,6 @@
 {
   "name": "@nestjs-mcp/server",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "NestJS module to create a MCP servers",
   "author": "Adrián Darío Hidalgo Flores",
   "private": true,
@@ -11,22 +11,16 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "nest start",
-    "start:dev:resources": "npx -y ts-node-dev --respawn examples/resources/main.ts",
-    "start:dev:prompts": "npx -y ts-node-dev --respawn examples/prompts/main.ts",
-    "start:dev:tools": "npx -y ts-node-dev --respawn examples/tools/main.ts",
-    "start:dev:playground": "npx @modelcontextprotocol/inspector --url http://localhost:3000",
-    "start:prod": "node dist/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
+    "start:resources": "npx -y ts-node-dev --respawn examples/resources/main.ts",
+    "start:prompts": "npx -y ts-node-dev --respawn examples/prompts/main.ts",
+    "start:tools": "npx -y ts-node-dev --respawn examples/tools/main.ts",
+    "start:inspector": "npx -y @modelcontextprotocol/inspector",
+    "lint": "eslint \"{src,test,examples}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
-    "test:e2e": "jest --config ./test/jest-e2e.json",
-    "release:alpha": "standard-version --prerelease alpha && pnpm publish --tag alpha",
-    "release:beta": "standard-version --prerelease beta && pnpm publish --tag beta",
-    "release:rc": "standard-version --prerelease rc && pnpm publish --tag rc",
-    "release": "standard-version && pnpm publish"
+    "test:e2e": "jest --config ./test/jest-e2e.json"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.10.2",

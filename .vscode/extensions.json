@@ -1,0 +1,43 @@
+{
+  "recommendations": [
+    // TypeScript & NestJS
+    "vscode.typescript-language-features",
+    "christian-kohler.path-intellisense",
+    "yoavbls.pretty-ts-errors",
+    "meganrogge.template-string-converter",
+
+    // ESLint & Prettier
+    "dbaeumer.vscode-eslint",
+    "esbenp.prettier-vscode",
+
+    // Testing
+    "orta.vscode-jest",
+    "firsttris.vscode-jest-runner",
+
+    // Docker
+    "ms-azuretools.vscode-docker",
+
+    // Database
+    "mtxr.sqltools",
+    "mtxr.sqltools-driver-pg",
+
+    // Git
+    "eamodio.gitlens",
+    "mhutchie.git-graph",
+
+    // Environment & Configuration
+    "mikestead.dotenv",
+    "redhat.vscode-yaml",
+    "editorconfig.editorconfig",
+
+    // Documentation
+    "yzhang.markdown-all-in-one",
+    "bierner.markdown-mermaid",
+
+    // Utilities
+    "visualstudioexptteam.vscodeintellicode",
+    "wayou.vscode-todo-highlight",
+    "gruntfuggly.todo-tree",
+    "pkief.material-icon-theme"
+  ]
+}

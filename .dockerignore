@@ -1,0 +1,37 @@
+# Development files and directories
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+*.log
+.git
+.github
+.vscode
+.idea
+*.iml
+.DS_Store
+Thumbs.db
+
+# Environment and local configuration files
+.env
+.env.*
+.eslintcache
+.stylelintcache
+*.tsbuildinfo
+
+# Build and test files
+dist
+coverage
+.nyc_output
+
+# Temporary files
+*.swp
+*.bak
+*.tmp
+.temp/
+
+# Documentation and files not needed at runtime
+README.md
+CHANGELOG.md
+LICENSE
+jest.config.ts
