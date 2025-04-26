@@ -1,3 +1,4 @@
+<!-- exclude-from-toc -->
 # Persistent Memory System - Usage Guide
 
 ## Main Objective

@@ -23,6 +23,7 @@
 
     // Git
     "eamodio.gitlens",
+    "github.vscode-github-actions",
     "mhutchie.git-graph",
 
     // Environment & Configuration
