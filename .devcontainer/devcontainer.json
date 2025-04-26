@@ -3,6 +3,7 @@
   "dockerComposeFile": "docker-compose.yml",
   "service": "package",
   "workspaceFolder": "/package",
+  "remoteUser": "node",
   "features": {
     "ghcr.io/devcontainers/features/git:1": {}
   },
@@ -50,6 +51,5 @@
         "pkief.material-icon-theme"
       ]
     }
-  },
-  "remoteUser": "node"
+  }
 }
