@@ -1,10 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { AppService } from './mcp.service';
+import { McpService } from './mcp.service';
 import { McpModule } from './mcp.module';
 
 describe('NestjsMcpServerService', () => {
-  let service: AppService;
+  let service: McpService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -16,7 +16,7 @@ describe('NestjsMcpServerService', () => {
       ],
     }).compile();
 
-    service = module.get<AppService>(AppService);
+    service = module.get<McpService>(McpService);
   });
 
   it('should be defined', () => {
