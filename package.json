@@ -11,9 +11,7 @@
   "scripts": {
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start:resources": "npx -y ts-node-dev --respawn examples/resources/main.ts",
-    "start:prompts": "npx -y ts-node-dev --respawn examples/prompts/main.ts",
-    "start:tools": "npx -y ts-node-dev --respawn examples/tools/main.ts",
+    "start:example": "npx -y ts-node-dev --respawn examples/$EXAMPLE/main.ts",
     "start:inspector": "npx -y @modelcontextprotocol/inspector",
     "lint": "eslint \"{src,test,examples}/**/*.ts\" --fix",
     "test": "jest",

@@ -17,7 +17,7 @@ import {
  * (tools, prompts, resources)
  * Use this at the class level to mark a service as a capability provider
  */
-export function McpCapabilityProvider(options?: { namespace?: string }) {
+export function McpProvider(options?: { namespace?: string }) {
   return applyDecorators(
     Injectable(),
     SetMetadata(MCP_CAPABILITY_PROVIDER, options || {}),
@@ -26,7 +26,7 @@ export function McpCapabilityProvider(options?: { namespace?: string }) {
 
 /**
  * Decorator for marking a method as an MCP Tool.
- * Use with @McpCapabilityProvider.
+ * Use with @McpProvider.
  *
  * La herramienta debe devolver un objeto con el formato:
  * {
@@ -57,7 +57,7 @@ export function Tool(options: ToolOptions) {
 
 /**
  * Decorator for marking a method as an MCP Prompt.
- * Use with @McpCapabilityProvider.
+ * Use with @McpProvider.
  *
  * El prompt debe devolver un objeto con el formato:
  * {
@@ -91,7 +91,7 @@ export function Prompt(options: PromptOptions) {
 
 /**
  * Decorator for marking a method as an MCP Resource provider.
- * Use with @McpCapabilityProvider.
+ * Use with @McpProvider.
  *
  * Hay dos modos de uso para los recursos:
  *

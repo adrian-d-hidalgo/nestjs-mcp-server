@@ -4,10 +4,10 @@ import {
   ReadResourceResult,
 } from '@modelcontextprotocol/sdk/types';
 
-import { McpCapabilityProvider, Prompt, Resource, Tool } from '../../src';
+import { McpProvider, Prompt, Resource, Tool } from '../../src';
 
-@McpCapabilityProvider()
-export class MixedService {
+@McpProvider()
+export class AppService {
   @Resource({
     name: 'country_list',
     uri: 'resource://countries/list',
@@ -24,7 +24,12 @@ export class MixedService {
   })
   getCountryInfo(): CallToolResult {
     return {
-      content: [],
+      content: [
+        {
+          type: 'text',
+          text: 'The capital of France is Paris.',
+        },
+      ],
     };
   }
 

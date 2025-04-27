@@ -1,10 +1,10 @@
 import { CallToolResult } from '@modelcontextprotocol/sdk/types';
 import { z } from 'zod';
 
-import { McpCapabilityProvider, Tool } from '../../src';
+import { McpProvider, Tool } from '../../src';
 
-@McpCapabilityProvider()
-export class ToolsService {
+@McpProvider()
+export class AppService {
   /**
    * Simple tool with only a name
    * Use case: Basic functionality that requires no parameters

@@ -1,10 +1,10 @@
 import { GetPromptResult } from '@modelcontextprotocol/sdk/types';
 import { z } from 'zod';
 
-import { McpCapabilityProvider, Prompt } from '../../src';
+import { McpProvider, Prompt } from '../../src';
 
-@McpCapabilityProvider()
-export class PromptsService {
+@McpProvider()
+export class AppService {
   /**
    * Simple prompt with only a name
    * Use case: Basic functionality that requires no parameters

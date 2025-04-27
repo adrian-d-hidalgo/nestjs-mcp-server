@@ -76,22 +76,7 @@ export interface McpServerModuleOptions {
 /**
  * Options for configuring a feature module with MCP capabilities
  */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface McpFeatureOptions {
-  /**
-   * Additional modules to import
-   */
-  imports?: Type<any>[];
-
-  /**
-   * Services that provide MCP capabilities.
-   * Each service should be decorated with one of the capability decorators:
-   * @Tool, @Prompt, or @Resource
-   */
-  capabilities?: Provider[];
-
-  /**
-   * Additional providers to register in the feature module
-   * These will be available for injection within this module
-   */
-  providers?: Provider[];
+  // TODO: Maybe its needed to implement Guards for all capabilities in this module o a specific logger configuration
 }

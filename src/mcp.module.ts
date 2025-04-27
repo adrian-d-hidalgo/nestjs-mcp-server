@@ -178,18 +178,11 @@ export class McpModule {
    * @param options Configuration options for the feature module
    * @returns A dynamic module configuration
    */
-  static forFeature(options?: McpFeatureOptions): DynamicModule {
-    const imports = options?.imports || [];
-    const capabilities = options?.capabilities || [];
-    const additionalProviders = options?.providers || [];
-
-    const allProviders = [...capabilities, ...additionalProviders];
-
+  // TODO: Implement specific Module options
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  static forFeature(_options?: McpFeatureOptions): DynamicModule {
     return {
       module: McpModule,
-      imports,
-      providers: allProviders,
-      exports: allProviders,
     };
   }
 }

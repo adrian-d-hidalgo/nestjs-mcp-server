@@ -1,6 +1,6 @@
 import { ReadResourceResult } from '@modelcontextprotocol/sdk/types';
 
-import { McpCapabilityProvider, Resource } from '../../src';
+import { McpProvider, Resource } from '../../src';
 
 interface Product {
   id: string;
@@ -20,8 +20,8 @@ interface Article {
   readTime: number;
 }
 
-@McpCapabilityProvider()
-export class ResourcesService {
+@McpProvider()
+export class AppService {
   /**
    * Simple resource with only a name
    * Use case: Basic resource without metadata or template
