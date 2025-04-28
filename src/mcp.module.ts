@@ -16,7 +16,7 @@ import {
 } from './interfaces/mcp-server-options.interface';
 import { DiscoveryService } from './registry/discovery.service';
 import { McpLoggerService } from './registry/mcp-logger.service';
-import { McpRegistry } from './registry/mcp.registry';
+import { RegistryService } from './registry/registry.service';
 
 const STREAMABLE_TRANSPORT: McpModuleTransportOption = {
   controller: StreamableController,
@@ -34,7 +34,7 @@ const DEFAULT_OPTIONS = {
 
 @Module({
   imports: [DiscoveryModule],
-  providers: [McpRegistry, DiscoveryService, McpLoggerService],
+  providers: [RegistryService, DiscoveryService, McpLoggerService],
 })
 export class McpModule {
   /**

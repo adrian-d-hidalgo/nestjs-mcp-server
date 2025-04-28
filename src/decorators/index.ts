@@ -1,2 +1,2 @@
-export * from './mcp.decorators';
-export * from './metadata.constants';
+export * from './capabilities.constants';
+export * from './capabilities.decorators';

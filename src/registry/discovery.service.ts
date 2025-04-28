@@ -6,7 +6,7 @@ import {
 } from '@nestjs/core';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 
-import { MCP_CAPABILITY_PROVIDER } from '../decorators/metadata.constants';
+import { MCP_PROVIDER } from '../decorators/capabilities.constants';
 
 interface ProviderWithMetadata<T = unknown> {
   instance: object;
@@ -73,7 +73,7 @@ export class DiscoveryService {
       (provider) =>
         provider.instance &&
         provider.metatype &&
-        this.reflector.get(MCP_CAPABILITY_PROVIDER, provider.metatype),
+        this.reflector.get(MCP_PROVIDER, provider.metatype),
     );
 
     capabilityProviders.forEach((provider) => providersToProcess.add(provider));
@@ -123,12 +123,7 @@ export class DiscoveryService {
     const result: MethodWithMetadata<T>[] = [];
 
     for (const methodName of methodNames) {
-      if (
-        !Object.prototype.hasOwnProperty.call(instancePrototype, methodName)
-      ) {
-        continue;
-      }
-
+      // Removed hasOwnProperty check to allow inherited methods
       const methodFunction = instancePrototype[methodName];
       if (typeof methodFunction !== 'function') {
         continue;

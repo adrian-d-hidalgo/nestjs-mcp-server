@@ -8,11 +8,10 @@ import {
   MCP_PROMPT,
   MCP_RESOURCE,
   MCP_TOOL,
-} from '../decorators/metadata.constants';
+} from '../decorators/capabilities.constants';
 import {
   PromptOptions,
   ResourceOptions,
-  TemplateCallbacks,
   ToolOptions,
 } from '../interfaces/capabilities.interface';
 
@@ -20,7 +19,7 @@ import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './mcp-logger.service';
 
 @Injectable()
-export class McpRegistry {
+export class RegistryService {
   constructor(
     private readonly discoveryService: DiscoveryService,
     private readonly logger: McpLoggerService,
@@ -35,20 +34,6 @@ export class McpRegistry {
     this.registerPrompts(server);
     this.registerTools(server);
     this.logger.log('MCP capabilities registration completed.', 'registry');
-  }
-
-  private formatTemplate(
-    template: string,
-    callbacks: TemplateCallbacks,
-  ): string | ResourceTemplate {
-    const dynamicPattern = /\{[a-zA-Z0-9_]+\}/;
-    const isDynamic = dynamicPattern.test(template);
-
-    if (isDynamic) {
-      return new ResourceTemplate(template, callbacks);
-    } else {
-      return template;
-    }
   }
 
   private registerResources(server: McpServer): void {
@@ -85,43 +70,32 @@ export class McpRegistry {
             'resources',
           );
 
-          const template = this.formatTemplate(metadata.template, {
-            // TODO: Add dynamically other properties
-            list: undefined,
-          });
-
           if ('metadata' in metadata) {
             // Case 1: Template with metadata
-            if (template instanceof ResourceTemplate) {
-              server.resource(
-                metadata.name,
-                template,
-                metadata.metadata,
-                handler,
-              );
-            } else {
-              server.resource(
-                metadata.name,
-                template,
-                metadata.metadata,
-                handler,
-              );
-            }
-          } else {
-            // Case 2: Template without metadata
-            if (template instanceof ResourceTemplate) {
-              server.resource(metadata.name, template, handler);
-            } else {
-              server.resource(metadata.name, template, handler);
-            }
+            server.resource(
+              metadata.name,
+              new ResourceTemplate(metadata.template, { list: undefined }),
+              metadata.metadata,
+              handler,
+            );
           }
-        } else if ('uri' in metadata && 'metadata' in metadata) {
+
+          this.logger.log('Resource without metadata', 'resources');
+
+          // Case 2: Template without metadata
+          console.log(metadata.template);
+          server.resource(
+            metadata.name,
+            new ResourceTemplate(metadata.template, { list: undefined }),
+            handler,
+          );
+        } else if ('uri' in metadata) {
           this.logger.log(
             `Registering resource "${metadata.name}" with URI: ${metadata.uri}`,
             'resources',
           );
 
-          if ('metadata' in metadata && metadata.metadata) {
+          if ('metadata' in metadata) {
             // Case 3: URI with metadata
             server.resource(
               metadata.name,

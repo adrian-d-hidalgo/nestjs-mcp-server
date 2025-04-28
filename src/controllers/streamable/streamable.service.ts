@@ -7,7 +7,7 @@ import { Request, Response } from 'express';
 
 import { McpServerOptions } from '../../interfaces/mcp-server-options.interface';
 import { McpLoggerService } from '../../registry/mcp-logger.service';
-import { McpRegistry } from '../../registry/mcp.registry';
+import { RegistryService } from '../../registry/registry.service';
 
 @Injectable()
 export class StreamableService {
@@ -18,7 +18,7 @@ export class StreamableService {
   constructor(
     @Inject('MCP_SERVER_OPTIONS')
     private readonly options: McpServerOptions,
-    private readonly registry: McpRegistry,
+    private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
   ) {
     this.server = new McpServer(this.options.serverInfo, this.options.options);

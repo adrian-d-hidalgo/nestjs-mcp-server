@@ -6,11 +6,11 @@ import {
   ToolOptions,
 } from '../interfaces/capabilities.interface';
 import {
-  MCP_CAPABILITY_PROVIDER,
   MCP_PROMPT,
+  MCP_PROVIDER,
   MCP_RESOURCE,
   MCP_TOOL,
-} from './metadata.constants';
+} from './capabilities.constants';
 
 /**
  * Decorator for capability providers that implement MCP capabilities
@@ -20,7 +20,7 @@ import {
 export function McpProvider(options?: { namespace?: string }) {
   return applyDecorators(
     Injectable(),
-    SetMetadata(MCP_CAPABILITY_PROVIDER, options || {}),
+    SetMetadata(MCP_PROVIDER, options || {}),
   );
 }
 
@@ -117,5 +117,15 @@ export function Resource(options: ResourceOptions) {
   const resourceOptions =
     typeof options === 'string' ? { name: options } : options;
 
-  return SetMetadata(MCP_RESOURCE, resourceOptions);
+  return function (
+    target: any,
+    propertyKey: string,
+    descriptor: PropertyDescriptor,
+  ) {
+    SetMetadata(MCP_RESOURCE, {
+      ...resourceOptions,
+      methodName: propertyKey,
+    })(target, propertyKey, descriptor);
+    return descriptor;
+  };
 }
