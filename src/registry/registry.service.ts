@@ -43,6 +43,11 @@ export class RegistryService {
   ): (...args: TArgs) => TResult {
     const isResolver = Reflect.hasMetadata(MCP_RESOLVER, instance.constructor);
 
+    console.log(
+      `isResolver: ${isResolver}, instance: ${instance.constructor.name}`,
+      'registry',
+    );
+
     if (!isResolver) {
       throw new Error(
         `Class "${instance.constructor.name}" must be decorated with @Resolver to use @Prompt, @Tool, or @Resource.`,
@@ -58,7 +63,7 @@ export class RegistryService {
         MCP_RESOURCE,
       );
     for (const method of resourceMethods) {
-      const { metadata, handler } = method;
+      const { metadata, handler, instance } = method;
 
       this.logger.log(
         `Resource "${metadata?.name || 'unnamed'}" found.`,
@@ -72,13 +77,13 @@ export class RegistryService {
               metadata.name,
               new ResourceTemplate(metadata.template, { list: undefined }),
               metadata.metadata,
-              handler,
+              this.wrappedHandler(handler, instance),
             );
           } else {
             server.resource(
               metadata.name,
               new ResourceTemplate(metadata.template, { list: undefined }),
-              handler,
+              this.wrappedHandler(handler, instance),
             );
           }
         } else if ('uri' in metadata) {
@@ -87,10 +92,14 @@ export class RegistryService {
               metadata.name,
               metadata.uri,
               metadata.metadata,
-              handler,
+              this.wrappedHandler(handler, instance),
             );
           } else {
-            server.resource(metadata.name, metadata.uri, handler);
+            server.resource(
+              metadata.name,
+              metadata.uri,
+              this.wrappedHandler(handler, instance),
+            );
           }
         }
       } catch (error) {
@@ -116,7 +125,7 @@ export class RegistryService {
         MCP_PROMPT,
       );
     for (const method of promptMethods) {
-      const { metadata, handler } = method;
+      const { metadata, handler, instance } = method;
 
       this.logger.log(
         `Prompt "${metadata?.name || 'unnamed'}" found.`,
@@ -129,14 +138,22 @@ export class RegistryService {
             metadata.name,
             metadata.description,
             metadata.argsSchema,
-            handler,
+            this.wrappedHandler(handler, instance),
           );
         } else if ('argsSchema' in metadata) {
-          server.prompt(metadata.name, metadata.argsSchema, handler);
+          server.prompt(
+            metadata.name,
+            metadata.argsSchema,
+            this.wrappedHandler(handler, instance),
+          );
         } else if ('description' in metadata) {
-          server.prompt(metadata.name, metadata.description, handler);
+          server.prompt(
+            metadata.name,
+            metadata.description,
+            this.wrappedHandler(handler, instance),
+          );
         } else {
-          server.prompt(metadata.name, handler);
+          server.prompt(metadata.name, this.wrappedHandler(handler, instance));
         }
       } catch (error) {
         this.logger.error(
