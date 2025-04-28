@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 
 import { McpModule } from '../../src/mcp.module';
 
-import { AppService } from './app.service';
+import { ToolsResolver } from './tools.resolver';
 
 @Module({
   imports: [
@@ -15,6 +15,6 @@ import { AppService } from './app.service';
       },
     }),
   ],
-  providers: [AppService],
+  providers: [ToolsResolver],
 })
 export class AppModule {}

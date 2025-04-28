@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 
 import { McpModule } from '../../src/mcp.module';
-import { AppService } from './app.service';
+import { ResourcesResolver } from './resources.resolver';
 
 @Module({
   imports: [
@@ -14,6 +14,6 @@ import { AppService } from './app.service';
       },
     }),
   ],
-  providers: [AppService],
+  providers: [ResourcesResolver],
 })
 export class AppModule {}
