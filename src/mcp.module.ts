@@ -15,7 +15,7 @@ import {
   ServerOptions,
 } from './interfaces/mcp-server-options.interface';
 import { DiscoveryService } from './registry/discovery.service';
-import { McpLoggerService } from './registry/mcp-logger.service';
+import { McpLoggerService } from './registry/logger.service';
 import { RegistryService } from './registry/registry.service';
 
 @Module({

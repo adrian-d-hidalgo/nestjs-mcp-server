@@ -37,6 +37,7 @@ export class DiscoveryService {
       if (!provider.instance) {
         continue;
       }
+
       const methods = this.getMethodsWithMetadataFromProvider<T>(
         provider,
         metadataKey,
@@ -86,6 +87,7 @@ export class DiscoveryService {
 
       if (metadata) {
         const handlerProperty = instance[methodName];
+
         if (typeof handlerProperty !== 'function') {
           continue;
         }
@@ -98,7 +100,7 @@ export class DiscoveryService {
           method: methodName,
           metadata: metadata as T,
           handler,
-          instance: instance as object,
+          instance,
         });
       }
     }

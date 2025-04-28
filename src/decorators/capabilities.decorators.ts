@@ -1,4 +1,4 @@
-import { SetMetadata } from '@nestjs/common';
+import { Injectable, SetMetadata } from '@nestjs/common';
 
 import {
   PromptOptions,
@@ -6,6 +6,27 @@ import {
   ToolOptions,
 } from '../interfaces/capabilities.interface';
 import { MCP_PROMPT, MCP_RESOURCE, MCP_TOOL } from './capabilities.constants';
+
+/**
+ * Metadata key to mark a class as an MCP Resolver.
+ */
+export const MCP_RESOLVER = '__mcp_resolver__';
+
+/**
+ * Decorator for marking a class as an MCP Resolver.
+ * Enables dependency injection and workspace grouping for MCP capabilities.
+ *
+ * @param workspace Optional workspace/namespace for grouping capabilities
+ * @example
+ * @Resolver('my-workspace')
+ * export class MyResolver { ... }
+ */
+export function Resolver(workspace?: string): ClassDecorator {
+  return function (target: any) {
+    Injectable()(target);
+    SetMetadata(MCP_RESOLVER, workspace || true)(target);
+  };
+}
 
 /**
  * Decorator for marking a method as an MCP Tool.
@@ -96,17 +117,13 @@ export function Prompt(options: PromptOptions) {
  * @param options Resource configuration or just the name as a string
  */
 export function Resource(options: ResourceOptions) {
-  // Handle both string and object formats for backward compatibility
-  const resourceOptions =
-    typeof options === 'string' ? { name: options } : options;
-
   return function (
     target: any,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
     SetMetadata(MCP_RESOURCE, {
-      ...resourceOptions,
+      ...options,
       methodName: propertyKey,
     })(target, propertyKey, descriptor);
     return descriptor;

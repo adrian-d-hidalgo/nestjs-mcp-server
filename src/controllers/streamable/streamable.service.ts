@@ -9,7 +9,7 @@ import {
   McpModuleTransportOptions,
   McpServerOptions,
 } from '../../interfaces/mcp-server-options.interface';
-import { McpLoggerService } from '../../registry/mcp-logger.service';
+import { McpLoggerService } from '../../registry/logger.service';
 import { RegistryService } from '../../registry/registry.service';
 
 // TODO: Stateless mode should be handled here or in another service
