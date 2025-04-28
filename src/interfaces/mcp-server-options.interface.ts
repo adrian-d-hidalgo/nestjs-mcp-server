@@ -37,7 +37,7 @@ export interface McpLoggingOptions {
 /**
  * Options for configuring the global MCP server module
  */
-export interface McpServerModuleOptions {
+export interface McpModuleOptions {
   /**
    * Additional modules to import
    */
@@ -71,7 +71,16 @@ export interface McpServerModuleOptions {
    * Options for configuring MCP server logging
    */
   logging?: McpLoggingOptions;
+  /**
+   * Options for configuring a feature module with MCP capabilities
+   */
+  transports?: McpModuleTransportOption[];
 }
+
+export type McpModuleTransportOption = {
+  controller: Type<any>;
+  service: Provider;
+};
 
 /**
  * Options for configuring a feature module with MCP capabilities

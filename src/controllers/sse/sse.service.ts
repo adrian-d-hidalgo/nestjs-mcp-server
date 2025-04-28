@@ -1,23 +1,17 @@
-/* eslint-disable @typescript-eslint/no-unsafe-assignment */
-/* eslint-disable @typescript-eslint/no-unsafe-member-access */
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { Inject, Injectable } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-import { McpServerOptions } from './interfaces/mcp-server-options.interface';
-import { McpLoggerService } from './registry/mcp-logger.service';
-import { McpRegistry } from './registry/mcp.registry';
+import { McpServerOptions } from '../../interfaces/mcp-server-options.interface';
+import { McpLoggerService } from '../../registry/mcp-logger.service';
+import { McpRegistry } from '../../registry/mcp.registry';
 
 @Injectable()
-export class McpService {
+export class SseService {
   private server: McpServer;
 
-  private transports = {
-    streamable: {} as Record<string, StreamableHTTPServerTransport>,
-    sse: {} as Record<string, SSEServerTransport>,
-  };
+  private transports = {} as Record<string, SSEServerTransport>;
 
   constructor(
     @Inject('MCP_SERVER_OPTIONS')
@@ -35,38 +29,14 @@ export class McpService {
   }
 
   /**
-   * Handle a streamable HTTP request from a client
-   *
-   * This method processes standard HTTP POST/GET/DELETE requests
-   * for the streamable HTTP transport.
-   */
-  async handleStreamableRequest(req: Request, res: Response) {
-    // In a complete implementation, you would integrate with the StreamableHTTPServerTransport
-    // const transport = new StreamableHTTPServerTransport();
-    // await this.server.connect(transport);
-    // await transport.handleRequest(req, res, body);
-
-    // For now, we return a basic JSON-RPC response
-    await new Promise((resolve) => setTimeout(resolve, 10));
-
-    if (!res.headersSent) {
-      res.json({
-        jsonrpc: '2.0',
-        result: { status: 'ok' },
-        id: req.body?.id || null,
-      });
-    }
-  }
-
-  /**
    * Handle an SSE request for server-sent events
    *
    * This establishes a connection for server-to-client notifications
    */
-  async handleSSERequest(req: Request, res: Response) {
+  async handleSse(req: Request, res: Response) {
     // Create SSE transport for legacy clients
     const transport = new SSEServerTransport('/messages', res);
-    this.transports.sse[transport.sessionId] = transport;
+    this.transports[transport.sessionId] = transport;
 
     this.logger.debug(
       `Starting SSE for sessionId: ${transport.sessionId}`,
@@ -74,7 +44,7 @@ export class McpService {
     );
 
     res.on('close', () => {
-      delete this.transports.sse[transport.sessionId];
+      delete this.transports[transport.sessionId];
     });
 
     await this.server.connect(transport);
@@ -83,9 +53,9 @@ export class McpService {
   /**
    * Handle SSE messages sent from client to server
    */
-  async handleSSEMessage(req: Request, res: Response) {
+  async handleMessage(req: Request, res: Response) {
     const sessionId = req.query.sessionId as string;
-    const transport = this.transports.sse[sessionId];
+    const transport = this.transports[sessionId];
 
     this.logger.debug(
       `Receiving SSE message for sessionId: ${sessionId}`,
@@ -111,12 +81,5 @@ export class McpService {
       );
       res.status(500).send(errorMessage);
     }
-  }
-
-  /**
-   * Get the MCP server instance
-   */
-  getServer(): McpServer {
-    return this.server;
   }
 }

@@ -1,82 +1,113 @@
 import { Implementation } from '@modelcontextprotocol/sdk/types';
-import { DynamicModule, Module } from '@nestjs/common';
+import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 
+import { SseController, SseService } from './controllers/sse';
+import {
+  StreamableController,
+  StreamableService,
+} from './controllers/streamable';
 import {
   McpFeatureOptions,
   McpLoggingOptions,
-  McpServerModuleOptions,
+  McpModuleOptions,
+  McpModuleTransportOption,
   ServerOptions,
 } from './interfaces/mcp-server-options.interface';
-import { McpController } from './mcp.controller';
-import { McpService } from './mcp.service';
 import { DiscoveryService } from './registry/discovery.service';
 import { McpLoggerService } from './registry/mcp-logger.service';
 import { McpRegistry } from './registry/mcp.registry';
 
+const STREAMABLE_TRANSPORT: McpModuleTransportOption = {
+  controller: StreamableController,
+  service: StreamableService,
+};
+
+const SSE_TRANSPORT = {
+  controller: SseController,
+  service: SseService,
+};
+
 const DEFAULT_OPTIONS = {
-  serverInfo: {
-    name: 'nest-mcp-server',
-    version: '1.0.0',
-  },
-  options: {
-    instructions: 'MCP server powered by NestJS',
-  },
-  logging: {
-    enabled: true,
-    level: 'verbose',
-  } as McpLoggingOptions,
+  transports: [STREAMABLE_TRANSPORT, SSE_TRANSPORT],
 };
 
 @Module({
   imports: [DiscoveryModule],
-  providers: [
-    McpRegistry,
-    DiscoveryService,
-    McpLoggerService,
-    {
-      provide: 'MCP_SERVER_OPTIONS',
-      useValue: DEFAULT_OPTIONS,
-    },
-    {
-      provide: 'MCP_LOGGING_OPTIONS',
-      useValue: DEFAULT_OPTIONS.logging,
-    },
-    McpService,
-  ],
-  controllers: [McpController],
+  providers: [McpRegistry, DiscoveryService, McpLoggerService],
 })
 export class McpModule {
+  /**
+   * Helper to resolve transports from options or defaults
+   */
+  private static resolveTransports(
+    transports?: McpModuleTransportOption[],
+  ): McpModuleTransportOption[] {
+    return transports && transports.length > 0
+      ? transports
+      : DEFAULT_OPTIONS.transports;
+  }
+
+  /**
+   * Helper to build controllers from transports
+   */
+  private static buildControllers(
+    transports: McpModuleTransportOption[],
+  ): Type<any>[] {
+    return transports.map((t) => t.controller);
+  }
+
+  /**
+   * Helper to build providers from transports and custom providers
+   */
+  private static buildProviders(
+    transports: McpModuleTransportOption[],
+    customProviders?: Array<Provider>,
+  ): Array<Provider> {
+    const safeCustomProviders = customProviders || [];
+    const transportServices = transports.map((t) => t.service);
+    return [...safeCustomProviders, ...transportServices];
+  }
+
+  /**
+   * Helper to build server info, options, and logging config
+   */
+  private static buildServerConfig(options: McpModuleOptions) {
+    const serverInfo: Implementation = {
+      name: options.name,
+      version: options.version,
+    };
+    const serverOptions: ServerOptions = {
+      instructions: options?.instructions,
+      capabilities: options?.capabilities,
+      ...(options?.protocolOptions || {}),
+    };
+    const loggingOptions: McpLoggingOptions = {
+      enabled: options.logging?.enabled !== false,
+      level: options.logging?.level || 'verbose',
+    };
+    return { serverInfo, serverOptions, loggingOptions };
+  }
+
   /**
    * Configures the MCP module with global options
    *
    * @param options Configuration options for the MCP server
    * @returns Dynamic module configuration
    */
-  static forRoot(options: McpServerModuleOptions): DynamicModule {
-    const providers = options?.providers || [];
-    const imports = options?.imports || [];
+  static forRoot(options: McpModuleOptions): DynamicModule {
+    const imports = options.imports || [];
+    const transports = this.resolveTransports(options.transports);
+    const controllers = this.buildControllers(transports);
+    const providers = this.buildProviders(transports, options.providers);
 
-    const serverInfo: Implementation = {
-      name: options.name,
-      version: options.version,
-    };
-
-    const serverOptions: ServerOptions = {
-      instructions: options?.instructions,
-      capabilities: options?.capabilities,
-      ...(options?.protocolOptions || {}),
-    };
-
-    // Logging configurations
-    const loggingOptions: McpLoggingOptions = {
-      enabled: options.logging?.enabled !== false,
-      level: options.logging?.level || 'verbose',
-    };
+    const { serverInfo, serverOptions, loggingOptions } =
+      this.buildServerConfig(options);
 
     return {
       module: McpModule,
       imports,
+      controllers,
       providers: [
         ...providers,
         {
@@ -107,34 +138,22 @@ export class McpModule {
     imports?: any[];
     useFactory: (
       ...args: any[]
-    ) => Promise<McpServerModuleOptions> | McpServerModuleOptions;
+    ) => Promise<McpModuleOptions> | McpModuleOptions;
     inject?: any[];
   }): DynamicModule {
     const { imports = [], useFactory, inject = [] } = options;
-    const safeImports = Array.isArray(imports) ? imports : [];
-    const safeInject = Array.isArray(inject) ? inject : [];
 
+    const safeInject = Array.isArray(inject) ? inject : [];
+    const safeImports = Array.isArray(imports) ? imports : [];
+
+    // Providers for async config
     const providers = [
       {
         provide: 'MCP_SERVER_OPTIONS',
         useFactory: async (...args: any[]) => {
           const mcpOptions = await useFactory(...args);
-          const serverInfo: Implementation = {
-            name: mcpOptions.name,
-            version: mcpOptions.version,
-          };
-
-          const serverOptions: ServerOptions = {
-            instructions: mcpOptions?.instructions,
-            capabilities: mcpOptions?.capabilities,
-            ...(mcpOptions?.protocolOptions || {}),
-          };
-
-          // Logging configurations
-          const loggingOptions: McpLoggingOptions = {
-            enabled: mcpOptions.logging?.enabled !== false,
-            level: mcpOptions.logging?.level || 'verbose',
-          };
+          const { serverInfo, serverOptions, loggingOptions } =
+            this.buildServerConfig(mcpOptions);
 
           return {
             serverInfo,
@@ -157,16 +176,39 @@ export class McpModule {
       },
     ];
 
-    // Add additional providers if available
-    if (safeInject.length > 0) {
-      // We can't spread safeInject directly due to TypeScript type checking
-      // So we add providers one by one if needed
-    }
+    // Map transports to controllers and providers as in forRoot
+    const asyncControllersFactory = async (...args: any[]) => {
+      const mcpOptions = await useFactory(...args);
+      const transports = this.resolveTransports(mcpOptions.transports);
+
+      return this.buildControllers(transports);
+    };
+
+    const asyncProvidersFactory = async (...args: any[]) => {
+      const mcpOptions = await useFactory(...args);
+      const transports = this.resolveTransports(mcpOptions.transports);
+      return this.buildProviders(transports, mcpOptions.providers);
+    };
 
     return {
       module: McpModule,
       imports: safeImports,
-      providers,
+      controllers: asyncControllersFactory.length
+        ? ([] as Array<Type<any>>) // Will be resolved at runtime by NestJS
+        : [],
+      providers: [
+        ...providers,
+        {
+          provide: '__MCP_ASYNC_CONTROLLERS__',
+          useFactory: asyncControllersFactory,
+          inject: safeInject,
+        },
+        {
+          provide: '__MCP_ASYNC_PROVIDERS__',
+          useFactory: asyncProvidersFactory,
+          inject: safeInject,
+        },
+      ],
       global: true,
     };
   }
