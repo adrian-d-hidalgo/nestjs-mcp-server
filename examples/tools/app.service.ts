@@ -1,9 +1,10 @@
 import { CallToolResult } from '@modelcontextprotocol/sdk/types';
+import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 
-import { McpProvider, Tool } from '../../src';
+import { Tool } from '../../src';
 
-@McpProvider()
+@Injectable()
 export class AppService {
   /**
    * Simple tool with only a name

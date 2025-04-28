@@ -1,9 +1,10 @@
 import { GetPromptResult } from '@modelcontextprotocol/sdk/types';
+import { Injectable } from '@nestjs/common';
 import { z } from 'zod';
 
-import { McpProvider, Prompt } from '../../src';
+import { Prompt } from '../../src';
 
-@McpProvider()
+@Injectable()
 export class AppService {
   /**
    * Simple prompt with only a name
@@ -81,15 +82,15 @@ export class AppService {
           content: {
             type: 'text',
             text: `
-# System Help Guide
+              # System Help Guide
 
-Here are the main features available:
-- **Account Management**: Update your profile, change settings
-- **Content Creation**: Create and edit documents, media, and more
-- **Collaboration**: Share and work with others
-- **Analytics**: View performance metrics and reports
+              Here are the main features available:
+              - **Account Management**: Update your profile, change settings
+              - **Content Creation**: Create and edit documents, media, and more
+              - **Collaboration**: Share and work with others
+              - **Analytics**: View performance metrics and reports
 
-For more detailed help, please specify which feature you need assistance with.
+              For more detailed help, please specify which feature you need assistance with.
             `,
           },
         },

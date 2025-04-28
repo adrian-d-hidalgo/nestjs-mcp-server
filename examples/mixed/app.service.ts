@@ -3,19 +3,24 @@ import {
   GetPromptResult,
   ReadResourceResult,
 } from '@modelcontextprotocol/sdk/types';
+import { Injectable } from '@nestjs/common';
 
-import { McpProvider, Prompt, Resource, Tool } from '../../src';
+import { Prompt, Resource, Tool } from '../../src';
 
-@McpProvider()
+@Injectable()
 export class AppService {
   @Resource({
     name: 'country_list',
-    uri: 'resource://countries/list',
+    uri: 'contry://list',
   })
-  getCountryList(): ReadResourceResult {
+  getCountryList(uri: URL): ReadResourceResult {
     return {
-      uri: 'resource://countries/list',
-      contents: [],
+      contents: [
+        {
+          uri: uri.href,
+          text: 'Mexico, USA, Canada',
+        },
+      ],
     };
   }
 
