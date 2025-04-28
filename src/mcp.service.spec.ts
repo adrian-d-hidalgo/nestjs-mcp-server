@@ -1,10 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
+import { SseService } from './controllers/sse';
+import { StreamableService } from './controllers/streamable';
 import { McpModule } from './mcp.module';
-import { McpService } from './mcp.service';
-
 describe('NestjsMcpServerService', () => {
-  let service: McpService;
+  let streamableService: StreamableService;
+  let sseService: SseService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -16,10 +17,12 @@ describe('NestjsMcpServerService', () => {
       ],
     }).compile();
 
-    service = module.get<McpService>(McpService);
+    streamableService = module.get<StreamableService>(StreamableService);
+    sseService = module.get<SseService>(SseService);
   });
 
   it('should be defined', () => {
-    expect(service).toBeDefined();
+    expect(streamableService).toBeDefined();
+    expect(sseService).toBeDefined();
   });
 });

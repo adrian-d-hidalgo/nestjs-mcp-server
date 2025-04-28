@@ -96,6 +96,12 @@ export class DiscoveryService {
           return handlerProperty.apply(instance, args);
         }) as (...args: any[]) => any;
 
+        // Preserve the original method name
+        Object.defineProperty(handler, 'name', {
+          value: methodName,
+          writable: false,
+        });
+
         result.push({
           method: methodName,
           metadata: metadata as T,

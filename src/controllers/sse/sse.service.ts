@@ -1,6 +1,6 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { Request, Response } from 'express';
 
 import { McpServerOptions } from '../../interfaces/mcp-server-options.interface';
@@ -8,7 +8,7 @@ import { McpLoggerService } from '../../registry/logger.service';
 import { RegistryService } from '../../registry/registry.service';
 
 @Injectable()
-export class SseService {
+export class SseService implements OnModuleInit {
   private server: McpServer;
 
   private transports = {} as Record<string, SSEServerTransport>;
@@ -20,11 +20,11 @@ export class SseService {
     private readonly logger: McpLoggerService,
   ) {
     this.server = new McpServer(this.options.serverInfo, this.options.options);
+  }
 
+  async onModuleInit() {
     this.logger.log('Starting MCP controller registration', 'MCP_SERVER');
-
-    this.registry.registerAll(this.server);
-
+    await this.registry.registerAll(this.server);
     this.logger.log('MCP initialization completed', 'MCP_SERVER');
   }
 

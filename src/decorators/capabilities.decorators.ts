@@ -13,6 +13,11 @@ import { MCP_PROMPT, MCP_RESOURCE, MCP_TOOL } from './capabilities.constants';
 export const MCP_RESOLVER = '__mcp_resolver__';
 
 /**
+ * Metadata key to attach guards to a Resolver class or method.
+ */
+export const MCP_GUARDS = '__mcp_guards__';
+
+/**
  * Decorator for marking a class as an MCP Resolver.
  * Enables dependency injection and workspace grouping for MCP capabilities.
  *
@@ -26,6 +31,20 @@ export function Resolver(workspace?: string): ClassDecorator {
     Injectable()(target);
     SetMetadata(MCP_RESOLVER, workspace || true)(target);
   };
+}
+
+/**
+ * Decorator to attach one or more guards to a Resolver class or method.
+ * Accepts guard classes or instances implementing CanActivate.
+ *
+ * @param guards One or more guard classes or instances
+ * @example
+ * @UseGuards(MyGuard)
+ * @Resolver('workspace')
+ * export class MyResolver { ... }
+ */
+export function UseGuards(...guards: any[]): ClassDecorator & MethodDecorator {
+  return SetMetadata(MCP_GUARDS, guards);
 }
 
 /**

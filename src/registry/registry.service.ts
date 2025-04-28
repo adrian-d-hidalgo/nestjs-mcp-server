@@ -2,7 +2,9 @@ import {
   McpServer,
   ResourceTemplate,
 } from '@modelcontextprotocol/sdk/server/mcp.js';
+import type { CanActivate, Type } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
+import { MCP_GUARDS } from '../decorators/capabilities.decorators';
 
 import {
   MCP_PROMPT,
@@ -15,6 +17,7 @@ import {
   ToolOptions,
 } from '../interfaces/capabilities.interface';
 
+import { McpExecutionContext } from 'src/interfaces/guards.interface';
 import { MCP_RESOLVER } from '../decorators';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
@@ -26,27 +29,89 @@ export class RegistryService {
     private readonly logger: McpLoggerService,
   ) {}
 
-  registerAll(server: McpServer): void {
+  async registerAll(server: McpServer): Promise<void> {
     this.logger.log(
       'Starting registration of all MCP capabilities...',
       'registry',
     );
-    this.registerResources(server);
-    this.registerPrompts(server);
-    this.registerTools(server);
-    this.logger.log('MCP capabilities registration completed.', 'registry');
+
+    await Promise.all([
+      this.registerResources(server),
+      this.registerPrompts(server),
+      this.registerTools(server),
+    ]);
   }
 
-  private wrappedHandler<TArgs extends unknown[], TResult>(
-    handler: (...args: TArgs) => TResult,
+  /**
+   * Executes all guards attached to the resolver class and method.
+   * Throws an error if any guard denies access.
+   *
+   * @param instance The resolver instance
+   * @param methodName The method name being invoked
+   * @param args The arguments passed to the method
+   * @throws Error if any guard denies access
+   */
+  private runGuards(
     instance: object,
-  ): (...args: TArgs) => TResult {
-    const isResolver = Reflect.hasMetadata(MCP_RESOLVER, instance.constructor);
+    methodName: string,
+    args: unknown[],
+  ): Promise<void> {
+    // Retrieve class-level guards
+    const classConstructor = instance.constructor;
+    const classGuards: (CanActivate | { new (): CanActivate })[] =
+      (Reflect.getMetadata(MCP_GUARDS, classConstructor) as (
+        | CanActivate
+        | { new (): CanActivate }
+      )[]) || [];
 
-    console.log(
-      `isResolver: ${isResolver}, instance: ${instance.constructor.name}`,
-      'registry',
-    );
+    // Retrieve method-level guards
+    const prototype = Object.getPrototypeOf(instance) as Record<
+      string,
+      unknown
+    >;
+    const methodKey = prototype[methodName] as object | undefined;
+
+    const methodGuards: (CanActivate | { new (): CanActivate })[] =
+      (methodKey &&
+        (Reflect.getMetadata(MCP_GUARDS, methodKey) as (
+          | CanActivate
+          | { new (): CanActivate }
+        )[])) ||
+      [];
+
+    // Combine guards: class-level first, then method-level
+    const allGuards = [...classGuards, ...methodGuards];
+
+    if (!allGuards.length) return Promise.resolve();
+    // Build a minimal context (customize as needed)
+    const context: McpExecutionContext = {
+      args,
+
+      // @ts-expect-error: Default types are 'http' | 'ws' | 'rpc' but in our case
+      // we are using 'mcp'
+      getType: () => 'mcp',
+      getClass: () => instance.constructor as Type<any>,
+      getArgs: <T extends Array<any>>() => args as T,
+    };
+
+    return (async () => {
+      for (const Guard of allGuards) {
+        const guardInstance: CanActivate =
+          typeof Guard === 'function' ? new Guard() : Guard;
+        const allowed = await guardInstance.canActivate(context);
+
+        if (!allowed)
+          throw new Error(`Access denied by guard on ${methodName}`);
+      }
+    })();
+  }
+
+  private async wrappedHandler<TArgs extends unknown[], TResult>(
+    instance: object,
+    handler: (...args: TArgs) => TResult,
+    args: unknown[],
+  ) {
+    const isResolver = Reflect.hasMetadata(MCP_RESOLVER, instance.constructor);
 
     if (!isResolver) {
       throw new Error(
@@ -54,10 +119,14 @@ export class RegistryService {
       );
     }
 
-    return (...args: TArgs) => handler(...args);
+    const methodName = handler.name;
+
+    await this.runGuards(instance, methodName, args);
+
+    return handler(...(args as TArgs));
   }
 
-  private registerResources(server: McpServer): void {
+  private registerResources(server: McpServer) {
     const resourceMethods =
       this.discoveryService.getAllMethodsWithMetadata<ResourceOptions>(
         MCP_RESOURCE,
@@ -70,6 +139,9 @@ export class RegistryService {
         'resources',
       );
 
+      const wrappedHandler = (...args: unknown[]) =>
+        this.wrappedHandler(instance, handler, args);
+
       try {
         if ('template' in metadata) {
           if ('metadata' in metadata) {
@@ -77,13 +149,13 @@ export class RegistryService {
               metadata.name,
               new ResourceTemplate(metadata.template, { list: undefined }),
               metadata.metadata,
-              this.wrappedHandler(handler, instance),
+              wrappedHandler,
             );
           } else {
             server.resource(
               metadata.name,
               new ResourceTemplate(metadata.template, { list: undefined }),
-              this.wrappedHandler(handler, instance),
+              wrappedHandler,
             );
           }
         } else if ('uri' in metadata) {
@@ -92,14 +164,10 @@ export class RegistryService {
               metadata.name,
               metadata.uri,
               metadata.metadata,
-              this.wrappedHandler(handler, instance),
+              wrappedHandler,
             );
           } else {
-            server.resource(
-              metadata.name,
-              metadata.uri,
-              this.wrappedHandler(handler, instance),
-            );
+            server.resource(metadata.name, metadata.uri, wrappedHandler);
           }
         }
       } catch (error) {
@@ -119,7 +187,7 @@ export class RegistryService {
     }
   }
 
-  private registerPrompts(server: McpServer): void {
+  private registerPrompts(server: McpServer) {
     const promptMethods =
       this.discoveryService.getAllMethodsWithMetadata<PromptOptions>(
         MCP_PROMPT,
@@ -132,28 +200,23 @@ export class RegistryService {
         'prompts',
       );
 
+      const wrappedHandler = (...args: unknown[]) =>
+        this.wrappedHandler(instance, handler, args);
+
       try {
         if ('description' in metadata && 'argsSchema' in metadata) {
           server.prompt(
             metadata.name,
             metadata.description,
             metadata.argsSchema,
-            this.wrappedHandler(handler, instance),
+            wrappedHandler,
           );
         } else if ('argsSchema' in metadata) {
-          server.prompt(
-            metadata.name,
-            metadata.argsSchema,
-            this.wrappedHandler(handler, instance),
-          );
+          server.prompt(metadata.name, metadata.argsSchema, wrappedHandler);
         } else if ('description' in metadata) {
-          server.prompt(
-            metadata.name,
-            metadata.description,
-            this.wrappedHandler(handler, instance),
-          );
+          server.prompt(metadata.name, metadata.description, wrappedHandler);
         } else {
-          server.prompt(metadata.name, this.wrappedHandler(handler, instance));
+          server.prompt(metadata.name, wrappedHandler);
         }
       } catch (error) {
         this.logger.error(
@@ -172,7 +235,7 @@ export class RegistryService {
     }
   }
 
-  private registerTools(server: McpServer): void {
+  private registerTools(server: McpServer) {
     const toolMethods =
       this.discoveryService.getAllMethodsWithMetadata<ToolOptions>(MCP_TOOL);
 
@@ -181,28 +244,23 @@ export class RegistryService {
 
       this.logger.log(`Tool "${metadata?.name || 'unnamed'}" found.`, 'tools');
 
+      const wrappedHandler = (...args: unknown[]) =>
+        this.wrappedHandler(instance, handler, args);
+
       try {
         if ('description' in metadata && 'paramSchema' in metadata) {
           server.tool(
             metadata.name,
             metadata.description,
             metadata.paramSchema,
-            this.wrappedHandler(handler, instance),
+            wrappedHandler,
           );
         } else if ('paramSchema' in metadata) {
-          server.tool(
-            metadata.name,
-            metadata.paramSchema,
-            this.wrappedHandler(handler, instance),
-          );
+          server.tool(metadata.name, metadata.paramSchema, wrappedHandler);
         } else if ('description' in metadata) {
-          server.tool(
-            metadata.name,
-            metadata.description,
-            this.wrappedHandler(handler, instance),
-          );
+          server.tool(metadata.name, metadata.description, wrappedHandler);
         } else {
-          server.tool(metadata.name, this.wrappedHandler(handler, instance));
+          server.tool(metadata.name, wrappedHandler);
         }
       } catch (error) {
         this.logger.error(
