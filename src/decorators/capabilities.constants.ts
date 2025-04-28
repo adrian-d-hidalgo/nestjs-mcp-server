@@ -1,8 +1,5 @@
 // Prefijo para todas las constantes de metadatos
-export const PREFIX = 'mcp';
-
-// Constantes de metadatos para decoradores de clase
-export const MCP_PROVIDER = `${PREFIX}:provider`;
+export const PREFIX = 'MCP';
 
 // Constantes de metadatos para decoradores de método
 export const MCP_TOOL = `${PREFIX}:tool`;

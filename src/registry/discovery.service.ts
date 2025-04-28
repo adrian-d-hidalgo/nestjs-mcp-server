@@ -6,13 +6,6 @@ import {
 } from '@nestjs/core';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 
-import { MCP_PROVIDER } from '../decorators/capabilities.constants';
-
-interface ProviderWithMetadata<T = unknown> {
-  instance: object;
-  metadata: T;
-}
-
 export interface MethodWithMetadata<T = unknown> {
   method: string;
   metadata: T;
@@ -31,59 +24,19 @@ export class DiscoveryService {
   ) {}
 
   /**
-   * Get all providers with a specific metadata key.
+   * Get all methods with specific metadata from all providers (now scans all @Injectable, not just @McpProvider)
    */
-  getProvidersWithMetadata<T = unknown>(
-    metadataKey: string,
-  ): ProviderWithMetadata<T>[] {
-    const providers = this.discoveryService.getProviders();
-    const result: ProviderWithMetadata<T>[] = [];
-
-    for (const provider of providers) {
-      if (!provider.instance || !provider.metatype) {
-        continue;
-      }
-
-      const metadata = this.reflector.get<T>(metadataKey, provider.metatype);
-      if (metadata) {
-        result.push({
-          instance: provider.instance as object,
-          metadata: metadata as T,
-        });
-      }
-    }
-
-    return result;
-  }
-
-  /**
-   * Get all methods with specific metadata from all providers
-   */
-  getAllMethodsWithMetadata<T = unknown>(
+  public getAllMethodsWithMetadata<T = unknown>(
     metadataKey: string,
   ): MethodWithMetadata<T>[] {
     const providers = this.discoveryService.getProviders();
     const result: MethodWithMetadata<T>[] = [];
 
-    // Process capability providers
-    const providersToProcess = new Set<InstanceWrapper>();
-
-    // Find all capability providers
-    const capabilityProviders = providers.filter(
-      (provider) =>
-        provider.instance &&
-        provider.metatype &&
-        this.reflector.get(MCP_PROVIDER, provider.metatype),
-    );
-
-    capabilityProviders.forEach((provider) => providersToProcess.add(provider));
-
-    // Get methods from all capability providers
-    for (const provider of providersToProcess) {
+    // Scan ALL providers, not just those with MCP_PROVIDER
+    for (const provider of providers) {
       if (!provider.instance) {
         continue;
       }
-
       const methods = this.getMethodsWithMetadataFromProvider<T>(
         provider,
         metadataKey,
@@ -100,7 +53,7 @@ export class DiscoveryService {
   /**
    * Get all methods with a specific metadata from a single provider.
    */
-  getMethodsWithMetadataFromProvider<T = unknown>(
+  public getMethodsWithMetadataFromProvider<T = unknown>(
     provider: InstanceWrapper,
     metadataKey: string,
   ): MethodWithMetadata<T>[] {
