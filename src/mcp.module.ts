@@ -11,26 +11,12 @@ import {
   McpFeatureOptions,
   McpLoggingOptions,
   McpModuleOptions,
-  McpModuleTransportOption,
+  McpModuleTransportOptions,
   ServerOptions,
 } from './interfaces/mcp-server-options.interface';
 import { DiscoveryService } from './registry/discovery.service';
 import { McpLoggerService } from './registry/mcp-logger.service';
 import { RegistryService } from './registry/registry.service';
-
-const STREAMABLE_TRANSPORT: McpModuleTransportOption = {
-  controller: StreamableController,
-  service: StreamableService,
-};
-
-const SSE_TRANSPORT = {
-  controller: SseController,
-  service: SseService,
-};
-
-const DEFAULT_OPTIONS = {
-  transports: [STREAMABLE_TRANSPORT, SSE_TRANSPORT],
-};
 
 @Module({
   imports: [DiscoveryModule],
@@ -38,35 +24,58 @@ const DEFAULT_OPTIONS = {
 })
 export class McpModule {
   /**
-   * Helper to resolve transports from options or defaults
+   * Helper: Get active transport controllers and providers
    */
-  private static resolveTransports(
-    transports?: McpModuleTransportOption[],
-  ): McpModuleTransportOption[] {
-    return transports && transports.length > 0
-      ? transports
-      : DEFAULT_OPTIONS.transports;
-  }
+  private static getActiveTransportControllersAndProviders(
+    transports?: McpModuleTransportOptions,
+  ) {
+    const controllers = new Set<Type<any>>();
+    const providers = new Set<Provider>();
 
-  /**
-   * Helper to build controllers from transports
-   */
-  private static buildControllers(
-    transports: McpModuleTransportOption[],
-  ): Type<any>[] {
-    return transports.map((t) => t.controller);
-  }
+    // Transport configurations
+    const STREAMABLE_TRANSPORT = {
+      controller: StreamableController,
+      service: StreamableService,
+    };
 
-  /**
-   * Helper to build providers from transports and custom providers
-   */
-  private static buildProviders(
-    transports: McpModuleTransportOption[],
-    customProviders?: Array<Provider>,
-  ): Array<Provider> {
-    const safeCustomProviders = customProviders || [];
-    const transportServices = transports.map((t) => t.service);
-    return [...safeCustomProviders, ...transportServices];
+    const SSE_TRANSPORT = {
+      controller: SseController,
+      service: SseService,
+    };
+
+    // Default configuration
+    const defaultTransports: McpModuleTransportOptions = {
+      streamable: { enabled: true },
+      sse: { enabled: true },
+    };
+
+    // Merge default with provided transports
+    const config = {
+      streamable: {
+        ...defaultTransports.streamable,
+        ...(transports?.streamable ?? {}),
+      },
+      sse: {
+        ...defaultTransports.sse,
+        ...(transports?.sse ?? {}),
+      },
+    };
+
+    // Add controllers and providers based on enabled transports
+    if (config.streamable.enabled) {
+      controllers.add(STREAMABLE_TRANSPORT.controller);
+      providers.add(STREAMABLE_TRANSPORT.service);
+    }
+
+    if (config.sse.enabled) {
+      controllers.add(SSE_TRANSPORT.controller);
+      providers.add(SSE_TRANSPORT.service);
+    }
+
+    return {
+      controllers: Array.from(controllers),
+      providers: Array.from(providers),
+    };
   }
 
   /**
@@ -97,19 +106,17 @@ export class McpModule {
    */
   static forRoot(options: McpModuleOptions): DynamicModule {
     const imports = options.imports || [];
-    const transports = this.resolveTransports(options.transports);
-    const controllers = this.buildControllers(transports);
-    const providers = this.buildProviders(transports, options.providers);
-
+    const { controllers, providers } =
+      this.getActiveTransportControllersAndProviders(options.transports);
+    const allProviders = [...(options.providers || []), ...providers];
     const { serverInfo, serverOptions, loggingOptions } =
       this.buildServerConfig(options);
-
     return {
       module: McpModule,
       imports,
       controllers,
       providers: [
-        ...providers,
+        ...allProviders,
         {
           provide: 'MCP_SERVER_OPTIONS',
           useValue: {
@@ -121,6 +128,10 @@ export class McpModule {
         {
           provide: 'MCP_LOGGING_OPTIONS',
           useValue: loggingOptions,
+        },
+        {
+          provide: 'MCP_TRANSPORT_OPTIONS',
+          useValue: options.transports,
         },
       ],
       global: true,
@@ -142,11 +153,8 @@ export class McpModule {
     inject?: any[];
   }): DynamicModule {
     const { imports = [], useFactory, inject = [] } = options;
-
     const safeInject = Array.isArray(inject) ? inject : [];
     const safeImports = Array.isArray(imports) ? imports : [];
-
-    // Providers for async config
     const providers = [
       {
         provide: 'MCP_SERVER_OPTIONS',
@@ -154,7 +162,6 @@ export class McpModule {
           const mcpOptions = await useFactory(...args);
           const { serverInfo, serverOptions, loggingOptions } =
             this.buildServerConfig(mcpOptions);
-
           return {
             serverInfo,
             options: serverOptions,
@@ -175,27 +182,23 @@ export class McpModule {
         inject: safeInject,
       },
     ];
-
-    // Map transports to controllers and providers as in forRoot
     const asyncControllersFactory = async (...args: any[]) => {
       const mcpOptions = await useFactory(...args);
-      const transports = this.resolveTransports(mcpOptions.transports);
-
-      return this.buildControllers(transports);
+      return this.getActiveTransportControllersAndProviders(
+        mcpOptions.transports,
+      ).controllers;
     };
-
     const asyncProvidersFactory = async (...args: any[]) => {
       const mcpOptions = await useFactory(...args);
-      const transports = this.resolveTransports(mcpOptions.transports);
-      return this.buildProviders(transports, mcpOptions.providers);
+      const { providers } = this.getActiveTransportControllersAndProviders(
+        mcpOptions.transports,
+      );
+      return [...(mcpOptions.providers || []), ...providers];
     };
-
     return {
       module: McpModule,
       imports: safeImports,
-      controllers: asyncControllersFactory.length
-        ? ([] as Array<Type<any>>) // Will be resolved at runtime by NestJS
-        : [],
+      controllers: [], // Will be resolved at runtime by NestJS
       providers: [
         ...providers,
         {
@@ -221,7 +224,7 @@ export class McpModule {
    * @returns A dynamic module configuration
    */
   // TODO: Implement specific Module options
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   static forFeature(_options?: McpFeatureOptions): DynamicModule {
     return {
       module: McpModule,

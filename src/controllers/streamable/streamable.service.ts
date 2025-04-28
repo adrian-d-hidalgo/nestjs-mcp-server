@@ -5,9 +5,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 
-import { McpServerOptions } from '../../interfaces/mcp-server-options.interface';
+import {
+  McpModuleTransportOptions,
+  McpServerOptions,
+} from '../../interfaces/mcp-server-options.interface';
 import { McpLoggerService } from '../../registry/mcp-logger.service';
 import { RegistryService } from '../../registry/registry.service';
+
+// TODO: Stateless mode should be handled here or in another service
 
 @Injectable()
 export class StreamableService {
@@ -18,16 +23,16 @@ export class StreamableService {
   constructor(
     @Inject('MCP_SERVER_OPTIONS')
     private readonly options: McpServerOptions,
+    @Inject('MCP_TRANSPORT_OPTIONS')
+    private readonly transportOptions: McpModuleTransportOptions,
     private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
   ) {
     this.server = new McpServer(this.options.serverInfo, this.options.options);
 
-    this.logger.log('Starting MCP controller registration', 'MCP_SERVER');
-
     this.registry.registerAll(this.server);
 
-    this.logger.log('MCP initialization completed', 'MCP_SERVER');
+    this.logger.log('MCP STREAMEABLE initialization completed');
   }
 
   /**
@@ -47,14 +52,19 @@ export class StreamableService {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
     let transport: StreamableHTTPServerTransport;
 
+    const { options } = this.transportOptions?.streamable || {};
+
     if (sessionId && this.transports[sessionId]) {
       transport = this.transports[sessionId];
     } else if (!sessionId && isInitializeRequest(req.body)) {
       transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => randomUUID(),
+        sessionIdGenerator: () =>
+          options?.sessionIdGenerator?.() || randomUUID(),
         onsessioninitialized: (sessionId) => {
           this.transports[sessionId] = transport;
         },
+        enableJsonResponse: options?.enableJsonResponse,
+        eventStore: options?.eventStore,
       });
 
       transport.onclose = () => {
@@ -129,7 +139,7 @@ export class StreamableService {
     if (transport) {
       this.logger.debug(
         `Closing streamable transport for sessionId: ${sessionId}`,
-        'api',
+        'STREAMABLE',
       );
       await transport.close();
       delete this.transports[sessionId];
@@ -137,7 +147,7 @@ export class StreamableService {
     } else {
       this.logger.debug(
         `No streamable transport found for sessionId: ${sessionId}`,
-        'api',
+        'STREAMABLE',
       );
       res.status(404).json({ error: 'Transport not found', sessionId });
     }

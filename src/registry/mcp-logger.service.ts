@@ -1,10 +1,11 @@
 import {
-  Injectable,
-  LoggerService,
   Inject,
-  Optional,
+  Injectable,
   Logger,
+  LoggerService,
+  Optional,
 } from '@nestjs/common';
+
 import { McpLoggingOptions } from '../interfaces/mcp-server-options.interface';
 
 /**
@@ -18,11 +19,12 @@ export class McpLoggerService implements LoggerService {
   constructor(
     @Optional() @Inject('MCP_LOGGING_OPTIONS') options?: McpLoggingOptions,
   ) {
-    this.logger = new Logger('MCP');
     this.options = {
       enabled: options?.enabled !== false, // Habilitado por defecto
       level: options?.level || 'verbose',
     };
+
+    this.logger = new Logger('MCP');
   }
 
   /**

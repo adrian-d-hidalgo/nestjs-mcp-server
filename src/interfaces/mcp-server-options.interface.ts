@@ -1,3 +1,4 @@
+import { StreamableHTTPServerTransportOptions } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { ProtocolOptions } from '@modelcontextprotocol/sdk/shared/protocol';
 import {
   Implementation,
@@ -74,12 +75,25 @@ export interface McpModuleOptions {
   /**
    * Options for configuring a feature module with MCP capabilities
    */
-  transports?: McpModuleTransportOption[];
+  transports?: McpModuleTransportOptions;
 }
 
-export type McpModuleTransportOption = {
-  controller: Type<any>;
-  service: Provider;
+export type McpModuleTransportOptions = {
+  streamable?: {
+    enabled: boolean;
+    /**
+     * Streamable transport options. sessionIdGenerator is optional here, even if required in the SDK type.
+     */
+    options?: Omit<
+      StreamableHTTPServerTransportOptions,
+      'onsessioninitialized' | 'sessionIdGenerator'
+    > & {
+      sessionIdGenerator?: () => string | undefined;
+    };
+  };
+  sse?: {
+    enabled: boolean;
+  };
 };
 
 /**
