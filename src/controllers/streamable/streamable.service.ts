@@ -143,8 +143,19 @@ export class StreamableService implements OnModuleInit {
         `Closing streamable transport for sessionId: ${sessionId}`,
         'STREAMABLE',
       );
+
       await transport.close();
+
+      const uuidV4Regex =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+      if (!uuidV4Regex.test(sessionId)) {
+        res.status(400).json({ error: 'Invalid sessionId format' });
+        return;
+      }
+
       delete this.transports[sessionId];
+
       res.status(200).json({ success: true, sessionId });
     } else {
       this.logger.debug(

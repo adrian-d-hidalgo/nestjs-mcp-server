@@ -1,4 +1,5 @@
 import { CallToolResult } from '@modelcontextprotocol/sdk/types';
+import { randomInt, randomUUID } from 'crypto';
 import { z } from 'zod';
 
 import { Resolver, Tool } from '../../src';
@@ -65,14 +66,7 @@ export class ToolsResolver {
   })
   generateUniqueId(): CallToolResult {
     // Simple UUID v4 implementation for example purposes
-    const uuid = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(
-      /[xy]/g,
-      function (c) {
-        const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
-        return v.toString(16);
-      },
-    );
+    const uuid = randomUUID();
 
     return {
       content: [
@@ -187,23 +181,23 @@ export class ToolsResolver {
       notifications: boolean;
     };
   }): CallToolResult {
-    const userId = Math.floor(10000 + Math.random() * 90000);
+    const userId = randomInt(10000, 100000);
 
     return {
       content: [
         {
           type: 'text',
           text: `User registered successfully!\n
-User ID: ${userId}
-Username: ${username}
-Email: ${email}
-${age ? `Age: ${age}` : ''}
-${
-  preferences
-    ? `Theme: ${preferences.theme}
-Notifications: ${preferences.notifications ? 'Enabled' : 'Disabled'}`
-    : ''
-}`,
+          User ID: ${userId}
+          Username: ${username}
+          Email: ${email}
+          ${age ? `Age: ${age}` : ''}
+          ${
+            preferences
+              ? `Theme: ${preferences.theme}
+                Notifications: ${preferences.notifications ? 'Enabled' : 'Disabled'}`
+              : ''
+          }`,
         },
       ],
     };

@@ -79,7 +79,12 @@ export class SseService implements OnModuleInit {
         errorMessage,
         'MCP_SERVER',
       );
-      res.status(500).send(errorMessage);
+
+      res.status(500).send({
+        statusCode: 500,
+        error: 'Internal Server Error',
+        message: errorMessage,
+      });
     }
   }
 }
