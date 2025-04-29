@@ -41,22 +41,8 @@ jobs:
             exit 1
           fi
 
-      - name: Determine NPM tag
-        id: determine_tag
-        run: |
-          TAG_NAME=${GITHUB_REF#refs/tags/}
-          if [[ $TAG_NAME == *"-alpha"* ]]; then
-            echo "NPM_TAG=alpha" >> $GITHUB_ENV
-          elif [[ $TAG_NAME == *"-beta"* ]]; then
-            echo "NPM_TAG=beta" >> $GITHUB_ENV
-          elif [[ $TAG_NAME == *"-rc"* ]]; then
-            echo "NPM_TAG=rc" >> $GITHUB_ENV
-          else
-            echo "NPM_TAG=latest" >> $GITHUB_ENV
-          fi
-
       - name: Ensure tag is on main (for latest only)
-        if: env.NPM_TAG == 'latest'
+        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
         run: |
           TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
           MAIN_COMMIT=$(git rev-parse origin/main)
