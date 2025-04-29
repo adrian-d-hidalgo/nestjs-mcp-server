@@ -65,7 +65,7 @@ export function UseGuards(...guards: any[]): ClassDecorator & MethodDecorator {
  */
 export function Tool(options: ToolOptions) {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
@@ -99,7 +99,7 @@ export function Tool(options: ToolOptions) {
  */
 export function Prompt(options: PromptOptions) {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {
@@ -137,7 +137,7 @@ export function Prompt(options: PromptOptions) {
  */
 export function Resource(options: ResourceOptions) {
   return function (
-    target: any,
+    target: object,
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ) {

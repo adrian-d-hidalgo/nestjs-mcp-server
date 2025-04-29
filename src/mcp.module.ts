@@ -148,7 +148,7 @@ export class McpModule {
   static forRootAsync(options: {
     imports?: any[];
     useFactory: (
-      ...args: any[]
+      ...args: unknown[]
     ) => Promise<McpModuleOptions> | McpModuleOptions;
     inject?: any[];
   }): DynamicModule {
@@ -158,7 +158,7 @@ export class McpModule {
     const providers = [
       {
         provide: 'MCP_SERVER_OPTIONS',
-        useFactory: async (...args: any[]) => {
+        useFactory: async (...args: unknown[]) => {
           const mcpOptions = await useFactory(...args);
           const { serverInfo, serverOptions, loggingOptions } =
             this.buildServerConfig(mcpOptions);
@@ -172,7 +172,7 @@ export class McpModule {
       },
       {
         provide: 'MCP_LOGGING_OPTIONS',
-        useFactory: async (...args: any[]) => {
+        useFactory: async (...args: unknown[]) => {
           const mcpOptions = await useFactory(...args);
           return {
             enabled: mcpOptions.logging?.enabled !== false,
@@ -182,13 +182,13 @@ export class McpModule {
         inject: safeInject,
       },
     ];
-    const asyncControllersFactory = async (...args: any[]) => {
+    const asyncControllersFactory = async (...args: unknown[]) => {
       const mcpOptions = await useFactory(...args);
       return this.getActiveTransportControllersAndProviders(
         mcpOptions.transports,
       ).controllers;
     };
-    const asyncProvidersFactory = async (...args: any[]) => {
+    const asyncProvidersFactory = async (...args: unknown[]) => {
       const mcpOptions = await useFactory(...args);
       const { providers } = this.getActiveTransportControllersAndProviders(
         mcpOptions.transports,

@@ -1,7 +1,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 
@@ -15,7 +15,7 @@ import { RegistryService } from '../../registry/registry.service';
 // TODO: Stateless mode should be handled here or in another service
 
 @Injectable()
-export class StreamableService {
+export class StreamableService implements OnModuleInit {
   private server: McpServer;
 
   private transports = {} as Record<string, StreamableHTTPServerTransport>;
@@ -29,8 +29,10 @@ export class StreamableService {
     private readonly logger: McpLoggerService,
   ) {
     this.server = new McpServer(this.options.serverInfo, this.options.options);
+  }
 
-    this.registry.registerAll(this.server);
+  async onModuleInit() {
+    await this.registry.registerAll(this.server);
 
     this.logger.log('MCP STREAMEABLE initialization completed');
   }
