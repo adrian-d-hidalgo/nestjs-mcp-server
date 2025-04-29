@@ -5,6 +5,7 @@ import {
 import type { CanActivate, Type } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
 
+import { MCP_RESOLVER } from '../decorators';
 import {
   MCP_PROMPT,
   MCP_RESOURCE,
@@ -16,17 +17,16 @@ import {
   ResourceOptions,
   ToolOptions,
 } from '../interfaces/capabilities.interface';
-
-import { MCP_RESOLVER } from '../decorators';
-import { McpExecutionContext } from '../interfaces/guards.interface';
+import { McpExecutionContext } from '../interfaces/context.interface';
+import { MessageService } from '../services/message.service';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
-
 @Injectable()
 export class RegistryService {
   constructor(
     private readonly discoveryService: DiscoveryService,
     private readonly logger: McpLoggerService,
+    private readonly messageService: MessageService,
   ) {}
 
   async registerAll(server: McpServer): Promise<void> {
@@ -86,6 +86,7 @@ export class RegistryService {
     // Build a minimal context (customize as needed)
     const context: McpExecutionContext = {
       args,
+      message: this.messageService.get(),
 
       // @ts-expect-error: Default types are 'http' | 'ws' | 'rpc' but in our case
       // we are using 'mcp'
