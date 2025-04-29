@@ -1,184 +1,490 @@
-# MCP Server NestJS Module Library
+# MCP Server NestJS Module Library <!-- omit in toc -->
 
-# Table of Contents
+[![NPM Version](https://img.shields.io/npm/v/@your-org/nestjs-mcp-server)](https://www.npmjs.com/package/@your-org/nestjs-mcp-server)
+[![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 
-- [Introduction](#nestjs-mcp-server)
-- [Project Structure](#-project-structure)
-- [Setup](#-setup)
-  - [In the Cloud: Codespaces](#in-the-cloud-codespaces)
-  - [Locally: DevContainers](#locally-devcontainers)
-  - [Manual Setup (pnpm)](#manual-setup-pnpm)
-- [Key Project Scripts](#-key-project-scripts)
-- [Example Usage](#-example-usage)
-- [References](#-references)
+---
+
+## Table of Contents <!-- omit in toc -->
+
+- [Overview](#overview)
+- [Installation](#installation)
+- [Quickstart](#quickstart)
+- [What is MCP?](#what-is-mcp)
+- [Core Concepts](#core-concepts)
+  - [Server](#server)
+  - [Resource](#resource)
+  - [Tool](#tool)
+  - [Prompt](#prompt)
+- [Module API](#module-api)
+  - [forRoot](#mcpmoduleforroot)
+  - [forFeature](#mcpmoduleforfeature)
+  - [Resolver](#resolver)
+- [Capabilities](#capabilities)
+  - [@Resolver](#resolver-decorator)
+  - [@Prompt](#prompt-decorator)
+  - [@Resource](#resource-decorator)
+  - [@Tool](#tool-decorator)
+- [Guards](#guards)
+  - [Global-level guards:](#global-guard-guards)
+  - [Resolver-level guards:](#resolver-level-guards)
+  - [Method-level guards:](#method-level-guards)
+  - [Guard Example](#guard-example)
+- [Inspector Playground](#inspector-playground)
+- [Examples](#examples)
 - [Changelog](#changelog)
-- [License](#-license)
-- [Contributions](#-contributions)
-
-# NestJS MCP Server
-
-NestJS MCP Server is a modular library for building [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/typescript-sdk/tree/server) servers using [NestJS](https://nestjs.com/). It provides decorators, modules, and integration patterns to expose MCP capabilities, tools, prompts, and resources in a scalable, maintainable way.
+- [License](#license)
+- [Contributions](#contributions)
 
 ---
 
-## 📁 Project Structure
+## Overview
 
-```
-.
-├── src/                  # Core library source code
-│   ├── [`src/mcp.module.ts`](src/mcp.module.ts )     # Main NestJS module for MCP integration
-│   ├── [`src/mcp.service.ts`](src/mcp.service.ts )    # MCP server service wrapper
-│   ├── mcp.controller.ts # HTTP/SSE controller for MCP endpoints
-│   └── registry/         # Discovery, logger, and registry utilities
-├── examples/             # Example MCP servers (resources, tools, prompts, mixed)
-│   └── ...               # Each with its own [`examples/mixed/app.module.ts`](examples/mixed/app.module.ts ) and service
-├── test/                 # Unit and integration tests
-├── .devcontainer/        # Devcontainer configs for VS Code & Codespaces
-├── [`package.json`](package.json )          # Project scripts and dependencies
-├── [`tsconfig.json`](tsconfig.json )         # TypeScript configuration
-├── [`eslint.config.mjs`](eslint.config.mjs )     # ESLint configuration
-└── [`README.md`](README.md )             # Project documentation
+**NestJS MCP Server** is a modular library for building [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/typescript-sdk/tree/server) servers using [NestJS](https://nestjs.com/). It provides decorators, modules, and integration patterns to expose MCP resources, tools, and prompts in a scalable, maintainable way. This project is a wrapper for the official [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk/tree/server) and is always kept compatible with its types and specification.
+
+---
+
+## Installation
+
+```sh
+pnpm add @your-org/nestjs-mcp-server @modelcontextprotocol/sdk
+# or
+npm install @your-org/nestjs-mcp-server @modelcontextprotocol/sdk
 ```
 
 ---
 
-## 🚀 Setup
+## Quickstart
 
-### In the Cloud: Codespaces
+Register the MCP module in your NestJS app and expose a simple tool:
 
-1. Click the [Open in GitHub Codespaces](https://github.com/adrian-d-hidalgo/nestjs-mcp-server?quickstart=1) badge or button.
-2. Wait for the environment to initialize (Node.js, PNPM, NestJS CLI, etc. are pre-installed).
-3. Start developing immediately in your browser or VS Code.
+```ts
+import { Module } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 
-### Locally: DevContainers
+import { CallToolResult } from '@modelcontextprotocol/sdk/types';
 
-1. Clone the repository:
-   ```sh
-   git clone https://github.com/adrian-d-hidalgo/nestjs-mcp-server.git
-   cd nestjs-mcp-server
-   ```
-2. Install [Docker](https://www.docker.com/) and [VS Code](https://code.visualstudio.com/).
-3. Install the [Dev Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
-4. Open the project folder in VS Code.
-5. Open the Command Palette:
-   - On **Windows/Linux**: `Ctrl+Shift+P`
-   - On **macOS**: `Cmd+Shift+P`
-   - Search for and select: `Dev Containers: Open Folder in Container`
-6. Wait for the container to build and initialize.
-7. Develop with all tools pre-installed and configured.
+import { Tool } from '@nestjs-mcp/server';
 
-#### Working with Git inside the DevContainer
+@Injectable()
+export class AppService {
+  /**
+   * Simple health check tool
+   */
+  @Tool({ name: 'server_health_check' })
+  healthCheck(): CallToolResult {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: 'Server is operational. All systems running normally.',
+        },
+      ],
+    };
+  }
+}
 
-- The DevContainer includes an up-to-date version of Git and the GitHub CLI (`gh`).
-- You can use all standard Git commands (`git status`, `git commit`, `git push`, etc.) in the integrated terminal.
-- Use the GitHub CLI for advanced GitHub operations:
-  - Authenticate: `gh auth login`
-  - Create issues/PRs: `gh issue create`, `gh pr create`
-  - List PRs: `gh pr list`
-- All Git operations are performed inside the container, ensuring a consistent environment.
-
-### Manual Setup (pnpm)
-
-1. Install [Node.js](https://nodejs.org/) v18+ and [PNPM](https://pnpm.io/).
-2. Clone the repository:
-   ```sh
-   git clone https://github.com/adrian-d-hidalgo/nestjs-mcp-server.git
-   cd nestjs-mcp-server
-   ```
-3. Install dependencies:
-   ```sh
-   pnpm install
-   # or
-   npm install
-   ```
-4. Run an example server:
-   ```sh
-   pnpm start:resources
-   # or
-   pnpm start:tools
-   # or
-   pnpm start:prompts
-   ```
-5. The server will be available at [http://localhost:3000](http://localhost:3000).
-
-#### Using GitHub CLI (`gh`) in DevContainers
-
-When working inside a DevContainer, you have access to the [GitHub CLI](https://cli.github.com/) (`gh`) pre-installed and available on the `PATH`. This tool allows you to interact with GitHub repositories, issues, pull requests, and more directly from your terminal. Example usage:
-
-- **Authenticate**:
-  ```sh
-  gh auth login
-  ```
-- **Create a new issue**:
-  ```sh
-  gh issue create --title "Bug: ..." --body "Steps to reproduce..."
-  ```
-- **View pull requests**:
-  ```sh
-  gh pr list
-  ```
-- **Clone another repo**:
-  ```sh
-  gh repo clone owner/repo
-  ```
-
-> For a full list of commands and advanced usage, see the [GitHub CLI documentation](https://cli.github.com/manual/).
-
-**Working with GitHub in DevContainers**
-
-- You can use `gh` to manage issues, pull requests, releases, and more without leaving your development environment.
-- This is especially useful for collaborative workflows, code reviews, and automating repository tasks.
-- The DevContainer is pre-configured for seamless GitHub integration, so you can focus on development and CI/CD without manual setup.
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'My MCP Server',
+      version: '1.0.0',
+    }),
+  ],
+  providers: [AppService],
+})
+export class AppModule {}
+```
 
 ---
 
-## 📦 Key Project Scripts
+## What is MCP?
 
-- `pnpm build` — Compile the project
-- `pnpm lint` — Run ESLint with auto-fix
-- `pnpm test` — Run all tests
-- `pnpm format` — Format code with Prettier
-- `pnpm start:resources` — Start the resources example server (`examples/resources/main.ts`)
-- `pnpm start:prompts` — Start the prompts example server (`examples/prompts/main.ts`)
-- `pnpm start:tools` — Start the tools example server (`examples/tools/main.ts`)
-- `pnpm start:inspector` — Launch the MCP Inspector tool
+The **Model Context Protocol (MCP)** is an open protocol for connecting LLMs to external data, tools, and prompts. MCP servers expose resources (data), tools (actions), and prompts (conversational flows) in a standardized way, enabling seamless integration with LLM-powered clients.
+
+- See the [Anthropic announcement](https://www.anthropic.com/news/model-context-protocol) for more background.
 
 ---
 
-## 🧩 Example Usage
+## Core Concepts
 
-The [`examples/`](examples/) directory contains detailed, ready-to-use scenarios that demonstrate how to use the MCP Server module library in various contexts. Each example illustrates a specific use case or integration pattern, such as:
+### Server
 
-- Registering and exposing MCP resources
-- Implementing custom tools
-- Integrating prompts
-- Combining multiple MCP features in a single server
+The MCP Server is the main entry point for exposing capabilities to LLMs. It manages the registration and discovery of resources, tools, and prompts.
 
-These examples are designed to help you understand the library's capabilities and serve as reference implementations for your own projects. Each example is self-contained and follows the best practices and conventions defined in this project.
+### Resource
+
+A Resource represents structured data or documents that can be queried or retrieved by LLMs. Resources are typically read-only and are identified by a unique URI.
+
+- Learn more: [MCP Resources documentation](https://modelcontextprotocol.io/docs/concepts/resources)
+
+### Tool
+
+A Tool is an action or function that can be invoked by LLMs. Tools may have side effects and can accept parameters to perform computations or trigger operations.
+
+- Learn more: [MCP Tools documentation](https://modelcontextprotocol.io/docs/concepts/tools)
+
+### Prompt
+
+A Prompt defines a conversational flow, template, or interaction pattern for LLMs. Prompts help guide the model’s behavior in specific scenarios.
+
+- Learn more: [MCP Prompts documentation](https://modelcontextprotocol.io/docs/concepts/prompts)
+
+> **See the [Capabilities](#capabilities) section for implementation details and code examples.**
 
 ---
 
-## 📚 References
+## Module API
 
-- [Model Context Protocol SDK](https://github.com/modelcontextprotocol/typescript-sdk/tree/server)
-- [NestJS Documentation](https://docs.nestjs.com/)
-- [GitHub Codespaces](https://github.com/features/codespaces)
-- [VS Code Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers)
+### `McpModule.forRoot`
+
+Registers the MCP Server globally in your NestJS application. Accepts an options object compatible with the MCP Server specification from `@modelcontextprotocol/sdk`.
+
+**Parameters:**
+
+- `options: McpServerOptions` — Main server configuration (name, version, description, etc.)
+
+**Returns:**
+
+- A dynamic NestJS module with all MCP providers registered
+
+**Example:**
+
+```ts
+import { McpModule } from '@nestjs-mcp/server';
+
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'My Server',
+      version: '1.0.0',
+      // ...other MCP options
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+### `McpModule.forFeature`
+
+Registers additional MCP resources, tools, or prompts in a feature module. Use this to organize large servers into multiple modules.
+
+**Parameters:**
+
+- `providers: Provider[]` — Array of NestJS providers (resources, tools, prompts)
+
+**Returns:**
+
+- A dynamic module with the specified providers
+
+**Example:**
+
+```ts
+import { McpModule } from '@nestjs-mcp/server';
+
+@Module({
+  imports: [McpModule.forFeature()],
+  providers: [
+    /*Your Providers with Mcp Capabilities*/
+  ],
+})
+export class StatusModule {}
+```
+
+---
+
+## Module Usage
+
+This library provides two main ways to register MCP capabilities in your NestJS application:
+
+### 1. Global Registration with `McpModule.forRoot`
+
+Use `McpModule.forRoot` in your root application module to configure and register the MCP server globally. This is required for every MCP server application.
+
+```ts
+import { Module } from '@nestjs/common';
+import { McpModule } from '@nestjs-mcp/server';
+import { PromptsResolver } from './prompts.resolver';
+
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'My MCP Server',
+      version: '1.0.0',
+      // ...other MCP options
+    }),
+  ],
+  providers: [PromptsResolver],
+})
+export class AppModule {}
+```
+
+### 2. Feature Module Registration with `McpModule.forFeature`
+
+Use `McpModule.forFeature` in feature modules to register additional resolvers, tools, or resources. This is useful for organizing large servers into multiple modules.
+
+```ts
+import { Module } from '@nestjs/common';
+import { McpModule } from '@nestjs-mcp/server';
+
+import { ToolsResolver } from './tools.resolver';
+
+@Module({
+  imports: [McpModule.forFeature()],
+  providers: [ToolsResolver],
+})
+export class ToolsModule {}
+```
+
+- Use `forRoot` only once in your root module.
+- Use `forFeature` as many times as needed in feature modules.
+- All resolvers, tools, and resources must be registered as providers.
+
+---
+
+## Capabilities
+
+This library provides a set of decorators to define MCP capabilities and apply cross-cutting concerns such as guards. Decorators can be used at both the Resolver (class) level and the method level.
+
+### Resolver Decorator
+
+A Resolver is a class that groups related MCP capabilities (such as prompts, resources, and tools) and provides a workspace context for them. Use the `@Resolver` decorator to mark a class as a resolver. Dependency injection is supported, and you can apply guards or other cross-cutting concerns at the class level.
+
+**Example:**
+
+```ts
+import { Resolver, Prompt, Resource, Tool } from '@nestjs-mcp/server';
+
+@Resolver('workspace')
+export class MyResolver {
+  @Prompt({ name: 'greet' })
+  greetPrompt() {
+    /* ... */
+  }
+
+  @Resource({ name: 'user', uri: 'user://{id}' })
+  getUserResource() {
+    /* ... */
+  }
+
+  @Tool({ name: 'sum' })
+  sumTool() {
+    /* ... */
+  }
+}
+```
+
+You can also apply guards at the resolver level:
+
+```ts
+import { UseGuards, Resolver } from '@nestjs-mcp/server';
+import { MyGuard } from './guards/my.guard';
+
+@UseGuards(MyGuard)
+@Resolver('secure')
+export class SecureResolver {
+  // ...
+}
+```
+
+### Prompt Decorator
+
+Decorate methods within a Resolver to expose them as MCP Prompts.
+
+```ts
+import { Prompt } from '@nestjs-mcp/server';
+
+@Resolver('workspace')
+export class MyResolver {
+  @Prompt({ name: 'greet' })
+  greetPrompt() {
+    /* ... */
+  }
+}
+```
+
+### Resource Decorator
+
+Decorate methods within a Resolver to expose them as MCP Resources.
+
+```ts
+import { Resource } from '@nestjs-mcp/server';
+
+@Resolver('workspace')
+export class MyResolver {
+  @Resource({ name: 'user', uri: 'user://{id}' })
+  getUserResource() {
+    /* ... */
+  }
+}
+```
+
+### Tool Decorator
+
+Decorate methods within a Resolver to expose them as MCP Tools.
+
+```ts
+import { Tool } from '@nestjs-mcp/server';
+
+@Resolver('workspace')
+export class MyResolver {
+  @Tool({ name: 'sum' })
+  sumTool() {
+    /* ... */
+  }
+}
+```
+
+---
+
+## Guards
+
+Apply one or more guards to a Resolver, to individual methods, or globally. Guards must implement the NestJS `CanActivate` interface.
+
+### Global-level guards:
+
+This approach uses the standard NestJS global guard system. A global guard will protect all entry points of your MCP server by running before any connection is handled. Use this for authentication, API key checks, or any logic that should apply to every connection.
+
+```ts
+// src/guards/global-auth.guard.ts
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+
+@Injectable()
+export class GlobalAuthGuard implements CanActivate {
+  canActivate(context: ExecutionContext): boolean {
+    // Example: Allow all requests (replace with real logic)
+    // You can access request info via context.switchToHttp().getRequest() if needed
+    return true;
+  }
+}
+```
+
+Register the guard globally in your main module:
+
+```ts
+import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
+import { McpModule } from '@nestjs-mcp/server';
+import { GlobalAuthGuard } from './guards/global-auth.guard';
+import { PromptsResolver } from './prompts.resolver';
+
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'My MCP Server',
+      version: '1.0.0',
+    }),
+  ],
+  providers: [
+    PromptsResolver,
+    {
+      provide: APP_GUARD,
+      useClass: GlobalAuthGuard,
+    },
+  ],
+})
+export class AppModule {}
+```
+
+**Key points:**
+
+- The guard will run for every request handled by your NestJS application, including all MCP endpoints.
+- You can implement any logic in canActivate, such as checking headers, tokens, or user roles.
+- This approach is fully compatible with NestJS and your MCP Server module.
+
+### Resolver-level guards:
+
+This is a custom feature of this library. Resolver-level guards are applied using the `@UseGuards` decorator on a Resolver class. All MCP methods (`@Prompt`, `@Resource`, `@Tool`) in the resolver will be protected by these guards. Use this to enforce logic (e.g., role checks) for a specific group of capabilities.
+
+```ts
+import { UseGuards, Resolver, Prompt } from '@nestjs-mcp/server';
+import { MyGuard } from './guards/my.guard';
+
+@UseGuards(MyGuard)
+@Resolver('secure')
+export class SecureResolver {
+  @Prompt({ name: 'securePrompt' })
+  securePrompt() {
+    /* ... */
+  }
+}
+```
+
+### Method-level guards:
+
+This is a custom feature of this library. Method-level guards are applied using the `@UseGuards` decorator directly on a method. Only the decorated MCP method will be protected by these guards. Use this for fine-grained access control on specific capabilities.
+
+```ts
+import { UseGuards, Resolver, Prompt } from '@nestjs-mcp/server';
+import { MyGuard } from './guards/my.guard';
+
+@Resolver('mixed')
+export class MixedResolver {
+  @Prompt({ name: 'publicPrompt' })
+  publicPrompt() {
+    /* ... */
+  }
+
+  @UseGuards(MyGuard)
+  @Prompt({ name: 'protectedPrompt' })
+  protectedPrompt() {
+    /* ... */
+  }
+}
+```
+
+### Guard Example
+
+```ts
+import { CanActivate } from '@nestjs/common';
+import { McpExecutionContext } from '@nestjs-mcp/server';
+
+export class MyGuard implements CanActivate {
+  canActivate(context: McpExecutionContext): boolean {
+    // Custom logic: allow or deny
+    return true;
+  }
+}
+```
+
+---
+
+## Inspector Playground
+
+Use the Inspector Playground to interactively test and debug your MCP server endpoints in a browser UI. This tool, powered by [`@modelcontextprotocol/inspector`](https://www.npmjs.com/package/@modelcontextprotocol/inspector), allows you to:
+
+- Explore available resources, tools, and prompts
+- Invoke endpoints and view responses in real time
+- Validate your server implementation against the MCP specification
+
+To launch the Inspector Playground:
+
+```sh
+npx @modelcontextprotocol/inspector
+```
+
+---
+
+## Examples
+
+The [`examples/`](./examples/) directory contains ready-to-use scenarios demonstrating how to register and expose MCP capabilities
+
+Each example is self-contained and follows best practices. For advanced usage, see the code and documentation in each example.
 
 ---
 
 ## Changelog
 
-<!-- TODO: Add a reference to the changelog here. The changelog should be maintained and updated with each release. Decide if it should be placed before or after the LICENSE section. -->
+See [CHANGELOG.md](./CHANGELOG.md) for release notes.
 
 ---
 
-## 📝 License
+## License
 
-This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
+MIT — see [LICENSE](./LICENSE) for details.
 
 ---
 
-## 🤝 Contributions
+## Contributions
 
-Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines on how to contribute, report issues, or request features.
+Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines, reporting issues, and pull request rules.

@@ -16,6 +16,9 @@ This directory contains ready-to-use example MCP servers demonstrating how to us
 - **prompts/**  
   Contains examples of conversational prompts using the `@Prompt` decorator. Prompts enable dynamic, parameterized conversational flows for LLMs.
 
+- **guards/**  
+  Shows how to implement and use guards in MCP servers to control access to capabilities and resources. Demonstrates different guard patterns and how to apply them to protect specific MCP features.
+
 ## How to Run Examples
 
 To run any example, set the EXAMPLE environment variable to the folder name and use:
