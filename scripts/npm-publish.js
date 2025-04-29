@@ -108,6 +108,22 @@ function validateSemver(version) {
   }
 }
 
+/**
+ * Checks that the x.y.z part of the tag version matches the x.y.z part of package.json.
+ * Throws and exits if they do not match.
+ * @param {string} tagVersion - The version string extracted from the tag (e.g., 1.2.3-alpha.0)
+ * @param {string} pkgVersion - The version string from package.json (e.g., 1.2.3-alpha.0)
+ */
+function checkVersionParity(tagVersion, pkgVersion) {
+  // Extract x.y.z from both versions
+  const tagBase = tagVersion.split('-')[0];
+  const pkgBase = pkgVersion.split('-')[0];
+  if (tagBase !== pkgBase) {
+    console.error(`Error: Version mismatch. Tag version (x.y.z): '${tagBase}' does not match package.json version (x.y.z): '${pkgBase}'.\nPlease update package.json to match the tag version before publishing.`);
+    process.exit(1);
+  }
+}
+
 function main() {
   const { tag, noDryRun } = parseArgs();
   if (!tag) {
@@ -119,11 +135,23 @@ function main() {
   validateSemver(version);
 
   const pkg = getPackageJson();
+  checkVersionParity(version, pkg.version);
   checkNpmAuth();
   checkBuildSuccess();
   checkNpmVersion(version);
 
+  // Ensure package.json version matches the tag version
+  run(`pnpm version ${version} --no-git-tag-version`);
+
+  const pkgAfter = getPackageJson();
+
+  if (pkgAfter.version !== version) {
+    console.error(`Error: Failed to set package.json version to ${version}. Current: ${pkgAfter.version}`);
+    process.exit(1);
+  }
+
   let publishCmd = 'npm publish';
+
   const isDryRun = !noDryRun && process.env.CI !== 'true';
   if (isDryRun) {
     publishCmd += ' --dry-run --no-git-checks';
@@ -143,6 +171,14 @@ function main() {
     console.log('Dry run enabled by default: No package will actually be published. Use --no-dry-run or set CI=true to publish for real.');
   }
   run(publishCmd);
+
+  // Rollback package.json to base version (x.y.z) if a pre-release was published
+  const publishedBaseVersion = version.split('-')[0];
+
+  if (version !== publishedBaseVersion) {
+    run(`pnpm version ${publishedBaseVersion} --no-git-tag-version`);
+    console.log(`Rolled back package.json to base version: ${publishedBaseVersion}`);
+  }
 }
 
 main();
