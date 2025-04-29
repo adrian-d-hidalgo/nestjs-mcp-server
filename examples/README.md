@@ -19,6 +19,9 @@ This directory contains ready-to-use example MCP servers demonstrating how to us
 - **guards/**  
   Shows how to implement and use guards in MCP servers to control access to capabilities and resources. Demonstrates different guard patterns and how to apply them to protect specific MCP features.
 
+- **async-import/**  
+  Example of asynchronous module configuration of the MCP module using `forRootAsync` and environment variables.
+
 ## How to Run Examples
 
 To run any example, set the EXAMPLE environment variable to the folder name and use:
