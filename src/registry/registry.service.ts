@@ -4,21 +4,21 @@ import {
 } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CanActivate, Type } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
-import { MCP_GUARDS } from '../decorators/capabilities.decorators';
 
 import {
   MCP_PROMPT,
   MCP_RESOURCE,
   MCP_TOOL,
 } from '../decorators/capabilities.constants';
+import { MCP_GUARDS } from '../decorators/capabilities.decorators';
 import {
   PromptOptions,
   ResourceOptions,
   ToolOptions,
 } from '../interfaces/capabilities.interface';
 
-import { McpExecutionContext } from 'src/interfaces/guards.interface';
 import { MCP_RESOLVER } from '../decorators';
+import { McpExecutionContext } from '../interfaces/guards.interface';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 
