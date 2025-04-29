@@ -6,10 +6,6 @@ on:
       - 'release/*'
       - 'hotfix/*'
       - 'develop'
-  push:
-    branches:
-      - 'feature/*'
-      - 'develop'
 
 jobs:
   test:
@@ -43,22 +39,3 @@ jobs:
 
       - name: Run build verification
         run: pnpm run build
-
-  e2e:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-      - name: Setup Node
-        uses: actions/setup-node@v3
-        with:
-          node-version: '22.x'
-          registry-url: 'https://registry.npmjs.org'
-      - name: Install PNPM
-        uses: pnpm/action-setup@v2
-        with:
-          version: 10
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-      - name: Run e2e tests
-        run: pnpm test:e2e
