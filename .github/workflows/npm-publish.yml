@@ -4,7 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-      - '*.*.*' # Also trigger on tags without 'v' prefix
 
 jobs:
   build-and-publish:
@@ -32,27 +31,10 @@ jobs:
       - name: Build package
         run: pnpm run build
 
-      - name: Ensure tag matches package.json version
-        run: |
-          TAG_VERSION=${GITHUB_REF#refs/tags/v}
-          PKG_VERSION=$(node -p "require('./package.json').version")
-          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
-            echo "Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)."
-            exit 1
-          fi
-
-      - name: Ensure tag is on main (for latest only)
-        if: startsWith(github.ref, 'refs/tags/v') && !contains(github.ref, '-')
-        run: |
-          TAG_COMMIT=$(git rev-list -n 1 ${{ github.ref }})
-          MAIN_COMMIT=$(git rev-parse origin/main)
-          if [ "$TAG_COMMIT" != "$MAIN_COMMIT" ]; then
-            echo "Tag is not on main. Aborting publish as latest."
-            exit 1
-          fi
-
       - name: Publish to NPM (with validations)
-        run: pnpm run publish -- --no-dry-run
+        run: |
+          TAG_NAME=${GITHUB_REF#refs/tags/}
+          pnpm exec node scripts/npm-publish.js --tag=$TAG_NAME --no-dry-run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           CI: true
