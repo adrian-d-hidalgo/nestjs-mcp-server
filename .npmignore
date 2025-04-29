@@ -1,0 +1,18 @@
+# Exclude example projects and test files
+examples/
+test/
+"**/*spec.ts"
+
+# Exclude scripts and CI/CD/config folders
+scripts/
+.husky/
+.github/
+
+# Exclude documentation and config files
+*.md
+tsconfig*.json
+nest-cli.json
+
+# (Optional) Exclude other files/folders not needed in the published package
+.env
+.vscode/
