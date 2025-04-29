@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  package:
+    container_name: nestjs-mcp-server
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.dev
+    ports:
+      - 3000:3000
+      - 9229:9229
+      - 6277:6277
+    volumes:
+      - ..:/package
+      - /package/node_modules
+
+  # TODO: NGROK_AUTHTOKEN is not working currently allways is empty
+  # Uncomment this when you want to use ngrok
+  # ngrok:
+  #   image: ngrok/ngrok:latest
+  #   container_name: ngrok
+  #   environment:
+  #     NGROK_AUTHTOKEN: ${NGROK_AUTHTOKEN}
+  #   command:
+  #     - 'http'
+  #     - 'http://host.docker.internal:${APP_PORT:-3000}'

@@ -1,0 +1,84 @@
+name: Auto Tag Release
+
+on:
+  pull_request:
+    types:
+      - closed
+    branches:
+      - main
+
+jobs:
+  tag-release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      (startsWith(github.event.pull_request.head.ref, 'release/') || startsWith(github.event.pull_request.head.ref, 'hotfix/'))
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Get versions
+        id: versions
+        run: |
+          # Get previous version from main branch
+          git fetch origin main
+          PREV_VERSION=$(git show origin/main:package.json | jq -r .version)
+          echo "PREV_VERSION=$PREV_VERSION" >> $GITHUB_ENV
+
+          # Get current version from merged PR
+          CURR_VERSION=$(jq -r .version package.json)
+          echo "CURR_VERSION=$CURR_VERSION" >> $GITHUB_ENV
+
+          echo "Previous version: $PREV_VERSION"
+          echo "Current version: $CURR_VERSION"
+
+      - name: Validate version change
+        run: |
+          if [ "$PREV_VERSION" = "$CURR_VERSION" ]; then
+            echo "::error::Version in package.json did not change ($CURR_VERSION). A release or hotfix must increment the version number."
+            exit 1
+          fi
+          echo "Version changed from $PREV_VERSION to $CURR_VERSION ✓"
+
+      - name: Comment on PR if version did not change
+        if: failure()
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "❌ Tag not created: Please update the version in package.json to create a new release tag."
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          git fetch --tags
+          if git rev-parse "v$CURR_VERSION" >/dev/null 2>&1; then
+            echo "::error::Tag v$CURR_VERSION already exists. Cannot create duplicate tag."
+            exit 1
+          fi
+          echo "Tag v$CURR_VERSION does not exist yet ✓"
+
+      - name: Create tag and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag v$CURR_VERSION
+          git push origin v$CURR_VERSION
+          echo "✅ Successfully created and pushed tag v$CURR_VERSION"
+
+      - name: Comment on PR if tag created
+        if: success() && env.EXISTS == 'false'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} --body "✅ Tag v${{ env.VERSION }} created successfully."
