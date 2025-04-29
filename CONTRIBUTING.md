@@ -132,6 +132,61 @@ You can run the provided example servers to test and explore the MCP Server modu
 
 ---
 
+## Signed Commits Requirement
+
+All pull requests must use signed commits. Unsigned commits will not be accepted.
+
+### How to enable SSH commit signing
+
+1. Generate an SSH key if you do not have one:
+   ```sh
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   ```
+2. Configure Git to sign commits with your SSH key:
+   ```sh
+   git config --global gpg.format ssh
+   git config --global user.signingkey ~/.ssh/id_ed25519.pub  # Path to your SSH public key
+   git config --global commit.gpgsign true
+   ```
+3. Make a commit and push. GitHub should show your commit as "Verified".
+
+For more details, see: https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits-with-ssh-keys
+
+---
+
+## Signed Commits (GPG/SSH)
+
+### Why Signed Commits?
+
+All contributions to this project should be verifiable and trusted. Signed commits ensure that the author of each commit is authentic, helping to prevent impersonation and maintain the integrity of the codebase. We recommend (and may require) that all contributors sign their commits using SSH-based GPG signatures.
+
+**Benefits of signed commits:**
+
+- Verifies the authenticity of commit authors
+- Prevents unauthorized or malicious code submissions
+- Increases trust and transparency in the project
+- Required by many open source and enterprise workflows
+
+### How to Sign Commits with SSH
+
+1. **Generate an SSH key** (if you don't have one):
+   ```sh
+   ssh-keygen -t ed25519 -C "your_email@example.com"
+   ```
+2. **Configure Git to use SSH for commit signing:**
+   ```sh
+   git config --global gpg.format ssh
+   git config --global user.signingkey ~/.ssh/id_ed25519.pub  # Path to your SSH public key
+   git config --global commit.gpgsign true
+   ```
+3. **Verify your setup:**
+   - Make a commit and push it to GitHub.
+   - On GitHub, your commit should show as "Verified".
+
+> For more details, see the [GitHub documentation on SSH commit signing](https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits-with-ssh-keys).
+
+---
+
 ## Pull Request Guidelines
 
 - Follow the existing code style and linting rules
