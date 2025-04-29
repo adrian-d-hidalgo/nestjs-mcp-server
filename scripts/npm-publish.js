@@ -18,18 +18,7 @@ const fs = require('fs');
 const path = require('path');
 
 // --- CONFIGURABLE RULES ---
-const ALLOWED_BRANCHES = [/^release\//, /^fix\//];
-const RELEASE_BRANCH = /^release\//;
 const VERSION_REGEX = /^(\d+)\.(\d+)\.(\d+)(?:-(alpha|beta|rc)\.(\d+))?$/;
-
-function getCurrentBranch() {
-  try {
-    return execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
-  } catch (e) {
-    console.error('Error: Not a git repository or git not installed.');
-    process.exit(1);
-  }
-}
 
 function getPackageJson() {
   const pkgPath = path.resolve(process.cwd(), 'package.json');
@@ -38,20 +27,6 @@ function getPackageJson() {
     process.exit(1);
   }
   return JSON.parse(fs.readFileSync(pkgPath, 'utf8'));
-}
-
-function getReleaseType(version) {
-  const match = VERSION_REGEX.exec(version);
-  if (!match) return null;
-  return match[4] || 'release';
-}
-
-function checkAllowedBranch(branch) {
-  return ALLOWED_BRANCHES.some((re) => re.test(branch));
-}
-
-function checkReleaseBranch(branch) {
-  return RELEASE_BRANCH.test(branch);
 }
 
 function run(cmd, opts = {}) {
@@ -98,62 +73,72 @@ function checkNpmVersion(version) {
   }
 }
 
-function main() {
-  const branch = getCurrentBranch();
-  const pkg = getPackageJson();
-  const version = pkg.version;
-  const releaseType = getReleaseType(version);
+function parseArgs() {
+  const args = process.argv.slice(2);
+  const params = {};
+  args.forEach(arg => {
+    if (arg.startsWith('--tag=')) {
+      params.tag = arg.replace('--tag=', '');
+    } else if (arg === '--no-dry-run') {
+      params.noDryRun = true;
+    }
+  });
+  return params;
+}
 
-  // Default to dry-run unless --no-dry-run is passed or CI is true
-  const isDryRun = !process.argv.includes('--no-dry-run') && process.env.CI !== 'true';
-
-  // --- Branch validation ---
-  if (!checkAllowedBranch(branch)) {
-    console.error(`\nError: Publishing is only allowed from release/* or fix/* branches. Current: ${branch}`);
+function validateTag(tag) {
+  // Must start with 'v' and follow semver, e.g. v1.2.3, v1.2.3-alpha.0
+  const valid = /^v\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/.test(tag);
+  if (!valid) {
+    console.error(`Error: Tag '${tag}' does not match required pattern: vX.Y.Z[-stage.N]`);
     process.exit(1);
   }
+}
 
-  // --- Version validation ---
-  run('npx -y check-pkg-updated');
+function extractVersionFromTag(tag) {
+  return tag.startsWith('v') ? tag.slice(1) : tag;
+}
 
-  // --- NPM authentication check ---
+function validateSemver(version) {
+  // Accepts: 1.2.3, 1.2.3-alpha.0, 1.2.3-beta.1, 1.2.3-rc.2
+  const valid = /^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/.test(version);
+  if (!valid) {
+    console.error(`Error: Version '${version}' does not match semver pattern: X.Y.Z[-stage.N]`);
+    process.exit(1);
+  }
+}
+
+function main() {
+  const { tag, noDryRun } = parseArgs();
+  if (!tag) {
+    console.error('Usage: node scripts/npm-publish.js --tag=vX.Y.Z[-stage.N] [--no-dry-run]');
+    process.exit(1);
+  }
+  validateTag(tag);
+  const version = extractVersionFromTag(tag);
+  validateSemver(version);
+
+  const pkg = getPackageJson();
   checkNpmAuth();
-
-  // --- Build before publish ---
-  run('pnpm run build');
   checkBuildSuccess();
-
-  // --- NPM version check ---
   checkNpmVersion(version);
 
-  // --- Restrict final releases to CI/CD only ---
-  if (releaseType === 'release' && process.env.CI !== 'true') {
-    console.error('Error: Final releases can only be published from CI/CD pipelines. Set CI=true in your environment.');
-    process.exit(1);
-  }
-
-  // --- Decide publish command ---
   let publishCmd = 'npm publish';
-  if (isDryRun) publishCmd += ' --dry-run';
-  if (releaseType === 'alpha') {
-    publishCmd += ' --access=restricted --tag alpha';
-  } else if (releaseType === 'beta') {
-    publishCmd += ' --access=public --tag beta';
-  } else if (releaseType === 'rc') {
-    publishCmd += ' --access=public --tag rc';
-  } else if (releaseType === 'release') {
-    if (!checkReleaseBranch(branch)) {
-      console.error('Error: Final releases can only be published from release/* branches.');
-      process.exit(1);
-    }
-    publishCmd += ' --access=public';
+  const isDryRun = !noDryRun && process.env.CI !== 'true';
+  if (isDryRun) {
+    publishCmd += ' --dry-run --no-git-checks';
+  }
+  // Set npm tag if pre-release, else use latest
+  const preReleaseMatch = version.match(/-(alpha|beta|rc)\./);
+
+  if (preReleaseMatch) {
+    publishCmd += ` --tag ${preReleaseMatch[1]} --access=public`;
   } else {
-    console.error(`Error: Unknown or invalid version format: ${version}`);
-    process.exit(1);
+    publishCmd += ' --tag latest --access=public';
   }
 
-  // --- Publish ---
-  console.log(`\nPublishing version ${version} as ${releaseType} from branch ${branch}...\n`);
+  console.log(`\nPublishing version ${version} from tag ${tag}...\n`);
+
   if (isDryRun) {
     console.log('Dry run enabled by default: No package will actually be published. Use --no-dry-run or set CI=true to publish for real.');
   }

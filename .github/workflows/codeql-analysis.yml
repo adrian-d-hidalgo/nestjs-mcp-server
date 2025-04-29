@@ -1,8 +1,10 @@
 name: 'CodeQL Security Analysis'
 
 on:
+  push:
+    branches: [hotfix/*]
   pull_request:
-    branches: [main, develop]
+    branches: [main, develop, release/*]
   schedule:
     - cron: '0 0 * * 1'
 

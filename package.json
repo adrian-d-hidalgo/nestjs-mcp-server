@@ -1,6 +1,6 @@
 {
   "name": "@nestjs-mcp/server",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.4",
   "description": "Modular library for building scalable MCP servers with NestJS, providing decorators and integration patterns as a wrapper for the official MCP TypeScript SDK.",
   "author": "Adrián Darío Hidalgo Flores",
   "license": "MIT",
@@ -46,7 +46,7 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "publish": "node scripts/npm-publish.js"
+    "npm:publish": "node scripts/npm-publish.js"
   },
   "peerDependencies": {
     "@nestjs/common": "^11.0.1",
