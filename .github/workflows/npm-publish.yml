@@ -24,13 +24,22 @@ jobs:
       - name: Install PNPM
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 10
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
       - name: Build package
         run: pnpm run build
+
+      - name: Ensure tag matches package.json version
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$TAG_VERSION" != "$PKG_VERSION" ]; then
+            echo "Tag version ($TAG_VERSION) does not match package.json version ($PKG_VERSION)."
+            exit 1
+          fi
 
       - name: Determine NPM tag
         id: determine_tag
