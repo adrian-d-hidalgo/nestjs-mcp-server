@@ -62,14 +62,50 @@ function run(cmd, opts = {}) {
   }
 }
 
+function checkNpmAuth() {
+  try {
+    execSync('npm whoami', { stdio: 'ignore' });
+  } catch (e) {
+    console.error('Error: You are not authenticated with npm. Run `npm login` and try again.');
+    process.exit(1);
+  }
+}
+
+function checkBuildSuccess() {
+  const distPath = path.resolve(process.cwd(), 'dist');
+  if (!fs.existsSync(distPath) || fs.readdirSync(distPath).length === 0) {
+    console.error('Error: Build failed or dist/ directory is empty. Aborting publish.');
+    process.exit(1);
+  }
+}
+
+function checkNpmVersion(version) {
+  try {
+    const pkg = getPackageJson();
+    const name = pkg.name;
+    // Get all versions from npm
+    const result = execSync(`npm view ${name} versions --json`).toString();
+    const versions = JSON.parse(result);
+    if (versions.includes(version)) {
+      console.error(`Error: Version ${version} already exists on npm. Bump the version before publishing.`);
+      process.exit(1);
+    }
+  } catch (e) {
+    // If the package is not published yet, ignore
+    if (e.stderr && e.stderr.toString().includes('E404')) return;
+    console.error('Error checking npm registry:', e.message || e);
+    process.exit(1);
+  }
+}
+
 function main() {
   const branch = getCurrentBranch();
   const pkg = getPackageJson();
   const version = pkg.version;
   const releaseType = getReleaseType(version);
 
-  // Parse --dry-run flag
-  const isDryRun = process.argv.includes('--dry-run');
+  // Default to dry-run unless --no-dry-run is passed or CI is true
+  const isDryRun = !process.argv.includes('--no-dry-run') && process.env.CI !== 'true';
 
   // --- Branch validation ---
   if (!checkAllowedBranch(branch)) {
@@ -78,10 +114,23 @@ function main() {
   }
 
   // --- Version validation ---
-  run('pnpm run prepublish:check-version');
+  run('npx -y check-pkg-updated');
+
+  // --- NPM authentication check ---
+  checkNpmAuth();
 
   // --- Build before publish ---
   run('pnpm run build');
+  checkBuildSuccess();
+
+  // --- NPM version check ---
+  checkNpmVersion(version);
+
+  // --- Restrict final releases to CI/CD only ---
+  if (releaseType === 'release' && process.env.CI !== 'true') {
+    console.error('Error: Final releases can only be published from CI/CD pipelines. Set CI=true in your environment.');
+    process.exit(1);
+  }
 
   // --- Decide publish command ---
   let publishCmd = 'npm publish';
@@ -106,7 +155,7 @@ function main() {
   // --- Publish ---
   console.log(`\nPublishing version ${version} as ${releaseType} from branch ${branch}...\n`);
   if (isDryRun) {
-    console.log('Dry run enabled: No package will actually be published.');
+    console.log('Dry run enabled by default: No package will actually be published. Use --no-dry-run or set CI=true to publish for real.');
   }
   run(publishCmd);
 }
