@@ -1,0 +1,8 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+branch=$(git rev-parse --abbrev-ref HEAD)
+if echo "$branch" | grep -Eq '^(main|develop|release/.*)$'; then
+  echo "❌ Direct commits to $branch are not allowed. Please use a feature or hotfix branch."
+  exit 1
+fi
