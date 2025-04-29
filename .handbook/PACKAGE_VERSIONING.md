@@ -14,6 +14,7 @@ This document describes the versioning policy and release process for all packag
 - [Release Flow](#release-flow)
 - [Automation](#automation)
 - [Best Practices](#best-practices)
+- [Publication Policy](#publication-policy)
 
 ## Overview
 
@@ -101,6 +102,39 @@ The complete release process is as follows:
 - Only remove the pre-release identifier (`-alpha`, `-beta`, `-rc`) when the release is considered stable.
 - Document breaking changes and version bumps in the changelog.
 
+## Publication Policy
+
+This project follows [Semantic Versioning 2.0.0](https://semver.org/). All releases must:
+
+- Use strictly increasing version numbers (no downgrades or duplicates)
+- Use pre-release identifiers (`-alpha`, `-beta`, `-rc`) for unstable or preview releases
+- Only remove the pre-release identifier when the release is considered stable
+- Document breaking changes and version bumps in the changelog
+
+### Branching and Release Flow
+
+- Only `release/*` and `fix/*` branches are allowed for publishing
+- Final releases are only allowed from `release/*` branches
+- Pre-releases (alpha, beta, rc) are allowed from `release/*` and `fix/*` branches
+- All other branches must merge into `develop` or follow the project's branching model
+
+### Pre-release Identifiers
+
+- `-alpha`: Early preview, unstable, not feature-complete
+- `-beta`: Feature-complete, but may contain known issues
+- `-rc`: Release candidate, stable unless critical bugs are found
+
+### Tagging and Publishing
+
+- The version in `package.json` must match the intended release type and follow semver
+- The correct NPM tag and access must be used for each release type (see project scripts)
+- Always increment the version before publishing
+
+### Automation
+
+- CI/CD workflows must enforce version progression and correct tagging
+- Publishing must be blocked if the version is not strictly greater than the previous
+
 ---
 
-**This versioning policy ensures clarity, predictability, and safety for all package consumers.**
+**For implementation details and scripts, see the project README or scripts directory.**

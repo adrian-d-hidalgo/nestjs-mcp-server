@@ -1,7 +1,13 @@
 # MCP Server NestJS Module Library <!-- omit in toc -->
 
-[![NPM Version](https://img.shields.io/npm/v/@your-org/nestjs-mcp-server)](https://www.npmjs.com/package/@your-org/nestjs-mcp-server)
+[![NPM Version](https://img.shields.io/npm/v/@your-org/nestjs-mcp-server)](https://www.npmjs.com/package/@nestjs-mcp/server)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+
+---
+
+## Overview <!-- omit in toc -->
+
+**NestJS MCP Server** is a modular library for building [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/typescript-sdk/tree/server) servers using [NestJS](https://nestjs.com/). It provides decorators, modules, and integration patterns to expose MCP resources, tools, and prompts in a scalable, maintainable way. This project is a wrapper for the official [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk/tree/server) and is always kept compatible with its types and specification.
 
 ---
 
@@ -35,12 +41,6 @@
 - [Changelog](#changelog)
 - [License](#license)
 - [Contributions](#contributions)
-
----
-
-## Overview
-
-**NestJS MCP Server** is a modular library for building [Model Context Protocol (MCP)](https://github.com/modelcontextprotocol/typescript-sdk/tree/server) servers using [NestJS](https://nestjs.com/). It provides decorators, modules, and integration patterns to expose MCP resources, tools, and prompts in a scalable, maintainable way. This project is a wrapper for the official [`@modelcontextprotocol/sdk`](https://github.com/modelcontextprotocol/typescript-sdk/tree/server) and is always kept compatible with its types and specification.
 
 ---
 

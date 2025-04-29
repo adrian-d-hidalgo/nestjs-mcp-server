@@ -65,7 +65,8 @@ jobs:
             exit 1
           fi
 
-      - name: Publish to NPM
-        run: pnpm publish --no-git-checks --tag ${{ env.NPM_TAG }}
+      - name: Publish to NPM (with validations)
+        run: pnpm run publish -- --no-dry-run
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          CI: true
