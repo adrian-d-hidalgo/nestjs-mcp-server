@@ -142,17 +142,25 @@ Signed commits ensure that the author of each commit is authentic, helping to pr
 
 ### How to enable SSH commit signing
 
-1. Generate an SSH key if you do not have one:
+1. **Generate an SSH key if you do not have one:**
    ```sh
    ssh-keygen -t ed25519 -C "your_email@example.com"
    ```
-2. Configure Git to sign commits with your SSH key:
+2. **Add your SSH key as a Signing Key in GitHub:**
+   - Go to **GitHub → Settings → SSH and GPG keys**
+   - Click **New SSH key**
+   - In the **Title** field, enter a descriptive name (e.g., "Personal Laptop")
+   - In the **Key type** dropdown, select **Signing Key** (not Authentication Key)
+   - In the **Key** field, paste your SSH public key (the contents of your `.pub` file)
+   - Click **Add SSH key**
+   - _Note: If you already added this key as an Authentication Key, you can add it again as a Signing Key, or use a different key for signing._
+3. **Configure Git to sign commits with your SSH key:**
    ```sh
    git config --global gpg.format ssh
    git config --global user.signingkey ~/.ssh/id_ed25519.pub  # Path to your SSH public key
    git config --global commit.gpgsign true
    ```
-3. Make a commit and push. GitHub should show your commit as "Verified".
+4. **Make a commit and push.** GitHub should show your commit as "Verified".
 
 For more details, see: https://docs.github.com/en/authentication/managing-commit-signature-verification/signing-commits-with-ssh-keys
 
