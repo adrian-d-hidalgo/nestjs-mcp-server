@@ -166,6 +166,29 @@ For more details, see: https://docs.github.com/en/authentication/managing-commit
 
 ---
 
+## How to Sign Commits
+
+To sign a commit manually, use the `-S` flag:
+
+```sh
+git commit -S -m "your commit message here"
+```
+
+To sign all commits automatically, you can configure Git to always sign commits. This can be set globally (for all repositories) or locally (for the current repository only):
+
+- **Globally:**
+  ```sh
+  git config --global commit.gpgsign true
+  ```
+- **Locally (recommended for this project):**
+  ```sh
+  git config --local commit.gpgsign true
+  ```
+
+With this configuration, all future commits will be signed by default.
+
+---
+
 ## Troubleshooting: SSH Commit Signature Verification
 
 If you encounter this error when verifying SSH-signed commits:
