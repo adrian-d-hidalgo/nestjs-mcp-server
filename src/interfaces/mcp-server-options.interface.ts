@@ -1,9 +1,9 @@
 import { StreamableHTTPServerTransportOptions } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { ProtocolOptions } from '@modelcontextprotocol/sdk/shared/protocol';
+import { ProtocolOptions } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import {
   Implementation,
   ServerCapabilities,
-} from '@modelcontextprotocol/sdk/types';
+} from '@modelcontextprotocol/sdk/types.js';
 import { Provider, Type } from '@nestjs/common';
 
 export type ServerOptions = {

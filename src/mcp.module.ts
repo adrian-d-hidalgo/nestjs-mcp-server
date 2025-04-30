@@ -1,4 +1,4 @@
-import { Implementation } from '@modelcontextprotocol/sdk/types';
+import { Implementation } from '@modelcontextprotocol/sdk/types.js';
 import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
 import { APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
 import { AsyncLocalStorage } from 'async_hooks';
