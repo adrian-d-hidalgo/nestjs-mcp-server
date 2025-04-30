@@ -37,6 +37,7 @@ import { MessageService } from './services/message.service';
       useClass: RequestContextInterceptor,
     },
   ],
+  exports: [MessageService],
 })
 export class McpModule {
   /**
