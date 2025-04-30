@@ -1,7 +1,7 @@
 import {
   CompleteResourceTemplateCallback,
   ListResourcesCallback,
-} from '@modelcontextprotocol/sdk/server/mcp';
+} from '@modelcontextprotocol/sdk/server/mcp.js';
 import { ZodOptional, ZodRawShape, ZodType, ZodTypeDef } from 'zod';
 
 export interface ResourceBaseOptions {
