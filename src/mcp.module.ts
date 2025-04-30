@@ -1,12 +1,14 @@
 import { Implementation } from '@modelcontextprotocol/sdk/types';
 import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
-import { DiscoveryModule } from '@nestjs/core';
+import { APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
+import { AsyncLocalStorage } from 'async_hooks';
 
 import { SseController, SseService } from './controllers/sse';
 import {
   StreamableController,
   StreamableService,
 } from './controllers/streamable';
+import { RequestContextInterceptor } from './interceptors/message.interceptor';
 import {
   McpFeatureOptions,
   McpLoggingOptions,
@@ -17,10 +19,24 @@ import {
 import { DiscoveryService } from './registry/discovery.service';
 import { McpLoggerService } from './registry/logger.service';
 import { RegistryService } from './registry/registry.service';
+import { MessageService } from './services/message.service';
 
 @Module({
   imports: [DiscoveryModule],
-  providers: [RegistryService, DiscoveryService, McpLoggerService],
+  providers: [
+    RegistryService,
+    DiscoveryService,
+    {
+      provide: AsyncLocalStorage,
+      useValue: new AsyncLocalStorage(),
+    },
+    McpLoggerService,
+    MessageService,
+    {
+      provide: APP_INTERCEPTOR,
+      useClass: RequestContextInterceptor,
+    },
+  ],
 })
 export class McpModule {
   /**

@@ -126,7 +126,7 @@ A Tool is an action or function that can be invoked by LLMs. Tools may have side
 
 ### Prompt
 
-A Prompt defines a conversational flow, template, or interaction pattern for LLMs. Prompts help guide the model’s behavior in specific scenarios.
+A Prompt defines a conversational flow, template, or interaction pattern for LLMs. Prompts help guide the model's behavior in specific scenarios.
 
 - Learn more: [MCP Prompts documentation](https://modelcontextprotocol.io/docs/concepts/prompts)
 
@@ -446,6 +446,56 @@ export class MyGuard implements CanActivate {
   }
 }
 ```
+
+### Using McpContext in Guards
+
+When implementing guards for MCP resolvers and methods, you can use the `McpExecutionContext` interface to access MCP-specific context information. This interface extends the standard NestJS `ExecutionContext` and provides additional properties specific to MCP operations.
+
+```ts
+import { CanActivate } from '@nestjs/common';
+import { McpExecutionContext } from '@nestjs-mcp/server';
+import { Request, Response } from 'express';
+
+@Injectable()
+export class McpAuthGuard implements CanActivate {
+  canActivate(context: McpExecutionContext): boolean {
+    // Access MCP-specific context
+    const { args, message } = context;
+
+    // Access the current message from the request
+    if (message) {
+      const { req, res } = message;
+
+      // Access Express request and response objects
+      const request = req as Request;
+      const response = res as Response;
+
+      // Example: Check authorization header
+      const authHeader = request.headers.authorization;
+
+      // Implement your authentication logic here
+      // For example, check if the authorization header is valid
+    }
+
+    // Access the arguments passed to the MCP method
+    const methodArgs = args;
+
+    return true; // or false to deny access
+  }
+}
+```
+
+**Key properties of McpExecutionContext:**
+
+- `args`: The arguments passed to the MCP method being guarded
+- `message`: The current message from the request, containing:
+  - `req`: The Express Request object
+  - `res`: The Express Response object
+- `getType()`: Returns the type of execution context (always 'mcp' for MCP operations)
+- `getClass()`: Returns the class of the resolver
+- `getArgs()`: Returns the arguments passed to the method
+
+This context allows you to implement guards that are aware of the MCP protocol and can make decisions based on MCP-specific information, such as checking request headers, query parameters, or other request data.
 
 ---
 
