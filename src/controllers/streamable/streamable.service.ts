@@ -11,7 +11,6 @@ import {
 } from '../../interfaces/mcp-server-options.interface';
 import { McpLoggerService } from '../../registry/logger.service';
 import { RegistryService } from '../../registry/registry.service';
-
 // TODO: Stateless mode should be handled here or in another service
 
 @Injectable()
@@ -74,6 +73,8 @@ export class StreamableService implements OnModuleInit {
           delete this.transports[transport.sessionId];
         }
       };
+
+      await this.server.connect(transport);
     } else {
       // Invalid request
       res.status(400).json({
