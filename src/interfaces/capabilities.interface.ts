@@ -2,7 +2,20 @@ import {
   CompleteResourceTemplateCallback,
   ListResourcesCallback,
 } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ZodOptional, ZodRawShape, ZodType, ZodTypeDef } from 'zod';
+import { RequestHandlerExtra as SdkRequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import {
+  ResourceTemplate,
+  ServerNotification,
+  ServerRequest,
+} from '@modelcontextprotocol/sdk/types.js';
+import {
+  z,
+  ZodOptional,
+  ZodRawShape,
+  ZodType,
+  ZodTypeAny,
+  ZodTypeDef,
+} from 'zod';
 
 export interface ResourceBaseOptions {
   name: string;
@@ -92,4 +105,103 @@ export interface TemplateCallbacks {
   complete?: {
     [variable: string]: CompleteResourceTemplateCallback;
   };
+}
+
+export type RequestHandlerExtra = SdkRequestHandlerExtra<
+  ServerRequest,
+  ServerNotification
+>;
+
+export class ResourceUriHandlerParams {
+  public readonly uri: URL;
+  public readonly extra: RequestHandlerExtra;
+
+  private constructor(uri: URL, extra: RequestHandlerExtra) {
+    this.uri = uri;
+    this.extra = extra;
+  }
+
+  static from(uri: URL, extra: RequestHandlerExtra): ResourceUriHandlerParams {
+    return new ResourceUriHandlerParams(uri, extra);
+  }
+}
+
+export class ResourceTemplateHandlerParams {
+  public readonly template: ResourceTemplate;
+  public readonly variables?: Record<string, string>;
+  public readonly extra: RequestHandlerExtra;
+
+  private constructor(
+    template: ResourceTemplate,
+    extra: RequestHandlerExtra,
+    variables?: Record<string, string>,
+  ) {
+    this.template = template;
+    this.extra = extra;
+    this.variables = variables;
+  }
+
+  static from(
+    template: ResourceTemplate,
+    extra: RequestHandlerExtra,
+    variables?: Record<string, string>,
+  ): ResourceTemplateHandlerParams {
+    return new ResourceTemplateHandlerParams(template, extra, variables);
+  }
+}
+
+export class PromptHandlerParams<
+  Args extends PromptArgsRawShape | undefined = undefined,
+> {
+  public readonly args?: Args extends PromptArgsRawShape
+    ? z.objectOutputType<Args, ZodTypeAny>
+    : undefined;
+  public readonly extra: RequestHandlerExtra;
+
+  private constructor(
+    extra: RequestHandlerExtra,
+    args?: Args extends PromptArgsRawShape
+      ? z.objectOutputType<Args, ZodTypeAny>
+      : undefined,
+  ) {
+    this.extra = extra;
+    this.args = args;
+  }
+
+  static from<Args extends PromptArgsRawShape | undefined>(
+    extra: RequestHandlerExtra,
+    args?: Args extends PromptArgsRawShape
+      ? z.objectOutputType<Args, ZodTypeAny>
+      : undefined,
+  ): PromptHandlerParams<Args> {
+    return new PromptHandlerParams<Args>(extra, args);
+  }
+}
+
+export class ToolHandlerParams<
+  Args extends ZodRawShape | undefined = undefined,
+> {
+  public readonly args?: Args extends ZodRawShape
+    ? z.objectOutputType<Args, ZodTypeAny>
+    : undefined;
+  public readonly extra: RequestHandlerExtra;
+
+  private constructor(
+    extra: RequestHandlerExtra,
+    args?: Args extends ZodRawShape
+      ? z.objectOutputType<Args, ZodTypeAny>
+      : undefined,
+  ) {
+    this.extra = extra;
+    this.args = args;
+  }
+
+  static from<Args extends ZodRawShape | undefined>(
+    extra: RequestHandlerExtra,
+    args?: Args extends ZodRawShape
+      ? z.objectOutputType<Args, ZodTypeAny>
+      : undefined,
+  ): ToolHandlerParams<Args> {
+    return new ToolHandlerParams<Args>(extra, args);
+  }
 }

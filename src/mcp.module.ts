@@ -31,6 +31,7 @@ import { MessageService } from './services/message.service';
       useValue: new AsyncLocalStorage(),
     },
     McpLoggerService,
+    // TODO: This is not working on Streamable transport
     MessageService,
     {
       provide: APP_INTERCEPTOR,
