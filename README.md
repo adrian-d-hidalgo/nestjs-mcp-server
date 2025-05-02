@@ -59,9 +59,11 @@
 ## Installation
 
 ```sh
-pnpm add @your-org/nestjs-mcp-server @modelcontextprotocol/sdk
+npm install @nestjs-mcp/server @modelcontextprotocol/sdk zod
 # or
-npm install @your-org/nestjs-mcp-server @modelcontextprotocol/sdk
+yarn add @nestjs-mcp/server @modelcontextprotocol/sdk zod
+# or
+pnpm add @nestjs-mcp/server @modelcontextprotocol/sdk zod
 ```
 
 ---

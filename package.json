@@ -30,9 +30,12 @@
     "model-context-protocol",
     "module",
     "nestjs",
+    "npm",
+    "pnpm",
     "sdk",
     "server",
-    "typescript"
+    "typescript",
+    "yarn"
   ],
   "scripts": {
     "build": "nest build",
