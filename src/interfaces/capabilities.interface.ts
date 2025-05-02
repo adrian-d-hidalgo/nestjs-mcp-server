@@ -4,7 +4,6 @@ import {
 } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { RequestHandlerExtra as SdkRequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol.js';
 import {
-  ResourceTemplate,
   ServerNotification,
   ServerRequest,
 } from '@modelcontextprotocol/sdk/types.js';
@@ -127,26 +126,26 @@ export class ResourceUriHandlerParams {
 }
 
 export class ResourceTemplateHandlerParams {
-  public readonly template: ResourceTemplate;
+  public readonly uri: URL;
   public readonly variables?: Record<string, string>;
   public readonly extra: RequestHandlerExtra;
 
   private constructor(
-    template: ResourceTemplate,
+    uri: URL,
     extra: RequestHandlerExtra,
     variables?: Record<string, string>,
   ) {
-    this.template = template;
+    this.uri = uri;
     this.extra = extra;
     this.variables = variables;
   }
 
   static from(
-    template: ResourceTemplate,
+    uri: URL,
     extra: RequestHandlerExtra,
     variables?: Record<string, string>,
   ): ResourceTemplateHandlerParams {
-    return new ResourceTemplateHandlerParams(template, extra, variables);
+    return new ResourceTemplateHandlerParams(uri, extra, variables);
   }
 }
 
