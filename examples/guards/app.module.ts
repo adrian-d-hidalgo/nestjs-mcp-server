@@ -21,7 +21,9 @@ export class GlobalLogGuard implements CanActivate {
 
     const request = context.switchToHttp().getRequest<Request>();
 
-    console.log('authorization', request.headers['authorization']);
+    console.log('headers', request.headers);
+    console.log('params', request.params);
+    console.log('body', request.body);
 
     return true;
   }

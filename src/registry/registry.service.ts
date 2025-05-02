@@ -4,6 +4,7 @@ import {
 } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CanActivate, Type } from '@nestjs/common';
 import { Injectable } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
 
 import { MCP_RESOLVER } from '../decorators';
 import {
@@ -13,20 +14,27 @@ import {
 } from '../decorators/capabilities.constants';
 import { MCP_GUARDS } from '../decorators/capabilities.decorators';
 import {
+  PromptHandlerParams,
   PromptOptions,
+  RequestHandlerExtra,
   ResourceOptions,
+  ResourceTemplateHandlerParams,
+  ResourceUriHandlerParams,
+  ToolHandlerParams,
   ToolOptions,
 } from '../interfaces/capabilities.interface';
 import { McpExecutionContext } from '../interfaces/context.interface';
 import { MessageService } from '../services/message.service';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
+
 @Injectable()
 export class RegistryService {
   constructor(
     private readonly discoveryService: DiscoveryService,
     private readonly logger: McpLoggerService,
     private readonly messageService: MessageService,
+    private readonly reflector: Reflector,
   ) {}
 
   async registerAll(server: McpServer): Promise<void> {
@@ -40,6 +48,57 @@ export class RegistryService {
       this.registerPrompts(server),
       this.registerTools(server),
     ]);
+  }
+
+  private getDecoratorType(method: Type<any> | undefined): string | null {
+    if (!method) return null;
+
+    if (this.reflector.get(MCP_TOOL, method)) return 'TOOL';
+    if (this.reflector.get(MCP_PROMPT, method)) return 'PROMPT';
+    if (this.reflector.get(MCP_RESOURCE, method)) return 'RESOURCE';
+
+    return null;
+  }
+
+  private getHandlerParams(
+    method: Type<any> | undefined,
+    args: unknown[],
+  ):
+    | ResourceUriHandlerParams
+    | ResourceTemplateHandlerParams
+    | PromptHandlerParams
+    | ToolHandlerParams {
+    if (!method) throw new Error('Method not found');
+
+    switch (this.getDecoratorType(method)) {
+      case 'RESOURCE':
+        return args[0] instanceof URL
+          ? ResourceUriHandlerParams.from(
+              args[0],
+              args[1] as RequestHandlerExtra,
+            )
+          : ResourceTemplateHandlerParams.from(
+              args[0] as any,
+              args[2] as RequestHandlerExtra,
+              args[1] as Record<string, string>,
+            );
+      case 'PROMPT':
+        return args.length === 1
+          ? PromptHandlerParams.from(args[0] as RequestHandlerExtra)
+          : PromptHandlerParams.from(
+              args[1] as RequestHandlerExtra,
+              args[0] as any,
+            );
+      case 'TOOL':
+        return args.length === 1
+          ? ToolHandlerParams.from(args[0] as RequestHandlerExtra)
+          : ToolHandlerParams.from(
+              args[1] as RequestHandlerExtra,
+              args[0] as any,
+            );
+      default:
+        throw new Error(`Unknown decorator type for method ${method.name}`);
+    }
   }
 
   /**
@@ -58,6 +117,7 @@ export class RegistryService {
   ): Promise<void> {
     // Retrieve class-level guards
     const classConstructor = instance.constructor;
+
     const classGuards: (CanActivate | { new (): CanActivate })[] =
       (Reflect.getMetadata(MCP_GUARDS, classConstructor) as (
         | CanActivate
@@ -69,7 +129,8 @@ export class RegistryService {
       string,
       unknown
     >;
-    const methodKey = prototype[methodName] as object | undefined;
+
+    const methodKey = prototype[methodName] as Type<any> | undefined;
 
     const methodGuards: (CanActivate | { new (): CanActivate })[] =
       (methodKey &&
@@ -83,13 +144,16 @@ export class RegistryService {
     const allGuards = [...classGuards, ...methodGuards];
 
     if (!allGuards.length) return Promise.resolve();
-    // Build a minimal context (customize as needed)
+
+    const params = this.getHandlerParams(methodKey, args);
+
     const context: McpExecutionContext = {
-      args,
+      sessionId: params.extra.sessionId,
+      params,
+      // TODO: This is not working in streamable mode
       message: this.messageService.get(),
 
-      // @ts-expect-error: Default types are 'http' | 'ws' | 'rpc' but in our case
-      // we are using 'mcp'
+      // @ts-expect-error: Default types are 'http' | 'ws' | 'rpc' but in our case, we are using 'mcp'
       getType: () => 'mcp',
       getClass: () => instance.constructor as Type<any>,
       getArgs: <T extends Array<any>>() => args as T,

@@ -46,10 +46,7 @@ export class StreamableService implements OnModuleInit {
    * @param req Express Request object (expects sessionId in query)
    * @param res Express Response object
    */
-  async handlePostRequest(
-    req: Request<any, any, any, { sessionId?: string }>,
-    res: Response,
-  ) {
+  async handlePostRequest(req: Request, res: Response) {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
     let transport: StreamableHTTPServerTransport;
 
@@ -58,6 +55,7 @@ export class StreamableService implements OnModuleInit {
     if (sessionId && this.transports[sessionId]) {
       transport = this.transports[sessionId];
     } else if (!sessionId && isInitializeRequest(req.body)) {
+      // This is called only when method is initialize
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () =>
           options?.sessionIdGenerator?.() || randomUUID(),
@@ -100,10 +98,7 @@ export class StreamableService implements OnModuleInit {
    * @param req Express Request object (expects sessionId in query)
    * @param res Express Response object
    */
-  async handleGetRequest(
-    req: Request<any, any, any, { sessionId?: string }>,
-    res: Response,
-  ) {
+  async handleGetRequest(req: Request, res: Response) {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
     if (!sessionId || !this.transports[sessionId]) {
@@ -126,10 +121,7 @@ export class StreamableService implements OnModuleInit {
    * @param req Express Request object
    * @param res Express Response object
    */
-  async handleDeleteRequest(
-    req: Request<any, any, any, { sessionId?: string }>,
-    res: Response,
-  ) {
+  async handleDeleteRequest(req: Request, res: Response) {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
     if (!sessionId) {
