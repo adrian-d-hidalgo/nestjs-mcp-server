@@ -1,6 +1,6 @@
 import { Implementation } from '@modelcontextprotocol/sdk/types.js';
 import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
-import { APP_INTERCEPTOR, DiscoveryModule } from '@nestjs/core';
+import { DiscoveryModule } from '@nestjs/core';
 import { AsyncLocalStorage } from 'async_hooks';
 
 import { SseController, SseService } from './controllers/sse';
@@ -8,7 +8,6 @@ import {
   StreamableController,
   StreamableService,
 } from './controllers/streamable';
-import { RequestContextInterceptor } from './interceptors/message.interceptor';
 import {
   McpFeatureOptions,
   McpLoggingOptions,
@@ -19,8 +18,7 @@ import {
 import { DiscoveryService } from './registry/discovery.service';
 import { McpLoggerService } from './registry/logger.service';
 import { RegistryService } from './registry/registry.service';
-import { MessageService } from './services/message.service';
-
+import { SessionManager } from './services/session.manager';
 @Module({
   imports: [DiscoveryModule],
   providers: [
@@ -31,14 +29,9 @@ import { MessageService } from './services/message.service';
       useValue: new AsyncLocalStorage(),
     },
     McpLoggerService,
-    // TODO: This is not working on Streamable transport
-    MessageService,
-    {
-      provide: APP_INTERCEPTOR,
-      useClass: RequestContextInterceptor,
-    },
+    SessionManager,
   ],
-  exports: [MessageService],
+  exports: [SessionManager],
 })
 export class McpModule {
   /**

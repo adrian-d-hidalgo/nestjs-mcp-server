@@ -6,18 +6,18 @@ import { Request, Response } from 'express';
 import { McpServerOptions } from '../../interfaces/mcp-server-options.interface';
 import { McpLoggerService } from '../../registry/logger.service';
 import { RegistryService } from '../../registry/registry.service';
+import { SessionManager } from '../../services/session.manager';
 
 @Injectable()
 export class SseService implements OnModuleInit {
   private server: McpServer;
-
-  private transports = {} as Record<string, SSEServerTransport>;
 
   constructor(
     @Inject('MCP_SERVER_OPTIONS')
     private readonly options: McpServerOptions,
     private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
+    private readonly sessionManager: SessionManager,
   ) {
     this.server = new McpServer(this.options.serverInfo, this.options.options);
   }
@@ -36,7 +36,11 @@ export class SseService implements OnModuleInit {
   async handleSse(req: Request, res: Response) {
     // Create SSE transport for legacy clients
     const transport = new SSEServerTransport('/messages', res);
-    this.transports[transport.sessionId] = transport;
+
+    this.sessionManager.setSession(transport.sessionId, {
+      transport,
+      request: req,
+    });
 
     this.logger.debug(
       `Starting SSE for sessionId: ${transport.sessionId}`,
@@ -44,7 +48,7 @@ export class SseService implements OnModuleInit {
     );
 
     res.on('close', () => {
-      delete this.transports[transport.sessionId];
+      this.sessionManager.deleteSession(transport.sessionId);
     });
 
     await this.server.connect(transport);
@@ -55,7 +59,12 @@ export class SseService implements OnModuleInit {
    */
   async handleMessage(req: Request, res: Response) {
     const sessionId = req.query.sessionId as string;
-    const transport = this.transports[sessionId];
+    const session = this.sessionManager.getSession(sessionId);
+
+    if (!session) {
+      res.status(400).send('Invalid or missing sessionId');
+      return;
+    }
 
     this.logger.debug(
       `Receiving SSE message for sessionId: ${sessionId}`,
@@ -63,6 +72,13 @@ export class SseService implements OnModuleInit {
     );
 
     this.logger.debug(`SSE message: ${JSON.stringify(req.body)}`, 'MCP_SERVER');
+
+    const transport = session.transport;
+
+    if (!(transport instanceof SSEServerTransport)) {
+      res.status(400).send('Invalid transport');
+      return;
+    }
 
     try {
       if (transport) {

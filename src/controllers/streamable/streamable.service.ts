@@ -11,13 +11,12 @@ import {
 } from '../../interfaces/mcp-server-options.interface';
 import { McpLoggerService } from '../../registry/logger.service';
 import { RegistryService } from '../../registry/registry.service';
+import { SessionManager } from '../../services/session.manager';
 // TODO: Stateless mode should be handled here or in another service
 
 @Injectable()
 export class StreamableService implements OnModuleInit {
   private server: McpServer;
-
-  private transports = {} as Record<string, StreamableHTTPServerTransport>;
 
   constructor(
     @Inject('MCP_SERVER_OPTIONS')
@@ -26,6 +25,7 @@ export class StreamableService implements OnModuleInit {
     private readonly transportOptions: McpModuleTransportOptions,
     private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
+    private readonly sessionManager: SessionManager,
   ) {
     this.server = new McpServer(this.options.serverInfo, this.options.options);
   }
@@ -52,15 +52,28 @@ export class StreamableService implements OnModuleInit {
 
     const { options } = this.transportOptions?.streamable || {};
 
-    if (sessionId && this.transports[sessionId]) {
-      transport = this.transports[sessionId];
+    if (sessionId && this.sessionManager.getSession(sessionId)) {
+      const session = this.sessionManager.getSession(sessionId);
+
+      if (!session) {
+        throw new Error('Session not found');
+      }
+
+      if (!(session.transport instanceof StreamableHTTPServerTransport)) {
+        throw new Error('Invalid transport');
+      }
+
+      transport = session.transport;
     } else if (!sessionId && isInitializeRequest(req.body)) {
       // This is called only when method is initialize
       transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: () =>
           options?.sessionIdGenerator?.() || randomUUID(),
         onsessioninitialized: (sessionId) => {
-          this.transports[sessionId] = transport;
+          this.sessionManager.setSession(sessionId, {
+            transport,
+            request: req,
+          });
         },
         enableJsonResponse: options?.enableJsonResponse,
         eventStore: options?.eventStore,
@@ -68,7 +81,7 @@ export class StreamableService implements OnModuleInit {
 
       transport.onclose = () => {
         if (transport.sessionId) {
-          delete this.transports[transport.sessionId];
+          this.sessionManager.deleteSession(transport.sessionId);
         }
       };
 
@@ -101,12 +114,22 @@ export class StreamableService implements OnModuleInit {
   async handleGetRequest(req: Request, res: Response) {
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
-    if (!sessionId || !this.transports[sessionId]) {
+    if (!sessionId || !this.sessionManager.getSession(sessionId)) {
       res.status(400).send('Invalid or missing session ID');
       return;
     }
 
-    const transport = this.transports[sessionId];
+    const session = this.sessionManager.getSession(sessionId);
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    const { transport } = session;
+
+    if (!(transport instanceof StreamableHTTPServerTransport)) {
+      throw new Error('Invalid transport');
+    }
 
     await transport.handleRequest(req, res);
   }
@@ -129,7 +152,13 @@ export class StreamableService implements OnModuleInit {
       return;
     }
 
-    const transport = this.transports[sessionId];
+    const session = this.sessionManager.getSession(sessionId);
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
+
+    const { transport } = session;
 
     if (transport) {
       this.logger.debug(
@@ -147,7 +176,7 @@ export class StreamableService implements OnModuleInit {
         return;
       }
 
-      delete this.transports[sessionId];
+      this.sessionManager.deleteSession(sessionId);
 
       res.status(200).json({ success: true, sessionId });
     } else {
