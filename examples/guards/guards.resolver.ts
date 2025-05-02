@@ -16,11 +16,8 @@ import {
 // Resolver-level guard
 @Injectable()
 export class ResolverLogGuard implements CanActivate {
-  canActivate(context: McpExecutionContext): boolean {
+  canActivate(_context: McpExecutionContext): boolean {
     console.log('[ResolverLogGuard] Resolver-level guard executed');
-
-    console.log('sessionId', context.sessionId);
-    console.log('params', context.params);
 
     return true;
   }
@@ -29,11 +26,8 @@ export class ResolverLogGuard implements CanActivate {
 // Method-level guard
 @Injectable()
 export class MethodLogGuard implements CanActivate {
-  canActivate(context: McpExecutionContext): boolean {
+  canActivate(_context: McpExecutionContext): boolean {
     console.log('[MethodLogGuard] Method-level guard executed');
-
-    console.log('sessionId', context.sessionId);
-    console.log('params', context.params);
 
     return true;
   }
@@ -56,7 +50,7 @@ export class GuardsResolver {
 
   @UseGuards(MethodLogGuard)
   @Tool({
-    name: 'logTool',
+    name: 'log_tool',
     paramSchema: {
       prefix: z.string(),
     },

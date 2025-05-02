@@ -20,30 +20,28 @@ describe('AppController (e2e)', () => {
 
     app = moduleFixture.createNestApplication();
 
-    await app
-      .init()
-      .then(() => {
-        console.log('App initialized');
-      })
-      .catch((error) => {
-        console.error('Error initializing app:', error);
-        throw error;
-      });
+    await app.listen(3000);
+  });
+
+  afterEach(async () => {
+    await app.close();
   });
 
   it('should stremeable client works', async () => {
-    let client: Client | undefined = undefined;
-
-    const baseUrl = new URL('http://localhost:3000');
-
     try {
-      client = new Client({
+      const client = new Client({
         name: 'streamable-http-client',
         version: '1.0.0',
       });
-      const transport = new StreamableHTTPClientTransport(new URL(baseUrl));
+
+      const baseUrl = new URL('http://localhost:3000/mcp');
+
+      const transport = new StreamableHTTPClientTransport(baseUrl);
+
       await client.connect(transport);
+
       console.log('Connected using Streamable HTTP transport');
+
       await transport.close();
     } catch (error) {
       console.log('Error connecting using Streamable HTTP transport');
@@ -55,7 +53,7 @@ describe('AppController (e2e)', () => {
   it('should sse client works', async () => {
     let client: Client | undefined = undefined;
 
-    const baseUrl = new URL('http://localhost:3000');
+    const baseUrl = new URL('http://localhost:3000/sse');
 
     try {
       client = new Client({
@@ -65,6 +63,7 @@ describe('AppController (e2e)', () => {
       const sseTransport = new SSEClientTransport(baseUrl);
       await client.connect(sseTransport);
       console.log('Connected using SSE transport');
+      await sseTransport.close();
     } catch (error) {
       console.log('Error connecting using SSE transport');
       console.log(error);

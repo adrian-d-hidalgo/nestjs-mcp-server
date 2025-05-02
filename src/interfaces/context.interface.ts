@@ -6,7 +6,6 @@ import {
   ResourceUriHandlerParams,
   ToolHandlerParams,
 } from './capabilities.interface';
-import { McpMessage } from './message.types';
 /**
  * Custom execution context for MCP guards.
  * Extends NestJS ExecutionContext and adds args for MCP method arguments.
@@ -14,17 +13,21 @@ import { McpMessage } from './message.types';
  * @property args - The arguments passed to the MCP method
  * @property message - The current message from the request
  */
-// TODO: Type Args correctly
+// TODO: Remove extends ExecutionContext we don't need it
 export interface McpExecutionContext extends ExecutionContext {
-  /** The session ID from the request */
-  sessionId?: string;
-
-  params:
+  // TODO: Remove this once the getArgs method implementation is complete.
+  args:
     | ResourceUriHandlerParams
     | ResourceTemplateHandlerParams
     | PromptHandlerParams
     | ToolHandlerParams;
 
-  /** The current message from the request */
-  message: McpMessage | undefined;
+  // TODO: Uncomment this once the getArgs type is fixed
+  // getArgs: () =>
+  //   | ResourceUriHandlerParams
+  //   | ResourceTemplateHandlerParams
+  //   | PromptHandlerParams
+  //   | ToolHandlerParams;
+
+  getSessionId: () => string;
 }

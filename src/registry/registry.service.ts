@@ -24,7 +24,7 @@ import {
   ToolOptions,
 } from '../interfaces/capabilities.interface';
 import { McpExecutionContext } from '../interfaces/context.interface';
-import { MessageService } from '../services/message.service';
+import { SessionManager } from '../services/session.manager';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 
@@ -33,8 +33,8 @@ export class RegistryService {
   constructor(
     private readonly discoveryService: DiscoveryService,
     private readonly logger: McpLoggerService,
-    private readonly messageService: MessageService,
     private readonly reflector: Reflector,
+    private readonly sessionManager: SessionManager,
   ) {}
 
   async registerAll(server: McpServer): Promise<void> {
@@ -60,7 +60,7 @@ export class RegistryService {
     return null;
   }
 
-  private getHandlerParams(
+  private getHandlerArgs(
     method: Type<any> | undefined,
     args: unknown[],
   ):
@@ -145,18 +145,38 @@ export class RegistryService {
 
     if (!allGuards.length) return Promise.resolve();
 
-    const params = this.getHandlerParams(methodKey, args);
+    const handlerArgs = this.getHandlerArgs(methodKey, args);
+
+    const { sessionId } = handlerArgs.extra;
+
+    if (!sessionId) {
+      throw new Error('Session not found');
+    }
+
+    const session = this.sessionManager.getSession(sessionId);
+
+    if (!session) {
+      throw new Error('Session not found');
+    }
 
     const context: McpExecutionContext = {
-      sessionId: params.extra.sessionId,
-      params,
-      // TODO: This is not working in streamable mode
-      message: this.messageService.get(),
-
+      args: handlerArgs,
       // @ts-expect-error: Default types are 'http' | 'ws' | 'rpc' but in our case, we are using 'mcp'
       getType: () => 'mcp',
       getClass: () => instance.constructor as Type<any>,
-      getArgs: <T extends Array<any>>() => args as T,
+      getArgs: <T = any>() => args as T,
+      getArgByIndex: <T = any>(index: number) => args[index] as T,
+      getSessionId: () => sessionId,
+      getHandler: () => methodKey as unknown as Type<any>,
+      switchToHttp: () => ({
+        getRequest: <R = Request>() => session.request as R,
+        getResponse: () => {
+          throw new Error('Response not available in MCP context');
+        },
+        getNext: () => {
+          throw new Error('Next not available in MCP context');
+        },
+      }),
     };
 
     return (async () => {
