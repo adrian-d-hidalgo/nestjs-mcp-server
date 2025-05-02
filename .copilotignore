@@ -1,0 +1,38 @@
+# Ignore dependencies and lock files
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# Ignore environment configuration files
+.env
+.env.*
+
+# Ignore build outputs and temporary directories
+dist/
+build/
+out/
+.tmp/
+.cache/
+
+# Ignore Docker and container configuration files
+.dockerignore
+Dockerfile*
+.docker/
+
+# Ignore IDE and system configuration files
+.vscode/
+.idea/
+*.swp
+
+# Ignore log files
+*.log
+
+# Ignore test and coverage files
+coverage/
+*.test.*
+*.spec.*
+
+# Ignore internal instruction files
+.github/
+copilot-instructions.md

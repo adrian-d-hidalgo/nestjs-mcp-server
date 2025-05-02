@@ -1,0 +1,78 @@
+name: PR Branch Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    branches: [develop, main, 'release/*']
+
+jobs:
+  validate-pr-branches:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: sudo apt-get update && sudo apt-get install -y jq
+
+      - name: Validate PR source and target branches
+        run: |
+          # Get source and target branches
+          SOURCE_BRANCH="${{ github.head_ref }}"
+          TARGET_BRANCH="${{ github.base_ref }}"
+
+          echo "Validating PR from $SOURCE_BRANCH to $TARGET_BRANCH"
+
+          # Extract branch type
+          SOURCE_TYPE=$(echo $SOURCE_BRANCH | cut -d'/' -f1)
+
+          # Validate branch relationships based on workflow rules
+          if [[ "$SOURCE_TYPE" == "feature" ]] || [[ "$SOURCE_TYPE" == "bugfix" ]] || [[ "$SOURCE_TYPE" == "devfix" ]]; then
+            if [[ "$TARGET_BRANCH" != "develop" ]]; then
+              echo "ERROR: feature, bugfix, and devfix branches must target the develop branch."
+              exit 1
+            fi
+
+          elif [[ "$SOURCE_TYPE" == "hotfix" ]] || [[ "$SOURCE_TYPE" == "release" ]]; then
+            if [[ "$TARGET_BRANCH" != "main" ]]; then
+              echo "ERROR: hotfix and release branches must target the main branch."
+              echo "Note: Sync to develop will be handled automatically after merge to main."
+              exit 1
+            fi
+
+          elif [[ "$SOURCE_TYPE" == "relfix" ]]; then
+            if [[ ! "$TARGET_BRANCH" =~ ^release/ ]]; then
+              echo "ERROR: relfix branches must target a release branch."
+              exit 1
+            fi
+
+          else
+            echo "Unknown branch type: $SOURCE_TYPE"
+            exit 1
+          fi
+
+          echo "PR branch validation passed"
+
+      - name: Validate version is strictly progressive (release/hotfix to main only)
+        if: ((contains(github.head_ref, 'release/') || contains(github.head_ref, 'hotfix/')) && github.base_ref == 'main')
+        run: |
+          # Get the base and head commit SHAs
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+
+          # Fetch the base branch package.json
+          git fetch origin ${{ github.base_ref }}
+          git checkout $BASE_SHA -- package.json
+          BASE_VERSION=$(jq -r .version package.json)
+
+          # Fetch the head branch package.json
+          git checkout $HEAD_SHA -- package.json
+          HEAD_VERSION=$(jq -r .version package.json)
+
+          # Compare versions using semver
+          npx semver $HEAD_VERSION -r ">"$BASE_VERSION
+          if [ $? -ne 0 ]; then
+            echo "ERROR: Version in PR ($HEAD_VERSION) must be strictly greater than base branch ($BASE_VERSION)."
+            exit 1
+          fi
+
+          echo "Version progression validation passed."

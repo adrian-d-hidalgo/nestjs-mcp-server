@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  package:
+    container_name: nestjs-mcp-server
+    build:
+      context: ..
+      dockerfile: .devcontainer/Dockerfile.dev
+    ports:
+      - 3000:3000
+      - 9229:9229
+      - 6277:6277
+    volumes:
+      - ..:/package
+      - /package/node_modules

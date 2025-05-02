@@ -1,0 +1,28 @@
+FROM node:22.14
+
+# Set working directory
+WORKDIR /package
+
+# Install required system dependencies
+RUN apt-get update && \
+  apt-get install -y --no-install-recommends \
+  git \
+  curl \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install PNPM and NestJS CLI
+RUN npm install -g pnpm@10 @nestjs/cli
+
+# Copy package files
+COPY package.json pnpm-lock.yaml ./
+
+# Install dependencies as root first
+RUN pnpm install
+
+# Copy the rest of the application code
+COPY . .
+
+EXPOSE 3000 9229 6277
+
+# Command to start development server
+CMD ["tail", "-f", "/dev/null"]
