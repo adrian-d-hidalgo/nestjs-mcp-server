@@ -1,7 +1,13 @@
 # MCP Server NestJS Module Library <!-- omit in toc -->
 
-[![NPM Version](https://img.shields.io/npm/v/@your-org/nestjs-mcp-server)](https://www.npmjs.com/package/@nestjs-mcp/server)
+[![NPM Version](https://img.shields.io/npm/v/@nestjs-mcp/server)](https://www.npmjs.com/package/@nestjs-mcp/server)
+[![Semantic Release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
+[![Downloads](https://img.shields.io/npm/dm/@nestjs-mcp/server)](https://www.npmjs.com/package/@nestjs-mcp/server)
+[![CI Pipeline](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/actions/workflows/run-tests.yml/badge.svg)](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/actions/workflows/run-tests.yml)
+[![codecov](https://codecov.io/gh/adrian-d-hidalgo/nestjs-mcp-server/graph/badge.svg?token=5E228VKY5K)](https://codecov.io/gh/adrian-d-hidalgo/nestjs-mcp-server)
+[![Known Vulnerabilities](https://snyk.io/test/github/adrian-d-hidalgo/nestjs-mcp-server/badge.svg)](https://snyk.io/test/github/adrian-d-hidalgo/nestjs-mcp-server)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
 
 ---
 
