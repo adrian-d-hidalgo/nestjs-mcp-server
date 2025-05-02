@@ -1,6 +1,6 @@
 {
   "name": "@nestjs-mcp/server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Modular library for building scalable MCP servers with NestJS, providing decorators and integration patterns as a wrapper for the official MCP TypeScript SDK.",
   "author": "Adrián Darío Hidalgo Flores",
   "license": "MIT",
@@ -30,9 +30,12 @@
     "model-context-protocol",
     "module",
     "nestjs",
+    "npm",
+    "pnpm",
     "sdk",
     "server",
-    "typescript"
+    "typescript",
+    "yarn"
   ],
   "scripts": {
     "build": "nest build",
