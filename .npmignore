@@ -1,18 +1,28 @@
 # Exclude example projects and test files
 examples/
 test/
+coverage/
 "**/*spec.ts"
+"**/*.test.ts"
+
+# Exclude source code (we only need the compiled dist)
+src/
 
 # Exclude scripts and CI/CD/config folders
 scripts/
 .husky/
 .github/
+.devcontainers/
 
 # Exclude documentation and config files
 *.md
+!README.md
+!LICENSE
 tsconfig*.json
 nest-cli.json
 
 # (Optional) Exclude other files/folders not needed in the published package
 .env
 .vscode/
+.eslintrc.js
+.prettierrc
