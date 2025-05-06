@@ -17,15 +17,8 @@ import {
 // Resolver-level guard
 // Applies to all methods in the resolver
 export class ResolverLogGuard implements CanActivate {
-  canActivate(context: McpExecutionContext): boolean {
+  canActivate(_context: McpExecutionContext): boolean {
     console.log('[ResolverLogGuard] Resolver-level guard executed');
-
-    console.log('sessionId', context.getSessionId());
-    // Args as a structured object, mapped by parameter names for predictable access
-    console.log('headers', context.args);
-
-    // Args as a raw array, ordered as passed to the resolver method
-    console.log('extra', context.getArgs());
 
     return true;
   }
