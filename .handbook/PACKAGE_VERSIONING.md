@@ -113,9 +113,10 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/). All relea
 
 ### Branching and Release Flow
 
-- Only `release/*` and `fix/*` branches are allowed for publishing
-- Final releases are only allowed from `release/*` branches
-- Pre-releases (alpha, beta, rc) are allowed from `release/*` and `fix/*` branches
+- Only `release/*` and `hotfix/*` branches are allowed for publishing
+- Final releases (without pre-release suffix) are only allowed from `main`
+- Pre-releases with `-alpha.*`, `-beta.*`, and `-rc.*` suffixes are allowed from `release/*` branches
+- Pre-releases with `-rc.*` suffix are allowed from `hotfix/*` branches
 - All other branches must merge into `develop` or follow the project's branching model
 
 ### Pre-release Identifiers
@@ -127,6 +128,7 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/). All relea
 ### Tagging and Publishing
 
 - The version in `package.json` must match the intended release type and follow semver
+- Git tags must use the 'v' prefix (e.g., `v1.2.3`, `v1.2.3-beta.1`)
 - The correct NPM tag and access must be used for each release type (see project scripts)
 - Always increment the version before publishing
 
