@@ -89,22 +89,25 @@ function parseArgs() {
 function validateTag(tag) {
   // Must start with 'v' and follow semver, e.g. v1.2.3, v1.2.3-alpha.0
   const valid = /^v\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/.test(tag);
+
   if (!valid) {
     console.error(`Error: Tag '${tag}' does not match required pattern: vX.Y.Z[-stage.N]`);
-    process.exit(1);
+    throw new Error(`Tag '${tag}' does not match required pattern: vX.Y.Z[-stage.N]`);
   }
 }
 
 function extractVersionFromTag(tag) {
+  // Always remove 'v' prefix if present
   return tag.startsWith('v') ? tag.slice(1) : tag;
 }
 
 function validateSemver(version) {
   // Accepts: 1.2.3, 1.2.3-alpha.0, 1.2.3-beta.1, 1.2.3-rc.2
   const valid = /^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/.test(version);
+
   if (!valid) {
     console.error(`Error: Version '${version}' does not match semver pattern: X.Y.Z[-stage.N]`);
-    process.exit(1);
+    throw new Error(`Version '${version}' does not match semver pattern: X.Y.Z[-stage.N]`);
   }
 }
 
@@ -118,67 +121,92 @@ function checkVersionParity(tagVersion, pkgVersion) {
   // Extract x.y.z from both versions
   const tagBase = tagVersion.split('-')[0];
   const pkgBase = pkgVersion.split('-')[0];
+
+  // Log the comparison for debugging
+  console.log(`Comparing tag version (${tagBase}) with package.json version (${pkgBase})...`);
+
   if (tagBase !== pkgBase) {
     console.error(`Error: Version mismatch. Tag version (x.y.z): '${tagBase}' does not match package.json version (x.y.z): '${pkgBase}'.\nPlease update package.json to match the tag version before publishing.`);
-    process.exit(1);
+    throw new Error(`Version mismatch. Tag version: '${tagBase}' does not match package.json version: '${pkgBase}'`);
   }
 }
 
 function main() {
-  const { tag, noDryRun } = parseArgs();
-  if (!tag) {
-    console.error('Usage: node scripts/npm-publish.js --tag=vX.Y.Z[-stage.N] [--no-dry-run]');
+  try {
+    const { tag, noDryRun } = parseArgs();
+
+    if (!tag) {
+      console.error('Usage: node scripts/npm-publish.js --tag=vX.Y.Z[-stage.N] [--no-dry-run]');
+      process.exit(1);
+    }
+
+    validateTag(tag);
+    const version = extractVersionFromTag(tag);
+    validateSemver(version);
+
+    const pkg = getPackageJson();
+    console.log(`Tag: ${tag}, extracted version: ${version}, package.json version: ${pkg.version}`);
+
+    // Check version parity after extracting the 'v' prefix
+    checkVersionParity(version, pkg.version);
+
+    checkNpmAuth();
+    checkBuildSuccess();
+    checkNpmVersion(version);
+
+    // Ensure package.json version matches the tag version
+    run(`pnpm version ${version} --no-git-tag-version`);
+
+    const pkgAfter = getPackageJson();
+
+    if (pkgAfter.version !== version) {
+      console.error(`Error: Failed to set package.json version to ${version}. Current: ${pkgAfter.version}`);
+      process.exit(1);
+    }
+
+    let publishCmd = 'npm publish';
+
+    const isDryRun = !noDryRun && process.env.CI !== 'true';
+    if (isDryRun) {
+      publishCmd += ' --dry-run --no-git-checks';
+    }
+    // Set npm tag if pre-release, else use latest
+    const preReleaseMatch = version.match(/-(alpha|beta|rc)\./);
+
+    if (preReleaseMatch) {
+      publishCmd += ` --tag ${preReleaseMatch[1]} --access=public`;
+    } else {
+      publishCmd += ' --tag latest --access=public';
+    }
+
+    console.log(`\nPublishing version ${version} from tag ${tag}...\n`);
+
+    if (isDryRun) {
+      console.log('Dry run enabled by default: No package will actually be published. Use --no-dry-run or set CI=true to publish for real.');
+    }
+    run(publishCmd);
+
+    // Rollback package.json to base version (x.y.z) if a pre-release was published
+    const publishedBaseVersion = version.split('-')[0];
+
+    if (version !== publishedBaseVersion) {
+      run(`pnpm version ${publishedBaseVersion} --no-git-tag-version`);
+      console.log(`Rolled back package.json to base version: ${publishedBaseVersion}`);
+    }
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
     process.exit(1);
-  }
-  validateTag(tag);
-  const version = extractVersionFromTag(tag);
-  validateSemver(version);
-
-  const pkg = getPackageJson();
-  checkVersionParity(version, pkg.version);
-  checkNpmAuth();
-  checkBuildSuccess();
-  checkNpmVersion(version);
-
-  // Ensure package.json version matches the tag version
-  run(`pnpm version ${version} --no-git-tag-version`);
-
-  const pkgAfter = getPackageJson();
-
-  if (pkgAfter.version !== version) {
-    console.error(`Error: Failed to set package.json version to ${version}. Current: ${pkgAfter.version}`);
-    process.exit(1);
-  }
-
-  let publishCmd = 'npm publish';
-
-  const isDryRun = !noDryRun && process.env.CI !== 'true';
-  if (isDryRun) {
-    publishCmd += ' --dry-run --no-git-checks';
-  }
-  // Set npm tag if pre-release, else use latest
-  const preReleaseMatch = version.match(/-(alpha|beta|rc)\./);
-
-  if (preReleaseMatch) {
-    publishCmd += ` --tag ${preReleaseMatch[1]} --access=public`;
-  } else {
-    publishCmd += ' --tag latest --access=public';
-  }
-
-  console.log(`\nPublishing version ${version} from tag ${tag}...\n`);
-
-  if (isDryRun) {
-    console.log('Dry run enabled by default: No package will actually be published. Use --no-dry-run or set CI=true to publish for real.');
-  }
-  run(publishCmd);
-
-  // Rollback package.json to base version (x.y.z) if a pre-release was published
-  const publishedBaseVersion = version.split('-')[0];
-
-  if (version !== publishedBaseVersion) {
-    run(`pnpm version ${publishedBaseVersion} --no-git-tag-version`);
-    console.log(`Rolled back package.json to base version: ${publishedBaseVersion}`);
   }
 }
 
-main();
+// Export functions for testing
+if (require.main !== module) {
+  module.exports = {
+    validateTag,
+    extractVersionFromTag,
+    validateSemver,
+    checkVersionParity
+  };
+} else {
+  main();
+}
