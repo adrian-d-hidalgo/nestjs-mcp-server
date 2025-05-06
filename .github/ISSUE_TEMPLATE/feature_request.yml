@@ -1,0 +1,144 @@
+name: Feature Request
+description: Suggest a new feature or enhancement for this NPM package
+title: "[Feature]: "
+labels: ["enhancement", "triage"]
+assignees:
+  - adrian-d-hidalgo
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## ✨ Feature Request
+        
+        Thanks for taking the time to suggest a new feature! Your ideas help make this package better for everyone.
+        
+        Before submitting, please check if a similar feature has already been requested by searching the [open issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues).
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you've completed the following steps before submitting your feature request.
+      options:
+        - label: I have searched the [existing issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues) to make sure this feature hasn't been requested already
+          required: true
+        - label: I have verified this is a feature request and not a question (for questions, use [GitHub Discussions](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/discussions) instead)
+          required: true
+        - label: I'm using the latest version of the package
+          required: false
+  - type: input
+    id: version
+    attributes:
+      label: Package Version
+      description: What version of @nestjs-mcp/server are you using?
+      placeholder: ex. 0.1.2
+    validations:
+      required: true
+  - type: input
+    id: nestjs_version
+    attributes:
+      label: NestJS Version
+      description: What version of NestJS are you using?
+      placeholder: ex. 11.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem Statement
+      description: What problem does this feature solve? Please describe the current limitation or pain point.
+      placeholder: When using this package, I'm unable to...
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: Describe how you envision this feature working.
+      placeholder: The package should provide a way to...
+    validations:
+      required: true
+  - type: dropdown
+    id: feature_type
+    attributes:
+      label: Feature Type
+      description: What type of feature are you suggesting?
+      options:
+        - Enhancement to existing functionality
+        - New functionality
+        - Performance improvement
+        - Developer experience
+        - Integration with other tools/libraries
+        - Configuration options
+        - Other
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact Level
+      description: How would this feature impact your usage of the package?
+      options:
+        - Critical (blocking my usage until implemented)
+        - High (would significantly improve my workflow)
+        - Medium (notable improvement)
+        - Low (nice to have)
+    validations:
+      required: false
+  - type: textarea
+    id: usage_example
+    attributes:
+      label: Usage Example
+      description: Show us how you would use this feature in your code.
+      placeholder: |
+        ```typescript
+        // How you would use this feature
+        import { someFunction } from '@nestjs-mcp/server';
+        
+        // Example usage
+        const result = someFunction({
+          option1: 'value',
+          option2: true
+        });
+        ```
+      render: typescript
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives Considered
+      description: Have you tried other approaches or workarounds? Are there existing solutions?
+      placeholder: |
+        I've tried these alternatives:
+        1. ...
+        2. ...
+        
+        They don't work because...
+    validations:
+      required: false
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to help implement this feature?
+      options:
+        - label: I'm willing to submit a PR with this feature
+        - label: I'd like guidance/mentoring to implement this feature
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context, use cases, screenshots, or references.
+      placeholder: |
+        My specific use case is...
+        
+        Here's a screenshot of what I'm trying to accomplish: [screenshot]
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
+          
