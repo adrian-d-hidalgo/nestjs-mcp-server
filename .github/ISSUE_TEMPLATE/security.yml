@@ -1,0 +1,211 @@
+name: Security Issue
+description: Report a non-critical security vulnerability
+title: "[Security]: "
+labels: ["security", "triage"]
+assignees:
+  - adrian-d-hidalgo
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🔒 Security Issue Report
+        
+        **IMPORTANT: DO NOT disclose critical security vulnerabilities through public GitHub issues!**
+        
+        For critical security vulnerabilities, please report by creating a private security advisory at https://github.com/adrian-d-hidalgo/nestjs-mcp-server/security/advisories/new
+        or follow our [security policy](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/security/policy).
+        
+        This template is only for non-critical security issues that don't put users at immediate risk.
+        
+        Thank you for helping keep this project and its users secure.
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you've completed the following steps before submitting this security report.
+      options:
+        - label: I have searched the [existing issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues) to make sure this vulnerability hasn't been reported already
+          required: true
+        - label: I have verified this is not a critical vulnerability requiring private disclosure
+          required: true
+        - label: I have updated to the latest version to confirm the vulnerability still exists
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package Version
+      description: What version of @nestjs-mcp/server is affected?
+      placeholder: ex. 0.1.2
+    validations:
+      required: true
+  - type: input
+    id: nestjs_version
+    attributes:
+      label: NestJS Version
+      description: What version of NestJS are you using?
+      placeholder: ex. 11.0.0
+    validations:
+      required: true
+  - type: input
+    id: cve
+    attributes:
+      label: CVE Identifier
+      description: Enter a CVE identifier if one exists
+      placeholder: ex. CVE-2023-XXXXX
+  - type: dropdown
+    id: vulnerability_type
+    attributes:
+      label: Vulnerability Type
+      description: What type of vulnerability is this?
+      options:
+        - Exposure of Sensitive Information
+        - Information Leak / Disclosure
+        - Input Validation
+        - Insecure Default Configuration
+        - Path Traversal
+        - Insecure Dependency
+        - Authentication Issue
+        - Authorization Issue
+        - Cross-Site Scripting (XSS)
+        - Cross-Site Request Forgery (CSRF)
+        - Server-Side Request Forgery (SSRF)
+        - Denial of Service (DoS)
+        - Other (specify in description)
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Assessment
+      description: How severe do you consider this security issue?
+      options:
+        - Low - Limited impact, difficult to exploit
+        - Medium - Moderate impact, requires specific conditions
+        - High - Significant impact but not critically exploitable
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Vulnerability Description
+      description: Describe the security vulnerability clearly and concisely
+      placeholder: A clear explanation of the security concern and how it might be exploited
+    validations:
+      required: true
+  - type: textarea
+    id: impact
+    attributes:
+      label: Potential Impact
+      description: What's the potential impact of this vulnerability if exploited?
+      placeholder: |
+        Describe what an attacker might be able to accomplish, such as:
+        - What data could be exposed?
+        - What systems could be compromised?
+        - What operations could be disrupted?
+        - How many users might be affected?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Clear steps that demonstrate the vulnerability
+      value: |
+        1. Install package version X.Y.Z
+        2. Create a NestJS application with the following configuration...
+        3. Make a request to...
+        4. Observe that...
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction_code
+    attributes:
+      label: Reproduction Code
+      description: If possible, provide a minimal code example that demonstrates the vulnerability
+      placeholder: |
+        ```typescript
+        // Example vulnerable code
+        import { McpModule } from '@nestjs-mcp/server';
+        
+        @Module({
+          imports: [
+            McpModule.forRoot({
+              // Vulnerable configuration
+              validateInput: false,
+              allowExternalRequests: true,
+              // ...
+            })
+          ]
+        })
+        export class AppModule {}
+        
+        // Code showing how the vulnerability could be exploited
+        @Controller()
+        export class VulnerableController {
+          @Get('vulnerable-endpoint')
+          vulnerableMethod(@Query() params) {
+            // Unsanitized input processing
+            // ...
+          }
+        }
+        ```
+      render: typescript
+    validations:
+      required: false
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment Details
+      description: Provide details about the environment where the vulnerability was found
+      value: |
+        - Node.js version: [e.g. 22.1.0]
+        - NestJS version: [e.g. 11.0.1] 
+        - OS: [e.g. Ubuntu 22.04, Windows 11, macOS 14.4]
+        - MCP SDK version: [e.g. 1.10.2]
+        - Relevant dependencies: [e.g. TypeORM 0.3.17]
+    validations:
+      required: true
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed Solution
+      description: If you have suggestions on how to fix this vulnerability
+      placeholder: |
+        Suggest a fix or mitigation strategy, for example:
+        - Code changes
+        - Configuration updates
+        - Dependency updates
+        - Best practice recommendations
+    validations:
+      required: false
+  - type: textarea
+    id: references
+    attributes:
+      label: References
+      description: Provide links to any references, advisories, or related issues
+      placeholder: |
+        - Similar vulnerabilities in other projects
+        - Security advisories
+        - Articles about this type of vulnerability
+        - OWASP links
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information that might be helpful
+      placeholder: Add any other context about the security issue here
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Responsible Disclosure
+      description: By submitting this issue, you agree to follow our responsible disclosure principles
+      options:
+        - label: I confirm this is not a critical security vulnerability requiring private disclosure
+          required: true
+        - label: I have provided factual information and avoided speculation
+          required: true
+        - label: I agree to follow this project's [Code of Conduct](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/blob/main/CODE_OF_CONDUCT.md)
+          required: true
+          
