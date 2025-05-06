@@ -1,0 +1,15 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions & Discussions
+    url: https://github.com/adrian-d-hidalgo/nestjs-mcp-server/discussions
+    about: Please ask and answer questions here.
+  - name: Documentation
+    url: https://github.com/adrian-d-hidalgo/nestjs-mcp-server#readme
+    about: Please check the documentation before filing an issue.
+  - name: NPM Package
+    url: https://www.npmjs.com/package/@nestjs-mcp/server
+    about: See the published package on NPM.
+  - name: Code of Conduct
+    url: https://github.com/adrian-d-hidalgo/nestjs-mcp-server/blob/main/CODE_OF_CONDUCT.md
+    about: Please review our Code of Conduct before contributing.
+    
