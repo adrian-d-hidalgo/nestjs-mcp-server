@@ -19,6 +19,7 @@ import { DiscoveryService } from './registry/discovery.service';
 import { McpLoggerService } from './registry/logger.service';
 import { RegistryService } from './registry/registry.service';
 import { SessionManager } from './services/session.manager';
+
 @Module({
   imports: [DiscoveryModule],
   providers: [
