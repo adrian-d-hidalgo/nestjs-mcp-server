@@ -109,7 +109,9 @@ export interface TemplateCallbacks {
 export type RequestHandlerExtra = SdkRequestHandlerExtra<
   ServerRequest,
   ServerNotification
->;
+> & {
+  headers: Record<string, string>;
+};
 
 export class ResourceUriHandlerParams {
   public readonly uri: URL;
