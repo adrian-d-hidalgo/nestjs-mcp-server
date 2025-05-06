@@ -1,0 +1,178 @@
+name: Bug Report
+description: Report a bug or unexpected behavior in @nestjs-mcp/server
+title: "[Bug]: "
+labels: ["bug", "triage"]
+assignees:
+  - adrian-d-hidalgo
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🐛 Bug Report
+        
+        Thanks for taking the time to report this bug! Detailed reports help us improve the package for everyone.
+        
+        Before submitting, please check if a similar issue already exists by searching the [open issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues).
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you've completed the following steps before submitting your bug report.
+      options:
+        - label: I have searched the [existing issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues) to make sure this bug hasn't been reported already
+          required: true
+        - label: I have verified this is a bug and not a question (for questions, use [GitHub Discussions](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/discussions) instead)
+          required: true
+        - label: I have updated to the latest version of the package to confirm the bug still exists
+          required: false
+  - type: input
+    id: version
+    attributes:
+      label: Package Version
+      description: What version of @nestjs-mcp/server are you using?
+      placeholder: ex. 0.1.2
+    validations:
+      required: true
+  - type: input
+    id: nestjs_version
+    attributes:
+      label: NestJS Version
+      description: What version of NestJS are you using?
+      placeholder: ex. 11.0.0
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: Bug Description
+      description: Describe the bug clearly and concisely
+      placeholder: A clear description of what the bug is and how it manifests
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected Behavior
+      description: What did you expect to happen?
+      placeholder: A clear description of what you expected to happen
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to Reproduce
+      description: Provide a detailed, step-by-step procedure to reproduce the issue
+      value: |
+        1. Set up project with '...'
+        2. Register the MCP module with '...'
+        3. Call the method '...'
+        4. See error
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction_code
+    attributes:
+      label: Reproduction Code
+      description: If possible, provide a minimal code example that demonstrates the issue
+      placeholder: |
+        ```typescript
+        // Example reproduction code
+        import { McpModule } from '@nestjs-mcp/server';
+        
+        @Module({
+          imports: [
+            McpModule.forRoot({
+              // Your configuration
+            })
+          ]
+        })
+        export class AppModule {}
+        
+        // Where the error occurs:
+        @Injectable()
+        export class MyService {
+          constructor(private readonly mcpService: McpService) {}
+          
+          async someMethod() {
+            try {
+              // Code that produces the error
+              await this.mcpService.doSomething();
+            } catch (error) {
+              console.error(error);
+              throw error;
+            }
+          }
+        }
+        ```
+      render: typescript
+    validations:
+      required: false
+  - type: dropdown
+    id: environment
+    attributes:
+      label: Environment
+      description: Where are you experiencing this issue?
+      options:
+        - Development
+        - Testing
+        - Production
+        - CI/CD Pipeline
+    validations:
+      required: true
+  - type: textarea
+    id: environment_details
+    attributes:
+      label: Environment Details
+      description: Please provide details about your environment
+      value: |
+        - OS: [e.g. Ubuntu 22.04, Windows 11, macOS 14.4]
+        - Node.js version: [e.g. 22.1.0]
+        - Package manager: [e.g. npm 10.2.1, pnpm 9.0.0, yarn 1.22.19]
+        - TypeScript version: [e.g. 5.7.3]
+        - Additional dependencies: [e.g. @nestjs/common 11.0.1, @modelcontextprotocol/sdk 1.10.2]
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Error Logs
+      description: Please copy and paste any relevant log output or error messages. This will be automatically formatted into code.
+      placeholder: Paste your logs here (they will be formatted automatically)
+      render: shell
+    validations:
+      required: false
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact Level
+      description: How severely does this bug affect your usage?
+      options:
+        - Critical (Blocking deployment or production use)
+        - High (Major functionality broken)
+        - Medium (Inconvenient but workable)
+        - Low (Minor issue)
+    validations:
+      required: false
+  - type: textarea
+    id: workaround
+    attributes:
+      label: Current Workaround
+      description: Have you found any temporary workaround? This helps others facing the same issue.
+      placeholder: Describe any workaround you're currently using, or indicate if none is available.
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Add any other context about the problem here (screenshots, related issues, possible solutions, etc.)
+      placeholder: Any other information that might be helpful...
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
+          
