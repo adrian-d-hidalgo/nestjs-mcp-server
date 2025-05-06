@@ -8,6 +8,7 @@
 [![Known Vulnerabilities](https://snyk.io/test/github/adrian-d-hidalgo/nestjs-mcp-server/badge.svg)](https://snyk.io/test/github/adrian-d-hidalgo/nestjs-mcp-server)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 ---
 
@@ -919,3 +920,5 @@ MIT — see [LICENSE](./LICENSE) for details.
 ## Contributions
 
 Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines, reporting issues, and pull request rules.
+
+Before contributing, please read our [Code of Conduct](./CODE_OF_CONDUCT.md) to understand the expectations for behavior in our community.

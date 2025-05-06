@@ -1,0 +1,209 @@
+name: Refactoring Proposal
+description: Suggest code improvements without changing functionality
+title: "[Refactor]: "
+labels: ["refactor", "triage"]
+assignees:
+  - adrian-d-hidalgo
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 🔄 Refactoring Proposal
+        
+        Thanks for taking the time to suggest code improvements! Quality refactoring helps maintain a healthy codebase.
+        
+        > **Remember**: Refactoring should maintain the same functionality while improving code quality, performance, or maintainability.
+        
+        Before submitting, please check if a similar proposal already exists by searching the [open issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues).
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you've completed the following steps before submitting your refactoring proposal.
+      options:
+        - label: I have searched the [existing issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues) to make sure this refactoring hasn't been proposed already
+          required: true
+        - label: I have verified this refactoring doesn't change public API or break existing functionality
+          required: true
+        - label: I have reviewed the project's contribution guidelines
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package Version
+      description: What version of @nestjs-mcp/server are you proposing to refactor?
+      placeholder: ex. 0.1.2
+    validations:
+      required: true
+  - type: textarea
+    id: target
+    attributes:
+      label: Code to Refactor
+      description: Identify the specific code or component that needs refactoring
+      placeholder: File path(s), class(es), or function(s) that need improvement
+    validations:
+      required: true
+  - type: dropdown
+    id: package_area
+    attributes:
+      label: Package Area
+      description: What area of the package would this refactoring affect?
+      options:
+        - Core Module
+        - Decorators
+        - Guards
+        - Session Management
+        - Transports
+        - Infrastructure
+        - Testing
+        - Documentation
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reasons
+    attributes:
+      label: Reasons for Refactoring
+      description: Explain why this code needs to be refactored
+      placeholder: |
+        Examples:
+        - Code duplication
+        - Complex/nested logic
+        - Performance issues
+        - Maintainability concerns
+        - Technical debt
+        - Static analysis warnings
+    validations:
+      required: true
+  - type: textarea
+    id: current_code
+    attributes:
+      label: Current Implementation
+      description: Show the current implementation that needs refactoring
+      placeholder: |
+        ```typescript
+        // Current code
+        export class CurrentImplementation {
+          // ...problematic code
+          complexMethod() {
+            // Example of code that could be improved
+            let result;
+            // ... complex nested logic
+            return result;
+          }
+        }
+        ```
+      render: typescript
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Changes
+      description: Describe how you would refactor this code
+      placeholder: |
+        - What specific patterns or approaches would you use?
+        - How would the new implementation look?
+        - What architectural changes are needed?
+        - Will any files need to be renamed/moved/split?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_code
+    attributes:
+      label: Proposed Implementation
+      description: Provide a code example of the refactored solution
+      placeholder: |
+        ```typescript
+        // Refactored code
+        export class ImprovedImplementation {
+          // ...better code
+          improvedMethod() {
+            // Example of improved implementation
+            const result = this.helperMethod();
+            return result;
+          }
+          
+          private helperMethod() {
+            // Extracted method with better structure
+            return calculatedValue;
+          }
+        }
+        ```
+      render: typescript
+    validations:
+      required: true
+  - type: textarea
+    id: benefits
+    attributes:
+      label: Expected Benefits
+      description: What improvements will this refactoring provide?
+      placeholder: |
+        Examples:
+        - 25% performance improvement in X operation
+        - Reduced cognitive complexity from X to Y
+        - Better test coverage opportunity
+        - Eliminated code duplication across X components
+        - Better adherence to SOLID principles
+    validations:
+      required: true
+  - type: textarea
+    id: risks
+    attributes:
+      label: Potential Risks/Side Effects
+      description: What risks might this refactoring introduce?
+      placeholder: |
+        Examples:
+        - Possible impact on X related components
+        - Need to update tests for Y modules
+        - Temporary regression during implementation phase
+        - Learning curve for contributors unfamiliar with the new pattern
+    validations:
+      required: true
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Estimated Effort
+      description: How complex do you expect this refactoring to be?
+      options:
+        - Small (few hours)
+        - Medium (1-2 days)
+        - Large (several days)
+        - Major (1+ weeks)
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Impact Level
+      description: How significant is this refactoring for code quality?
+      options:
+        - Critical (addresses major structural issues)
+        - High (resolves significant pain points)
+        - Medium (meaningful improvement)
+        - Low (nice-to-have cleanup)
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to contribute to this refactoring?
+      options:
+        - label: I'm willing to submit a PR with this refactoring
+        - label: I'd like guidance/mentoring to implement this refactoring
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information about the refactoring proposal (diagrams, examples from other projects, etc.)
+      placeholder: Add any other context, examples from other codebases, or references that support this refactoring approach.
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
+          
