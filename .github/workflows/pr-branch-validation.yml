@@ -53,7 +53,7 @@ jobs:
           echo "PR branch validation passed"
 
       - name: Validate version is strictly progressive (release/hotfix to main only)
-        if: ((contains(github.head_ref, 'release/') || contains(github.head_ref, 'hotfix/')) && github.base_ref == 'main')
+        if: github.base_ref == 'main' && (contains(github.head_ref, 'release/') || contains(github.head_ref, 'hotfix/'))
         run: |
           # Get the base and head commit SHAs
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
@@ -68,11 +68,25 @@ jobs:
           git checkout $HEAD_SHA -- package.json
           HEAD_VERSION=$(jq -r .version package.json)
 
-          # Compare versions using semver
-          npx semver $HEAD_VERSION -r ">"$BASE_VERSION
-          if [ $? -ne 0 ]; then
-            echo "ERROR: Version in PR ($HEAD_VERSION) must be strictly greater than base branch ($BASE_VERSION)."
-            exit 1
-          fi
+          # Get current branch
+          BRANCH="${{ github.head_ref }}"
 
-          echo "Version progression validation passed."
+          # Use centralized version validation from npm-publish.js script
+          node -e "
+            try {
+              const npmPublish = require('./scripts/npm-publish.js');
+              
+              // Validate that the version follows semver
+              npmPublish.validateSemver('$HEAD_VERSION');
+              
+              // Check that the new version is greater than the old version
+              // and follows branch-specific rules (major/minor for release, patch for hotfix)
+              npmPublish.validateVersionIncrement('$HEAD_VERSION', '$BASE_VERSION', '$BRANCH');
+              
+              console.log('✅ Version validation passed');
+              process.exit(0);
+            } catch (error) {
+              console.error('❌ ' + error.message);
+              process.exit(1);
+            }
+          "

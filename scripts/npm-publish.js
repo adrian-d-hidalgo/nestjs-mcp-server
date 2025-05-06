@@ -89,22 +89,25 @@ function parseArgs() {
 function validateTag(tag) {
   // Must start with 'v' and follow semver, e.g. v1.2.3, v1.2.3-alpha.0
   const valid = /^v\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/.test(tag);
+
   if (!valid) {
     console.error(`Error: Tag '${tag}' does not match required pattern: vX.Y.Z[-stage.N]`);
-    process.exit(1);
+    throw new Error(`Tag '${tag}' does not match required pattern: vX.Y.Z[-stage.N]`);
   }
 }
 
 function extractVersionFromTag(tag) {
+  // Always remove 'v' prefix if present
   return tag.startsWith('v') ? tag.slice(1) : tag;
 }
 
 function validateSemver(version) {
   // Accepts: 1.2.3, 1.2.3-alpha.0, 1.2.3-beta.1, 1.2.3-rc.2
   const valid = /^\d+\.\d+\.\d+(-[a-z]+\.\d+)?$/.test(version);
+
   if (!valid) {
     console.error(`Error: Version '${version}' does not match semver pattern: X.Y.Z[-stage.N]`);
-    process.exit(1);
+    throw new Error(`Version '${version}' does not match semver pattern: X.Y.Z[-stage.N]`);
   }
 }
 
@@ -118,67 +121,221 @@ function checkVersionParity(tagVersion, pkgVersion) {
   // Extract x.y.z from both versions
   const tagBase = tagVersion.split('-')[0];
   const pkgBase = pkgVersion.split('-')[0];
+
+  // Log the comparison for debugging
+  console.log(`Comparing tag version (${tagBase}) with package.json version (${pkgBase})...`);
+
   if (tagBase !== pkgBase) {
     console.error(`Error: Version mismatch. Tag version (x.y.z): '${tagBase}' does not match package.json version (x.y.z): '${pkgBase}'.\nPlease update package.json to match the tag version before publishing.`);
-    process.exit(1);
+    throw new Error(`Version mismatch. Tag version: '${tagBase}' does not match package.json version: '${pkgBase}'`);
+  }
+}
+
+/**
+ * Detects the current branch name from git
+ * @returns {string} The current branch name
+ */
+function getCurrentBranch() {
+  try {
+    return execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+  } catch (e) {
+    console.error('Error: Unable to detect current git branch. Make sure you are in a git repository.');
+    throw new Error('Unable to detect current git branch');
+  }
+}
+
+/**
+ * Validates that pre-release suffixes are used only on allowed branches
+ * @param {string} version - The version string (e.g., 1.2.3-alpha.1)
+ * @param {string} branch - The current branch name
+ */
+function validatePreReleaseSuffix(version, branch) {
+  // Check if the version is a pre-release
+  const preReleaseMatch = version.match(/-(alpha|beta|rc)\.(\d+)$/);
+
+  if (!preReleaseMatch) {
+    // This is a final release (no suffix)
+    // Final releases are only allowed from 'main'
+    if (branch !== 'main') {
+      console.error(`Error: Final releases (without pre-release suffix) are only allowed from 'main' branch. Current branch: ${branch}`);
+      throw new Error(`Final releases are only allowed from 'main' branch`);
+    }
+    return;
+  }
+
+  const suffix = preReleaseMatch[1]; // alpha, beta, or rc
+
+  if (branch.startsWith('release/')) {
+    // release/* branches allow -alpha.*, -beta.*, -rc.* suffixes
+    return;
+  } else if (branch.startsWith('hotfix/')) {
+    // hotfix/* branches only allow -rc.* suffix
+    if (suffix !== 'rc') {
+      console.error(`Error: Hotfix branches only allow 'rc' pre-release suffix. Found: ${suffix}`);
+      throw new Error(`Hotfix branches only allow 'rc' pre-release suffix`);
+    }
+  } else if (branch === 'main') {
+    // main branch allowed any suffix for testing, but normally should have no suffix
+    console.warn(`Warning: Publishing a pre-release from 'main' branch. Typically final releases (without suffix) should be published from main.`);
+  } else {
+    // Other branches are not allowed to publish
+    console.error(`Error: Publishing is only allowed from 'main', 'release/*', or 'hotfix/*' branches. Current branch: ${branch}`);
+    throw new Error(`Publishing is not allowed from branch ${branch}`);
+  }
+}
+
+/**
+ * Validates semantic version increment based on branch type
+ * @param {string} newVersion - The new version string (e.g., 1.2.3)
+ * @param {string} oldVersion - The previous version string (e.g., 1.1.0)
+ * @param {string} branch - The current branch name
+ */
+function validateVersionIncrement(newVersion, oldVersion, branch) {
+  // Parse versions and remove pre-release suffixes for comparison
+  const parseVersion = (v) => {
+    const parts = v.split('-')[0].split('.').map(Number);
+    return {
+      major: parts[0],
+      minor: parts[1],
+      patch: parts[2]
+    };
+  };
+
+  const oldVer = parseVersion(oldVersion);
+  const newVer = parseVersion(newVersion);
+
+  if (branch.startsWith('release/')) {
+    // release/* should increment MAJOR or MINOR
+    if (newVer.major > oldVer.major ||
+      (newVer.major === oldVer.major && newVer.minor > oldVer.minor)) {
+      // Valid increment
+      if (newVer.major > oldVer.major) {
+        // If MAJOR bumped, MINOR and PATCH should be 0
+        if (newVer.minor !== 0 || newVer.patch !== 0) {
+          console.warn(`Warning: When incrementing MAJOR version, MINOR and PATCH should be 0. Found ${newVer.major}.${newVer.minor}.${newVer.patch}`);
+        }
+      } else if (newVer.minor > oldVer.minor) {
+        // If MINOR bumped, PATCH should be 0
+        if (newVer.patch !== 0) {
+          console.warn(`Warning: When incrementing MINOR version, PATCH should be 0. Found ${newVer.major}.${newVer.minor}.${newVer.patch}`);
+        }
+      }
+    } else {
+      console.error(`Error: Release branches should increment MAJOR or MINOR version. ${oldVersion} → ${newVersion}`);
+      throw new Error(`Invalid version increment for release branch`);
+    }
+  } else if (branch.startsWith('hotfix/')) {
+    // hotfix/* should only increment PATCH
+    if (newVer.major === oldVer.major &&
+      newVer.minor === oldVer.minor &&
+      newVer.patch > oldVer.patch) {
+      // Valid increment
+    } else {
+      console.error(`Error: Hotfix branches should only increment PATCH version. ${oldVersion} → ${newVersion}`);
+      throw new Error(`Invalid version increment for hotfix branch`);
+    }
   }
 }
 
 function main() {
-  const { tag, noDryRun } = parseArgs();
-  if (!tag) {
-    console.error('Usage: node scripts/npm-publish.js --tag=vX.Y.Z[-stage.N] [--no-dry-run]');
+  try {
+    const { tag, noDryRun } = parseArgs();
+
+    if (!tag) {
+      console.error('Usage: node scripts/npm-publish.js --tag=vX.Y.Z[-stage.N] [--no-dry-run]');
+      process.exit(1);
+    }
+
+    validateTag(tag);
+    const version = extractVersionFromTag(tag);
+    validateSemver(version);
+
+    const pkg = getPackageJson();
+    console.log(`Tag: ${tag}, extracted version: ${version}, package.json version: ${pkg.version}`);
+
+    // Check version parity after extracting the 'v' prefix
+    checkVersionParity(version, pkg.version);
+
+    // Detect current branch and validate pre-release suffix
+    const branch = getCurrentBranch();
+    console.log(`Current branch: ${branch}`);
+    validatePreReleaseSuffix(version, branch);
+
+    // Validate version increment if we can get the previous version
+    try {
+      const latestVersion = execSync('npm view . version').toString().trim();
+      if (latestVersion) {
+        validateVersionIncrement(version, latestVersion, branch);
+        console.log(`Version increment validated: ${latestVersion} → ${version}`);
+      }
+    } catch (e) {
+      // If the package is not published yet, ignore
+      if (e.stderr && e.stderr.toString().includes('E404')) {
+        console.log('No previous version found. This appears to be the first release.');
+      } else {
+        console.warn(`Warning: Unable to validate version increment: ${e.message}`);
+      }
+    }
+
+    checkNpmAuth();
+    checkBuildSuccess();
+    checkNpmVersion(version);
+
+    // Ensure package.json version matches the tag version
+    run(`pnpm version ${version} --no-git-tag-version`);
+
+    const pkgAfter = getPackageJson();
+
+    if (pkgAfter.version !== version) {
+      console.error(`Error: Failed to set package.json version to ${version}. Current: ${pkgAfter.version}`);
+      process.exit(1);
+    }
+
+    let publishCmd = 'npm publish';
+
+    const isDryRun = !noDryRun && process.env.CI !== 'true';
+    if (isDryRun) {
+      publishCmd += ' --dry-run --no-git-checks';
+    }
+    // Set npm tag if pre-release, else use latest
+    const preReleaseMatch = version.match(/-(alpha|beta|rc)\./);
+
+    if (preReleaseMatch) {
+      publishCmd += ` --tag ${preReleaseMatch[1]} --access=public`;
+    } else {
+      publishCmd += ' --tag latest --access=public';
+    }
+
+    console.log(`\nPublishing version ${version} from tag ${tag}...\n`);
+
+    if (isDryRun) {
+      console.log('Dry run enabled by default: No package will actually be published. Use --no-dry-run or set CI=true to publish for real.');
+    }
+    run(publishCmd);
+
+    // Rollback package.json to base version (x.y.z) if a pre-release was published
+    const publishedBaseVersion = version.split('-')[0];
+
+    if (version !== publishedBaseVersion) {
+      run(`pnpm version ${publishedBaseVersion} --no-git-tag-version`);
+      console.log(`Rolled back package.json to base version: ${publishedBaseVersion}`);
+    }
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
     process.exit(1);
-  }
-  validateTag(tag);
-  const version = extractVersionFromTag(tag);
-  validateSemver(version);
-
-  const pkg = getPackageJson();
-  checkVersionParity(version, pkg.version);
-  checkNpmAuth();
-  checkBuildSuccess();
-  checkNpmVersion(version);
-
-  // Ensure package.json version matches the tag version
-  run(`pnpm version ${version} --no-git-tag-version`);
-
-  const pkgAfter = getPackageJson();
-
-  if (pkgAfter.version !== version) {
-    console.error(`Error: Failed to set package.json version to ${version}. Current: ${pkgAfter.version}`);
-    process.exit(1);
-  }
-
-  let publishCmd = 'npm publish';
-
-  const isDryRun = !noDryRun && process.env.CI !== 'true';
-  if (isDryRun) {
-    publishCmd += ' --dry-run --no-git-checks';
-  }
-  // Set npm tag if pre-release, else use latest
-  const preReleaseMatch = version.match(/-(alpha|beta|rc)\./);
-
-  if (preReleaseMatch) {
-    publishCmd += ` --tag ${preReleaseMatch[1]} --access=public`;
-  } else {
-    publishCmd += ' --tag latest --access=public';
-  }
-
-  console.log(`\nPublishing version ${version} from tag ${tag}...\n`);
-
-  if (isDryRun) {
-    console.log('Dry run enabled by default: No package will actually be published. Use --no-dry-run or set CI=true to publish for real.');
-  }
-  run(publishCmd);
-
-  // Rollback package.json to base version (x.y.z) if a pre-release was published
-  const publishedBaseVersion = version.split('-')[0];
-
-  if (version !== publishedBaseVersion) {
-    run(`pnpm version ${publishedBaseVersion} --no-git-tag-version`);
-    console.log(`Rolled back package.json to base version: ${publishedBaseVersion}`);
   }
 }
 
-main();
+// Export functions for testing
+if (require.main !== module) {
+  module.exports = {
+    validateTag,
+    extractVersionFromTag,
+    validateSemver,
+    checkVersionParity,
+    validatePreReleaseSuffix,
+    validateVersionIncrement
+  };
+} else {
+  main();
+}

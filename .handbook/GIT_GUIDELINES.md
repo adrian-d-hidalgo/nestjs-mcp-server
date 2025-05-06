@@ -232,6 +232,20 @@ We follow Semantic Versioning (SemVer) for our releases:
 - `MINOR`: New features, non-breaking
 - `PATCH`: Hotfixes and critical bug fixes
 
+#### Version Suffixes and Branch Rules
+
+- Git tags must use the 'v' prefix (e.g., `v1.2.3`, `v1.2.3-beta.1`)
+- Final releases (without pre-release suffix) are only created from `main` branch
+- For `release/*` branches:
+  - Allowed pre-release suffixes: `-alpha.*`, `-beta.*`, `-rc.*`
+  - Example: `v1.2.0-alpha.1`, `v1.2.0-beta.1`, `v1.2.0-rc.1`
+- For `hotfix/*` branches:
+  - Allowed pre-release suffix: `-rc.*` only
+  - Example: `v1.1.1-rc.1`
+- When merged to `main`, the final version without suffix is published
+  - Example: `v1.2.0` (from a `release/*` branch)
+  - Example: `v1.1.1` (from a `hotfix/*` branch)
+
 Examples:
 
 - `1.0.0`: Initial release
