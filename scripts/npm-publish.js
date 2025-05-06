@@ -137,7 +137,64 @@ function checkVersionParity(tagVersion, pkgVersion) {
  */
 function getCurrentBranch() {
   try {
-    return execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+    // First try to get branch from standard git command
+    const branch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+
+    // In GitHub Actions with tag checkout, we might get 'HEAD' as the branch
+    if (branch === 'HEAD') {
+      // We're in a detached HEAD state, which happens when checkout a tag
+
+      // Check if we're in GitHub Actions and this is a tag push
+      if (process.env.GITHUB_REF && process.env.GITHUB_REF.startsWith('refs/tags/')) {
+        const tag = process.env.GITHUB_REF.replace('refs/tags/', '');
+        console.log(`Detected tag push in GitHub Actions: ${tag}`);
+
+        // If this is an alpha tag, likely from a release branch
+        if (tag.includes('-alpha.')) {
+          return 'release/auto-detected';
+        }
+        // If this is a beta tag, also likely from a release branch
+        else if (tag.includes('-beta.')) {
+          return 'release/auto-detected';
+        }
+        // If this is an rc tag, could be from a release or hotfix branch
+        else if (tag.includes('-rc.')) {
+          // Try to detect if this is a hotfix or release by comparing version numbers
+          const version = tag.replace(/^v/, '').split('-')[0];
+
+          try {
+            const latestVersion = execSync('npm view . version').toString().trim();
+            const [maj, min] = version.split('.');
+            const [lMaj, lMin] = latestVersion.split('.');
+
+            if (maj === lMaj && min === lMin) {
+              // Same major/minor: treat as hotfix
+              return 'hotfix/auto-detected';
+            } else {
+              // Different major/minor: treat as release
+              return 'release/auto-detected';
+            }
+          } catch (e) {
+            // If can't determine, default to release
+            return 'release/auto-detected';
+          }
+        }
+        // For regular release tags, we're publishing from main
+        else {
+          return 'main';
+        }
+      }
+
+      // Try to detect branch from CI environment variables
+      if (process.env.GITHUB_HEAD_REF) {
+        return process.env.GITHUB_HEAD_REF;
+      }
+
+      console.warn('Warning: In detached HEAD state. Assuming main branch for tag publishing.');
+      return 'main'; // Default to main branch for tag publishing
+    }
+
+    return branch;
   } catch (e) {
     console.error('Error: Unable to detect current git branch. Make sure you are in a git repository.');
     throw new Error('Unable to detect current git branch');
@@ -167,6 +224,10 @@ function validatePreReleaseSuffix(version, branch) {
 
   if (branch.startsWith('release/')) {
     // release/* branches allow -alpha.*, -beta.*, -rc.* suffixes
+    return;
+  } else if (branch === 'release/auto-detected') {
+    // Special case for auto-detected release branch from tags
+    console.log(`Using auto-detected release branch for tag with ${suffix} suffix`);
     return;
   } else if (branch.startsWith('hotfix/')) {
     // hotfix/* branches only allow -rc.* suffix
@@ -204,7 +265,30 @@ function validateVersionIncrement(newVersion, oldVersion, branch) {
   const oldVer = parseVersion(oldVersion);
   const newVer = parseVersion(newVersion);
 
-  if (branch.startsWith('release/')) {
+  // For auto-detected branches in CI, use more permissive validation
+  if (branch === 'release/auto-detected') {
+    // For auto-detected release branches, just check that the version is greater
+    if (newVer.major > oldVer.major ||
+      (newVer.major === oldVer.major && newVer.minor > oldVer.minor) ||
+      (newVer.major === oldVer.major && newVer.minor === oldVer.minor && newVer.patch > oldVer.patch)) {
+      console.log(`Auto-detected release branch: Valid version increment from ${oldVersion} to ${newVersion}`);
+      return; // Valid increment, any type is allowed
+    } else {
+      console.error(`Error: Version in auto-detected branch must be greater than previous version. ${oldVersion} → ${newVersion}`);
+      throw new Error(`Invalid version increment for auto-detected branch`);
+    }
+  } else if (branch === 'hotfix/auto-detected') {
+    // For auto-detected hotfix branches, only allow patch increment
+    if (newVer.major === oldVer.major &&
+      newVer.minor === oldVer.minor &&
+      newVer.patch > oldVer.patch) {
+      console.log(`Auto-detected hotfix branch: Valid patch increment from ${oldVersion} to ${newVersion}`);
+      return;
+    } else {
+      console.error(`Error: Hotfix auto-detected branches should only increment PATCH version. ${oldVersion} → ${newVersion}`);
+      throw new Error(`Invalid version increment for hotfix auto-detected branch`);
+    }
+  } else if (branch.startsWith('release/')) {
     // release/* should increment MAJOR or MINOR
     if (newVer.major > oldVer.major ||
       (newVer.major === oldVer.major && newVer.minor > oldVer.minor)) {
@@ -244,6 +328,18 @@ function main() {
     if (!tag) {
       console.error('Usage: node scripts/npm-publish.js --tag=vX.Y.Z[-stage.N] [--no-dry-run]');
       process.exit(1);
+    }
+
+    // Log environment information for debugging
+    console.log('Environment:');
+    console.log('- Node.js version:', process.version);
+    console.log('- Working directory:', process.cwd());
+    console.log('- CI environment:', process.env.CI ? 'Yes' : 'No');
+    console.log('- GitHub Actions:', process.env.GITHUB_ACTIONS ? 'Yes' : 'No');
+    if (process.env.GITHUB_ACTIONS) {
+      console.log('- GitHub ref:', process.env.GITHUB_REF || 'Not set');
+      console.log('- GitHub head ref:', process.env.GITHUB_HEAD_REF || 'Not set');
+      console.log('- GitHub base ref:', process.env.GITHUB_BASE_REF || 'Not set');
     }
 
     validateTag(tag);
