@@ -131,6 +131,112 @@ function checkVersionParity(tagVersion, pkgVersion) {
   }
 }
 
+/**
+ * Detects the current branch name from git
+ * @returns {string} The current branch name
+ */
+function getCurrentBranch() {
+  try {
+    return execSync('git rev-parse --abbrev-ref HEAD').toString().trim();
+  } catch (e) {
+    console.error('Error: Unable to detect current git branch. Make sure you are in a git repository.');
+    throw new Error('Unable to detect current git branch');
+  }
+}
+
+/**
+ * Validates that pre-release suffixes are used only on allowed branches
+ * @param {string} version - The version string (e.g., 1.2.3-alpha.1)
+ * @param {string} branch - The current branch name
+ */
+function validatePreReleaseSuffix(version, branch) {
+  // Check if the version is a pre-release
+  const preReleaseMatch = version.match(/-(alpha|beta|rc)\.(\d+)$/);
+
+  if (!preReleaseMatch) {
+    // This is a final release (no suffix)
+    // Final releases are only allowed from 'main'
+    if (branch !== 'main') {
+      console.error(`Error: Final releases (without pre-release suffix) are only allowed from 'main' branch. Current branch: ${branch}`);
+      throw new Error(`Final releases are only allowed from 'main' branch`);
+    }
+    return;
+  }
+
+  const suffix = preReleaseMatch[1]; // alpha, beta, or rc
+
+  if (branch.startsWith('release/')) {
+    // release/* branches allow -alpha.*, -beta.*, -rc.* suffixes
+    return;
+  } else if (branch.startsWith('hotfix/')) {
+    // hotfix/* branches only allow -rc.* suffix
+    if (suffix !== 'rc') {
+      console.error(`Error: Hotfix branches only allow 'rc' pre-release suffix. Found: ${suffix}`);
+      throw new Error(`Hotfix branches only allow 'rc' pre-release suffix`);
+    }
+  } else if (branch === 'main') {
+    // main branch allowed any suffix for testing, but normally should have no suffix
+    console.warn(`Warning: Publishing a pre-release from 'main' branch. Typically final releases (without suffix) should be published from main.`);
+  } else {
+    // Other branches are not allowed to publish
+    console.error(`Error: Publishing is only allowed from 'main', 'release/*', or 'hotfix/*' branches. Current branch: ${branch}`);
+    throw new Error(`Publishing is not allowed from branch ${branch}`);
+  }
+}
+
+/**
+ * Validates semantic version increment based on branch type
+ * @param {string} newVersion - The new version string (e.g., 1.2.3)
+ * @param {string} oldVersion - The previous version string (e.g., 1.1.0)
+ * @param {string} branch - The current branch name
+ */
+function validateVersionIncrement(newVersion, oldVersion, branch) {
+  // Parse versions and remove pre-release suffixes for comparison
+  const parseVersion = (v) => {
+    const parts = v.split('-')[0].split('.').map(Number);
+    return {
+      major: parts[0],
+      minor: parts[1],
+      patch: parts[2]
+    };
+  };
+
+  const oldVer = parseVersion(oldVersion);
+  const newVer = parseVersion(newVersion);
+
+  if (branch.startsWith('release/')) {
+    // release/* should increment MAJOR or MINOR
+    if (newVer.major > oldVer.major ||
+      (newVer.major === oldVer.major && newVer.minor > oldVer.minor)) {
+      // Valid increment
+      if (newVer.major > oldVer.major) {
+        // If MAJOR bumped, MINOR and PATCH should be 0
+        if (newVer.minor !== 0 || newVer.patch !== 0) {
+          console.warn(`Warning: When incrementing MAJOR version, MINOR and PATCH should be 0. Found ${newVer.major}.${newVer.minor}.${newVer.patch}`);
+        }
+      } else if (newVer.minor > oldVer.minor) {
+        // If MINOR bumped, PATCH should be 0
+        if (newVer.patch !== 0) {
+          console.warn(`Warning: When incrementing MINOR version, PATCH should be 0. Found ${newVer.major}.${newVer.minor}.${newVer.patch}`);
+        }
+      }
+    } else {
+      console.error(`Error: Release branches should increment MAJOR or MINOR version. ${oldVersion} → ${newVersion}`);
+      throw new Error(`Invalid version increment for release branch`);
+    }
+  } else if (branch.startsWith('hotfix/')) {
+    // hotfix/* should only increment PATCH
+    if (newVer.major === oldVer.major &&
+      newVer.minor === oldVer.minor &&
+      newVer.patch > oldVer.patch) {
+      // Valid increment
+    } else {
+      console.error(`Error: Hotfix branches should only increment PATCH version. ${oldVersion} → ${newVersion}`);
+      throw new Error(`Invalid version increment for hotfix branch`);
+    }
+  }
+}
+
 function main() {
   try {
     const { tag, noDryRun } = parseArgs();
@@ -149,6 +255,27 @@ function main() {
 
     // Check version parity after extracting the 'v' prefix
     checkVersionParity(version, pkg.version);
+
+    // Detect current branch and validate pre-release suffix
+    const branch = getCurrentBranch();
+    console.log(`Current branch: ${branch}`);
+    validatePreReleaseSuffix(version, branch);
+
+    // Validate version increment if we can get the previous version
+    try {
+      const latestVersion = execSync('npm view . version').toString().trim();
+      if (latestVersion) {
+        validateVersionIncrement(version, latestVersion, branch);
+        console.log(`Version increment validated: ${latestVersion} → ${version}`);
+      }
+    } catch (e) {
+      // If the package is not published yet, ignore
+      if (e.stderr && e.stderr.toString().includes('E404')) {
+        console.log('No previous version found. This appears to be the first release.');
+      } else {
+        console.warn(`Warning: Unable to validate version increment: ${e.message}`);
+      }
+    }
 
     checkNpmAuth();
     checkBuildSuccess();
@@ -205,7 +332,9 @@ if (require.main !== module) {
     validateTag,
     extractVersionFromTag,
     validateSemver,
-    checkVersionParity
+    checkVersionParity,
+    validatePreReleaseSuffix,
+    validateVersionIncrement
   };
 } else {
   main();

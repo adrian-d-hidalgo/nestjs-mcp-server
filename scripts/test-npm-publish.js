@@ -14,6 +14,8 @@ const npmPublish = require('./npm-publish');
 const validateTag = npmPublish.validateTag;
 const extractVersionFromTag = npmPublish.extractVersionFromTag;
 const checkVersionParity = npmPublish.checkVersionParity;
+const validatePreReleaseSuffix = npmPublish.validatePreReleaseSuffix;
+const validateVersionIncrement = npmPublish.validateVersionIncrement;
 
 // ANSI colors for output
 const colors = {
@@ -95,6 +97,138 @@ const testCases = [
         return { success: true, message: "Complete workflow successful" };
       } catch (error) {
         return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validatePreReleaseSuffix - alpha suffix on release branch",
+    fn: () => {
+      try {
+        validatePreReleaseSuffix('1.0.0-alpha.1', 'release/1.0.0');
+        return { success: true, message: "Correctly allowed alpha suffix on release branch" };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validatePreReleaseSuffix - beta suffix on release branch",
+    fn: () => {
+      try {
+        validatePreReleaseSuffix('1.0.0-beta.1', 'release/1.0.0');
+        return { success: true, message: "Correctly allowed beta suffix on release branch" };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validatePreReleaseSuffix - rc suffix on release branch",
+    fn: () => {
+      try {
+        validatePreReleaseSuffix('1.0.0-rc.1', 'release/1.0.0');
+        return { success: true, message: "Correctly allowed rc suffix on release branch" };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validatePreReleaseSuffix - rc suffix on hotfix branch",
+    fn: () => {
+      try {
+        validatePreReleaseSuffix('1.0.1-rc.1', 'hotfix/1.0.1');
+        return { success: true, message: "Correctly allowed rc suffix on hotfix branch" };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validatePreReleaseSuffix - alpha suffix on hotfix branch (should fail)",
+    fn: () => {
+      try {
+        validatePreReleaseSuffix('1.0.1-alpha.1', 'hotfix/1.0.1');
+        return { success: false, message: "Incorrectly allowed alpha suffix on hotfix branch" };
+      } catch (error) {
+        return { success: true, message: "Correctly rejected alpha suffix on hotfix branch" };
+      }
+    }
+  },
+  {
+    name: "validatePreReleaseSuffix - final release on main branch",
+    fn: () => {
+      try {
+        validatePreReleaseSuffix('1.0.0', 'main');
+        return { success: true, message: "Correctly allowed final release on main branch" };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validatePreReleaseSuffix - final release on non-main branch (should fail)",
+    fn: () => {
+      try {
+        validatePreReleaseSuffix('1.0.0', 'release/1.0.0');
+        return { success: false, message: "Incorrectly allowed final release on non-main branch" };
+      } catch (error) {
+        return { success: true, message: "Correctly rejected final release on non-main branch" };
+      }
+    }
+  },
+  {
+    name: "validateVersionIncrement - major increment on release branch",
+    fn: () => {
+      try {
+        validateVersionIncrement('2.0.0', '1.2.3', 'release/2.0.0');
+        return { success: true, message: "Correctly validated major version increment on release branch" };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validateVersionIncrement - minor increment on release branch",
+    fn: () => {
+      try {
+        validateVersionIncrement('1.3.0', '1.2.3', 'release/1.3.0');
+        return { success: true, message: "Correctly validated minor version increment on release branch" };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validateVersionIncrement - patch increment on release branch (should fail)",
+    fn: () => {
+      try {
+        validateVersionIncrement('1.2.4', '1.2.3', 'release/1.2.4');
+        return { success: false, message: "Incorrectly allowed patch increment on release branch" };
+      } catch (error) {
+        return { success: true, message: "Correctly rejected patch increment on release branch" };
+      }
+    }
+  },
+  {
+    name: "validateVersionIncrement - patch increment on hotfix branch",
+    fn: () => {
+      try {
+        validateVersionIncrement('1.2.4', '1.2.3', 'hotfix/1.2.4');
+        return { success: true, message: "Correctly validated patch increment on hotfix branch" };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
+    }
+  },
+  {
+    name: "validateVersionIncrement - minor increment on hotfix branch (should fail)",
+    fn: () => {
+      try {
+        validateVersionIncrement('1.3.0', '1.2.3', 'hotfix/1.3.0');
+        return { success: false, message: "Incorrectly allowed minor increment on hotfix branch" };
+      } catch (error) {
+        return { success: true, message: "Correctly rejected minor increment on hotfix branch" };
       }
     }
   }
