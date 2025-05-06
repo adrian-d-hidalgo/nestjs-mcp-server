@@ -3,8 +3,13 @@ import {
   ResourceTemplate,
 } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CanActivate, Type } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { Request } from 'express';
 
 import { MCP_RESOLVER } from '../decorators';
 import {
@@ -113,6 +118,8 @@ export class RegistryService {
   private runGuards(
     instance: object,
     methodName: string,
+    sessionId: string,
+    request: Request,
     args: unknown[],
   ): Promise<void> {
     // Retrieve class-level guards
@@ -147,18 +154,6 @@ export class RegistryService {
 
     const handlerArgs = this.getHandlerArgs(methodKey, args);
 
-    const { sessionId } = handlerArgs.extra;
-
-    if (!sessionId) {
-      throw new Error('Session not found');
-    }
-
-    const session = this.sessionManager.getSession(sessionId);
-
-    if (!session) {
-      throw new Error('Session not found');
-    }
-
     const context: McpExecutionContext = {
       args: handlerArgs,
       // @ts-expect-error: Default types are 'http' | 'ws' | 'rpc' but in our case, we are using 'mcp'
@@ -169,7 +164,7 @@ export class RegistryService {
       getSessionId: () => sessionId,
       getHandler: () => methodKey as unknown as Type<any>,
       switchToHttp: () => ({
-        getRequest: <R = Request>() => session.request as R,
+        getRequest: <R = Request>() => request as R,
         getResponse: () => {
           throw new Error('Response not available in MCP context');
         },
@@ -206,7 +201,31 @@ export class RegistryService {
 
     const methodName = handler.name;
 
-    await this.runGuards(instance, methodName, args);
+    const { sessionId } = args[args.length - 1] as RequestHandlerExtra;
+
+    if (!sessionId) {
+      throw new UnauthorizedException('Session ID is required');
+    }
+
+    const session = this.sessionManager.getSession(sessionId);
+
+    if (!session) {
+      throw new ForbiddenException('Session not found');
+    }
+
+    args[args.length - 1] = {
+      ...(args[args.length - 1] as RequestHandlerExtra),
+      headers: session.request.headers,
+      body: session.request.body as Record<string, string>,
+    };
+
+    await this.runGuards(
+      instance,
+      methodName,
+      sessionId,
+      session.request,
+      args,
+    );
 
     return handler(...(args as TArgs));
   }
