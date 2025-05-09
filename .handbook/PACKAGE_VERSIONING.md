@@ -71,7 +71,7 @@ All new versions MUST be strictly greater than previous versions. This is enforc
 
 ## Branching and Release Flow
 
-- **Feature, bugfix, and devfix branches**: Merge into `develop` only.
+- **Feature and bugfix branches**: Merge into `develop` only.
 - **Release and hotfix branches**: Merge into `main` only.
 - **Relfix branches**: Merge into a `release/*` branch only.
 - **Version numbers must always increase** with each release, regardless of branch.
