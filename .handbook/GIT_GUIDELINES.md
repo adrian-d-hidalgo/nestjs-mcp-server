@@ -48,22 +48,34 @@ We follow a modified GitFlow workflow with the following branches:
 ## Workflow Diagram
 
 ```
-  main        ●─────────────●───────────●───────────●
-               \             ↑          ↑          / \
-                \            |          |         /   \
-   develop       ●───●───●───●──────────●────────●     ↓
-                  ↑   ↑   ↑   ↑         ↑        ↑     ●─── hotfix/critical
-                  |   |   |   |         |        |
-  feature/x      ●───●   |   |         |        |
-                          |   |         |        |
-  feature/y              ●───●         |        |
-                              |         |        |
-  bugfix/z                   ●────●    |        |
-                                    |   |        |
-                                        |        |
-  release/1.0                          ●────────●
-                                        ↑
-  relfix/r                              ●
+  main
+  ▲  ▲
+  │  │
+  │  └─────────────┐
+  │                │
+  │             release/* <───── relfix/*
+  │                ▲
+  │                │
+  │             develop
+  │             ▲     ▲
+  │             │     │
+  │       feature/*  bugfix/*
+  │
+  └───── hotfix/*
+
+  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+  .                                                                 .
+  .         (auto PR after merge)                                   .
+  .                main  ───────────────▶  develop                  .
+  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+
+---
+- Arrows indicate the direction of PR/merge.
+- Dotted arrow shows the automatic PR from main to develop after merging a release or hotfix.
+- feature/* and bugfix/* → PR to develop
+- release/* → PR to main
+- hotfix/* → PR to main
+- relfix/* → PR to its release/*
 ```
 
 ## Branch Naming Conventions
