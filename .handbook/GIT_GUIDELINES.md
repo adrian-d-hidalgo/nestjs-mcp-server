@@ -36,8 +36,8 @@ We follow a modified GitFlow workflow with the following branches:
 | ----------------------- | ------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `main`                  | -            | - (PR to develop if conflicts after hotfix/release merge) | Stable production code. If there are conflicts during the automatic sync to develop (after a hotfix or release merge), a PR from main to develop is required for conflict resolution. |
 | `develop`               | `main`       | -                                                         | Latest changes, potentially unstable. Does not make PRs to main directly.                                                                                                             |
-| `feature/*`             | `main`       | `develop`                                                 | New features and enhancements                                                                                                                                                         |
-| `bugfix/*`              | `main`       | `develop`                                                 | Non-urgent bug fixes that can wait for the next release                                                                                                                               |
+| `feature/*`             | `develop`    | `develop`                                                 | New features and enhancements                                                                                                                                                         |
+| `bugfix/*`              | `develop`    | `develop`                                                 | Non-urgent bug fixes that can wait for the next release                                                                                                                               |
 | `hotfix/*`              | `main`       | `main`                                                    | Urgent production fixes that need immediate deployment                                                                                                                                |
 | `relfix/*`              | `release/*`  | `release/*`                                               | Bug fixes specifically for a release in preparation                                                                                                                                   |
 | `release/*`             | `develop`    | `main`                                                    | Preparing a new release                                                                                                                                                               |
@@ -63,15 +63,16 @@ We follow a modified GitFlow workflow with the following branches:
   │
   └───── hotfix/*
 
-  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-  .                                                                 .
-  .         (auto PR after merge)                                   .
-  .                main  ───────────────▶  develop                  .
-  . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+   .                                                                 .
+   .         (auto PR after merge)                                   .
+   .                main  ───────────────▶  develop                  .
+   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 
 ---
 - Arrows indicate the direction of PR/merge.
 - Dotted arrow shows the automatic PR from main to develop after merging a release or hotfix.
+- bugfix/* and feature/* are created from develop
 - feature/* and bugfix/* → PR to develop
 - release/* → PR to main
 - hotfix/* → PR to main
@@ -139,7 +140,7 @@ Resolves #56
 
 ## Pull Request Process
 
-1. Create a branch from `main` using the appropriate naming convention
+1. Create a branch from `develop` using the appropriate naming convention
 2. Make your changes and commit them following the commit guidelines
 3. Pull the latest changes from the target branch
 4. Push your branch and create a PR to the appropriate target branch
@@ -185,7 +186,7 @@ We use different branch types for different kinds of fixes:
 
 For non-urgent issues that can wait for the next regular release:
 
-1. Create a `bugfix/` branch from `main`
+1. Create a `bugfix/` branch from `develop`
 2. Fix the issue and commit changes
 3. Create a PR to `develop`
 4. Changes will go to production with the next release cycle
