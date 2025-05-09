@@ -1,0 +1,165 @@
+name: Documentation Request
+description: Request improvements or additions to documentation
+title: "[Docs]: "
+labels: ["documentation", "triage"]
+assignees:
+  - adrian-d-hidalgo
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## 📚 Documentation Request
+        
+        Thanks for helping improve our documentation! Clear and comprehensive docs benefit the entire community.
+        
+        Before submitting, please check if a similar request already exists by searching the [open issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues).
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: Prerequisites
+      description: Please confirm you've completed the following steps before submitting your documentation request.
+      options:
+        - label: I have searched the [existing issues](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues) to make sure this documentation improvement hasn't been requested already
+          required: true
+        - label: I have checked the current documentation in README, official docs, and code comments to verify this information isn't already documented
+          required: true
+        - label: I have verified this is truly a documentation request and not a feature request or bug report
+          required: true
+  - type: input
+    id: version
+    attributes:
+      label: Package Version
+      description: Which version of @nestjs-mcp/server are you using?
+      placeholder: ex. 0.1.2
+    validations:
+      required: true
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: Documentation Type
+      description: What type of documentation needs improvement?
+      options:
+        - README
+        - API Reference
+        - Code Comments
+        - Examples/Tutorials
+        - TypeScript Definitions
+        - Architecture Documentation
+        - Installation/Setup Guide
+        - Integration Guide
+        - Configuration Options
+        - MCP Concept Explanations
+        - NestJS Integration
+        - Other (specify in description)
+    validations:
+      required: true
+  - type: textarea
+    id: current_state
+    attributes:
+      label: Current Documentation State
+      description: Describe what documentation currently exists (if any) and its limitations
+      placeholder: |
+        For example:
+        - The XYZ feature is not documented at all
+        - The existing documentation for ABC is outdated/unclear/incomplete
+        - Examples showing how to use DEF are missing
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Documentation Proposal
+      description: What specific documentation would you like to see added or improved?
+      placeholder: |
+        Provide as much detail as possible about what the documentation should include:
+        - Topics to cover
+        - Code examples needed
+        - Diagrams or illustrations
+        - Structure suggestions
+    validations:
+      required: true
+  - type: textarea
+    id: code_example
+    attributes:
+      label: Example Code
+      description: If applicable, provide example code that should be documented
+      placeholder: |
+        ```typescript
+        // Example code that needs documentation
+        import { McpModule } from '@nestjs-mcp/server';
+        
+        @Module({
+          imports: [
+            McpModule.forRoot({
+              // Configuration options that need explanation
+              name: 'My Server',
+              version: '1.0.0',
+              // ...
+            })
+          ]
+        })
+        export class AppModule {}
+        ```
+      render: typescript
+    validations:
+      required: false
+  - type: textarea
+    id: audience
+    attributes:
+      label: Target Audience
+      description: Who is the primary audience for this documentation?
+      placeholder: |
+        Examples:
+        - New users unfamiliar with the project
+        - Experienced developers looking for advanced usage
+        - Contributors to the project
+        - Specific role (DevOps, Backend developers, etc.)
+    validations:
+      required: true
+  - type: dropdown
+    id: impact
+    attributes:
+      label: Documentation Impact
+      description: How does the current documentation gap affect users?
+      options:
+        - Critical (blocking usage of the package)
+        - High (significantly impairs understanding)
+        - Medium (causes confusion for some features)
+        - Low (minor clarification needed)
+    validations:
+      required: true
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: Contribution
+      description: Would you be willing to help with this documentation?
+      options:
+        - label: I'm willing to contribute a draft of this documentation
+        - label: I'm willing to review documentation PRs on this topic
+  - type: textarea
+    id: suggested_resources
+    attributes:
+      label: Suggested Resources
+      description: Are there any resources, articles, or examples that could help in creating this documentation?
+      placeholder: |
+        Links to:
+        - Similar documentation in other projects
+        - Articles explaining the concepts
+        - Code examples demonstrating usage
+    validations:
+      required: false
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional Context
+      description: Any other information, screenshots, or links about the documentation request
+      placeholder: Add any other context or screenshots about the documentation request here.
+  - type: checkboxes
+    id: terms
+    attributes:
+      label: Code of Conduct
+      description: By submitting this issue, you agree to follow our [Code of Conduct](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/blob/main/CODE_OF_CONDUCT.md)
+      options:
+        - label: I agree to follow this project's Code of Conduct
+          required: true
+          

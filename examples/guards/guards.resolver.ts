@@ -2,19 +2,20 @@ import {
   CallToolResult,
   GetPromptResult,
 } from '@modelcontextprotocol/sdk/types';
-import { CanActivate, Injectable } from '@nestjs/common';
+import { CanActivate } from '@nestjs/common';
 import { z } from 'zod';
 
 import {
   McpExecutionContext,
   Prompt,
+  RequestHandlerExtra,
   Resolver,
   Tool,
   UseGuards,
 } from '../../src';
 
 // Resolver-level guard
-@Injectable()
+// Applies to all methods in the resolver
 export class ResolverLogGuard implements CanActivate {
   canActivate(_context: McpExecutionContext): boolean {
     console.log('[ResolverLogGuard] Resolver-level guard executed');
@@ -24,7 +25,7 @@ export class ResolverLogGuard implements CanActivate {
 }
 
 // Method-level guard
-@Injectable()
+// Applies to a single method in the resolver but it has the same context as the resolver-level guard
 export class MethodLogGuard implements CanActivate {
   canActivate(_context: McpExecutionContext): boolean {
     console.log('[MethodLogGuard] Method-level guard executed');
@@ -37,7 +38,7 @@ export class MethodLogGuard implements CanActivate {
 @Resolver('guards')
 export class GuardsResolver {
   @Prompt({ name: 'logPrompt' })
-  logPrompt(): GetPromptResult {
+  logPrompt(_extra: RequestHandlerExtra): GetPromptResult {
     return {
       messages: [
         {
@@ -55,7 +56,10 @@ export class GuardsResolver {
       prefix: z.string(),
     },
   })
-  logTool(args: { prefix: string }): CallToolResult {
+  logTool(
+    args: { prefix: string },
+    _extra: RequestHandlerExtra,
+  ): CallToolResult {
     return {
       content: [{ type: 'text', text: `[${args.prefix}] Tool executed` }],
     };

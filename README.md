@@ -8,6 +8,7 @@
 [![Known Vulnerabilities](https://snyk.io/test/github/adrian-d-hidalgo/nestjs-mcp-server/badge.svg)](https://snyk.io/test/github/adrian-d-hidalgo/nestjs-mcp-server)
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](./LICENSE)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](./CONTRIBUTING.md)
+[![Contributor Covenant](https://img.shields.io/badge/Contributor%20Covenant-2.1-4baaaa.svg)](CODE_OF_CONDUCT.md)
 
 ---
 
@@ -40,6 +41,7 @@
   - [Prompt Decorator](#prompt-decorator)
   - [Resource Decorator](#resource-decorator)
   - [Tool Decorator](#tool-decorator)
+  - [RequestHandlerExtra Parameter](#requesthandlerextra-argument)
 - [Guards](#guards)
   - [Global-level guards](#global-level-guards)
   - [Resolver-level guards](#resolver-level-guards)
@@ -496,6 +498,68 @@ export class MyTools {
 }
 ```
 
+### RequestHandlerExtra Argument
+
+All MCP capability methods (`@Prompt`, `@Resource`, `@Tool`) always receive a `RequestHandlerExtra` object as their last parameter. This object extends the original type from `@modelcontextprotocol/sdk` and provides essential context about the current MCP request.
+
+**Properties from SDK:**
+
+- `signal`: An `AbortSignal` used to communicate if the request was cancelled
+- `authInfo`: Optional information about a validated access token
+- `sessionId`: The session ID from the transport, if available
+- `sendNotification`: Function to send a notification related to the current request
+- `sendRequest`: Function to send a request related to the current request
+
+**Extended Properties:**
+
+- `headers`: HTTP headers from the original request (added by @nestjs-mcp/server)
+
+**Usage Example:**
+
+```ts
+import { Tool, Resolver, SessionManager } from '@nestjs-mcp/server';
+import { RequestHandlerExtra } from '@nestjs-mcp/server';
+import { CallToolResult } from '@modelcontextprotocol/sdk/types';
+
+@Resolver('auth')
+export class AuthResolver {
+  @Tool({
+    name: 'authenticate_user',
+    description: 'Authenticates a user with credentials',
+    // ...other options
+  })
+  authenticateUser(
+    params: { username: string; password: string },
+    extra: RequestHandlerExtra, // Always the last parameter
+  ): CallToolResult {
+    // Access the session ID
+    console.log(`Request received in session: ${extra.sessionId}`);
+
+    // Access request headers (extended property)
+    const authHeader = extra.headers.authorization;
+    const userAgent = extra.headers['user-agent'];
+    console.log(`Request from: ${userAgent}`);
+
+    // Check if request was cancelled
+    if (extra.signal.aborted) {
+      return {
+        content: [{ type: 'text', text: 'Request was cancelled' }],
+      };
+    }
+
+    // Implement authentication logic
+    return {
+      content: [{ type: 'text', text: 'Authentication successful' }],
+    };
+  }
+}
+```
+
+**Important Notes:**
+
+- `extra` is always the last parameter in any method decorated with `@Resource`, `@Prompt`, or `@Tool`
+- The `headers` property is an extension added by @nestjs-mcp/server to access HTTP headers directly
+
 ---
 
 ## Guards
@@ -856,3 +920,5 @@ MIT — see [LICENSE](./LICENSE) for details.
 ## Contributions
 
 Contributions are welcome! Please see [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines, reporting issues, and pull request rules.
+
+Before contributing, please read our [Code of Conduct](./CODE_OF_CONDUCT.md) to understand the expectations for behavior in our community.

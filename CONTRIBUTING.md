@@ -254,7 +254,9 @@ Now Git will be able to verify SSH-signed commits using the allowed signers file
 
 ## Code of Conduct
 
-This project adheres to the [Contributor Covenant](https://www.contributor-covenant.org/). By participating, you are expected to uphold this code.
+This project adheres to a [Code of Conduct](./CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please read the full text to understand the expectations for behavior in our community.
+
+Any violations of the code of conduct can be reported by creating an issue at the [issues page](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues).
 
 ---
 
