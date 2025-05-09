@@ -1,5 +1,7 @@
 # Package Versioning Guidelines <!-- omit in toc -->
 
+> For all Git branching and pull request rules, see GIT_GUIDELINES.md. This document focuses exclusively on versioning, tagging, and publishing policies.
+
 This document describes the versioning policy and release process for all packages in the MCP Server NestJS module library. Its objective is to ensure clear, progressive, and predictable versioning for all releases, maintain compatibility with the @modelcontextprotocol/sdk, and provide guidance for stable and pre-release workflows. Use this guide to understand how to version, tag, and publish packages in this project.
 
 ## Table of Contents <!-- omit in toc -->
@@ -10,7 +12,6 @@ This document describes the versioning policy and release process for all packag
 - [Tagging and Publishing](#tagging-and-publishing)
 - [Progressive Versioning](#progressive-versioning)
 - [Version Progression Validation](#version-progression-validation)
-- [Branching and Release Flow](#branching-and-release-flow)
 - [Release Flow](#release-flow)
 - [Automation](#automation)
 - [Best Practices](#best-practices)
@@ -57,6 +58,7 @@ The version field in `package.json` (package version) must strictly follow the f
 
 ## Progressive Versioning
 
+- **Version numbers must always increase** with each release, regardless of branch.
 - **All new versions MUST be strictly greater than previous versions.**
 - **Never publish a version that is equal to or less than an existing version.**
 - This ensures consumers always receive the latest, most appropriate version and avoids confusion or accidental downgrades.
@@ -68,13 +70,6 @@ All new versions MUST be strictly greater than previous versions. This is enforc
 - For pull requests from `release/*` or `hotfix/*` branches targeting `main`, the workflow checks that the version in the PR is strictly greater than the version in `main`.
 - If the version is not progressive, the PR will be rejected and must be corrected before merging.
 - This prevents accidental downgrades or duplicate versions in production.
-
-## Branching and Release Flow
-
-- **Feature and bugfix branches**: Merge into `develop` only.
-- **Release and hotfix branches**: Merge into `main` only.
-- **Relfix branches**: Merge into a `release/*` branch only.
-- **Version numbers must always increase** with each release, regardless of branch.
 
 ## Release Flow
 
@@ -111,32 +106,6 @@ This project follows [Semantic Versioning 2.0.0](https://semver.org/). All relea
 - Only remove the pre-release identifier when the release is considered stable
 - Document breaking changes and version bumps in the changelog
 
-### Branching and Release Flow
-
-- Only `release/*` and `hotfix/*` branches are allowed for publishing
-- Final releases (without pre-release suffix) are only allowed from `main`
-- Pre-releases with `-alpha.*`, `-beta.*`, and `-rc.*` suffixes are allowed from `release/*` branches
-- Pre-releases with `-rc.*` suffix are allowed from `hotfix/*` branches
-- All other branches must merge into `develop` or follow the project's branching model
-
-### Pre-release Identifiers
-
-- `-alpha`: Early preview, unstable, not feature-complete
-- `-beta`: Feature-complete, but may contain known issues
-- `-rc`: Release candidate, stable unless critical bugs are found
-
-### Tagging and Publishing
-
-- The version in `package.json` must match the intended release type and follow semver
-- Git tags must use the 'v' prefix (e.g., `v1.2.3`, `v1.2.3-beta.1`)
-- The correct NPM tag and access must be used for each release type (see project scripts)
-- Always increment the version before publishing
-
-### Automation
-
-- CI/CD workflows must enforce version progression and correct tagging
-- Publishing must be blocked if the version is not strictly greater than the previous
-
 ---
 
-**For implementation details and scripts, see the project README or scripts directory.**
+**This document should be used in conjunction with GIT_GUIDELINES.md for a complete understanding of the release and versioning process.**
