@@ -52,7 +52,7 @@ export class GuardsResolver {
   @UseGuards(MethodLogGuard)
   @Tool({
     name: 'log_tool',
-    paramSchema: {
+    paramsSchema: {
       prefix: z.string(),
     },
   })
