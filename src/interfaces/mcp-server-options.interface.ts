@@ -103,3 +103,9 @@ export type McpModuleTransportOptions = {
 export interface McpFeatureOptions {
   // TODO: Maybe its needed to implement Guards for all capabilities in this module o a specific logger configuration
 }
+
+export interface McpModuleAsyncOptions {
+  imports?: any[];
+  useFactory: (...args: any[]) => Promise<McpModuleOptions> | McpModuleOptions;
+  inject?: any[];
+}
