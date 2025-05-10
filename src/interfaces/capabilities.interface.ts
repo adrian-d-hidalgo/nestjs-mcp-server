@@ -6,6 +6,7 @@ import { RequestHandlerExtra as SdkRequestHandlerExtra } from '@modelcontextprot
 import {
   ServerNotification,
   ServerRequest,
+  ToolAnnotations,
 } from '@modelcontextprotocol/sdk/types.js';
 import {
   z,
@@ -43,27 +44,40 @@ export type ResourceOptions =
   | ResourceTemplateOptions
   | ResourceTemplateWithMetadataOptions;
 
-export interface ToolNameOptions {
+export interface ToolBaseOptions {
   name: string;
 }
 
-export interface ToolWithDescriptionOptions extends ToolNameOptions {
+export interface ToolWithDescriptionOptions extends ToolBaseOptions {
   description: string;
 }
 
-export interface ToolWithParamSchemaOptions extends ToolNameOptions {
-  paramSchema: ZodRawShape;
+export interface ToolWithParamOrAnnotationsOptions extends ToolBaseOptions {
+  paramsSchemaOrAnnotations: ZodRawShape | ToolAnnotations;
 }
 
-export interface ToolWithDescriptionAndParamSchemaOptions
-  extends ToolWithDescriptionOptions,
-    ToolWithParamSchemaOptions {}
+export interface ToolWithParamOrAnnotationsAndDescriptionOptions
+  extends ToolWithParamOrAnnotationsOptions {
+  description: string;
+}
+
+export interface ToolWithParamAndAnnotationsOptions extends ToolBaseOptions {
+  paramsSchema: ZodRawShape;
+  annotations: ToolAnnotations;
+}
+
+export interface ToolWithParamAndAnnotationsAndDescriptionOptions
+  extends ToolWithParamAndAnnotationsOptions {
+  description: string;
+}
 
 export type ToolOptions =
-  | ToolNameOptions
+  | ToolBaseOptions
   | ToolWithDescriptionOptions
-  | ToolWithParamSchemaOptions
-  | ToolWithDescriptionAndParamSchemaOptions;
+  | ToolWithParamOrAnnotationsOptions
+  | ToolWithParamOrAnnotationsAndDescriptionOptions
+  | ToolWithParamAndAnnotationsOptions
+  | ToolWithParamAndAnnotationsAndDescriptionOptions;
 
 export interface PromptBaseOptions {
   name: string;

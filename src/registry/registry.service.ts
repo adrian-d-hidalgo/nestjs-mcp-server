@@ -352,18 +352,50 @@ export class RegistryService {
         this.wrappedHandler(instance, handler, args);
 
       try {
-        if ('description' in metadata && 'paramSchema' in metadata) {
+        if (
+          'paramsSchema' in metadata &&
+          'annotations' in metadata &&
+          'description' in metadata
+        ) {
+          // ToolWithParamAndAnnotationsAndDescriptionOptions
           server.tool(
             metadata.name,
             metadata.description,
-            metadata.paramSchema,
+            metadata.paramsSchema,
+            metadata.annotations,
             wrappedHandler,
           );
-        } else if ('paramSchema' in metadata) {
-          server.tool(metadata.name, metadata.paramSchema, wrappedHandler);
+        } else if ('paramsSchema' in metadata && 'annotations' in metadata) {
+          // ToolWithParamAndAnnotationsOptions
+          server.tool(
+            metadata.name,
+            metadata.paramsSchema,
+            metadata.annotations,
+            wrappedHandler,
+          );
+        } else if (
+          'paramsSchemaOrAnnotations' in metadata &&
+          'description' in metadata
+        ) {
+          // ToolWithParamOrAnnotationsAndDescriptionOptions
+          server.tool(
+            metadata.name,
+            metadata.description,
+            metadata.paramsSchemaOrAnnotations,
+            wrappedHandler,
+          );
+        } else if ('paramsSchemaOrAnnotations' in metadata) {
+          // ToolWithParamOrAnnotationsOptions
+          server.tool(
+            metadata.name,
+            metadata.paramsSchemaOrAnnotations,
+            wrappedHandler,
+          );
         } else if ('description' in metadata) {
+          // ToolWithDescriptionOptions
           server.tool(metadata.name, metadata.description, wrappedHandler);
         } else {
+          // ToolBaseOptions
           server.tool(metadata.name, wrappedHandler);
         }
       } catch (error) {
