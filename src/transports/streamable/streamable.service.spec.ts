@@ -1,20 +1,20 @@
 import { DiscoveryModule } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { DiscoveryService } from '../../registry/discovery.service';
-import { McpLoggerService } from '../../registry/logger.service';
-import { RegistryService } from '../../registry/registry.service';
+import { DiscoveryService } from '../../services/discovery.service';
+import { McpLoggerService } from '../../services/logger.service';
+import { RegistryService } from '../../services/registry.service';
 import { SessionManager } from '../../services/session.manager';
-import { SseService } from './sse.service';
+import { StreamableService } from './streamable.service';
 
-describe('SseService', () => {
-  let service: SseService;
+describe('StreamableService', () => {
+  let service: StreamableService;
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
       imports: [DiscoveryModule],
       providers: [
-        SseService,
+        StreamableService,
         McpLoggerService,
         RegistryService,
         SessionManager,
@@ -23,10 +23,14 @@ describe('SseService', () => {
           provide: 'MCP_SERVER_OPTIONS',
           useValue: { serverInfo: {}, options: {} },
         },
+        {
+          provide: 'MCP_TRANSPORT_OPTIONS',
+          useValue: { streamable: { options: {} } },
+        },
       ],
     }).compile();
 
-    service = module.get<SseService>(SseService);
+    service = module.get<StreamableService>(StreamableService);
   });
 
   it('should be defined', () => {

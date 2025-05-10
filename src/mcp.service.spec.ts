@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { SseService } from './controllers/sse';
-import { StreamableService } from './controllers/streamable';
 import { McpModule } from './mcp.module';
+import { SseService } from './transports/sse';
+import { StreamableService } from './transports/streamable';
 describe('NestjsMcpServerService', () => {
   let streamableService: StreamableService;
   let sseService: SseService;

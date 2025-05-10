@@ -3,6 +3,9 @@ import { z } from 'zod';
 
 import { RequestHandlerExtra, Resolver, Tool } from '../../src';
 
+const ParamsSchema = { value: z.string() };
+type ParamsSchemaType = typeof ParamsSchema;
+
 @Resolver('tools')
 export class ToolsResolver {
   /**
@@ -31,12 +34,10 @@ export class ToolsResolver {
    */
   @Tool({
     name: 'tool_with_param_schema_or_annotations',
-    paramsSchemaOrAnnotations: { value: z.string() },
+    paramsSchemaOrAnnotations: ParamsSchema,
   })
   toolWithParamSchemaOrAnnotations(
-    params: {
-      value: string;
-    },
+    params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {
@@ -49,13 +50,11 @@ export class ToolsResolver {
    */
   @Tool({
     name: 'tool_with_param_schema_or_annotations_and_description',
-    paramsSchemaOrAnnotations: { value: z.string() },
     description: 'Tool with paramSchemaOrAnnotations and description',
+    paramsSchemaOrAnnotations: ParamsSchema,
   })
   toolWithParamSchemaOrAnnotationsAndDescription(
-    params: {
-      value: string;
-    },
+    params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {
@@ -68,13 +67,11 @@ export class ToolsResolver {
    */
   @Tool({
     name: 'tool_with_param_and_annotations',
-    paramsSchema: { value: z.string() },
+    paramsSchema: ParamsSchema,
     annotations: { destructiveHint: true },
   })
   toolWithParamAndAnnotations(
-    params: {
-      value: string;
-    },
+    params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {
@@ -87,14 +84,12 @@ export class ToolsResolver {
    */
   @Tool({
     name: 'tool_with_param_and_annotations_and_description',
-    paramsSchema: { value: z.string() },
-    annotations: { destructiveHint: true },
     description: 'Tool with paramSchema, annotations, and description',
+    paramsSchema: ParamsSchema,
+    annotations: { destructiveHint: true },
   })
   toolWithParamAndAnnotationsAndDescription(
-    params: {
-      value: string;
-    },
+    params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {

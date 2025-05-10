@@ -5,8 +5,8 @@ import {
   Module,
 } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
-
 import { Request } from 'express';
+
 import { McpModule } from '../../src/mcp.module';
 import { GuardsResolver } from './guards.resolver';
 

@@ -3,11 +3,11 @@ import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { AsyncLocalStorage } from 'async_hooks';
 
-import { SseController, SseService } from './controllers/sse';
 import {
-  StreamableController,
-  StreamableService,
-} from './controllers/streamable';
+  MCP_LOGGING_OPTIONS,
+  MCP_MODULE_OPTIONS,
+  MCP_TRANSPORT_OPTIONS,
+} from './mcp.constants';
 import {
   McpFeatureOptions,
   McpLoggingOptions,
@@ -15,16 +15,16 @@ import {
   McpModuleOptions,
   McpModuleTransportOptions,
   ServerOptions,
-} from './interfaces/mcp-server-options.interface';
-import {
-  MCP_LOGGING_OPTIONS,
-  MCP_MODULE_OPTIONS,
-  MCP_TRANSPORT_OPTIONS,
-} from './mcp.constants';
-import { DiscoveryService } from './registry/discovery.service';
-import { McpLoggerService } from './registry/logger.service';
-import { RegistryService } from './registry/registry.service';
+} from './mcp.types';
+import { DiscoveryService } from './services/discovery.service';
+import { McpLoggerService } from './services/logger.service';
+import { RegistryService } from './services/registry.service';
 import { SessionManager } from './services/session.manager';
+import { SseController, SseService } from './transports/sse';
+import {
+  StreamableController,
+  StreamableService,
+} from './transports/streamable';
 
 @Module({
   imports: [DiscoveryModule],

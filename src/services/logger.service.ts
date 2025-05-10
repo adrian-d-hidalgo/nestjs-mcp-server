@@ -6,7 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 
-import { McpLoggingOptions } from '../interfaces/mcp-server-options.interface';
+import { McpLoggingOptions } from '../mcp.types';
 
 /**
  * Servicio especializado de logging para el servidor MCP

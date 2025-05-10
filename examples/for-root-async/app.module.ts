@@ -2,8 +2,8 @@ import { Module } from '@nestjs/common';
 
 import { ConfigModule, ConfigService, registerAs } from '@nestjs/config';
 
-import { McpLoggingOptions } from '../../src/interfaces/mcp-server-options.interface';
 import { McpModule } from '../../src/mcp.module';
+import { McpLoggingOptions } from '../../src/mcp.types';
 
 // Using registerAs to create a namespaced configuration
 export const mcpConfig = registerAs('mcpServer', () => ({

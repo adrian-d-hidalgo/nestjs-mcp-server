@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 
 import { McpModule } from '../../src/mcp.module';
-
 import { MixedResolver } from './mixed.resolver';
 
 @Module({

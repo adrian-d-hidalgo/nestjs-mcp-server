@@ -3,9 +3,9 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-import { McpServerOptions } from '../../interfaces/mcp-server-options.interface';
-import { McpLoggerService } from '../../registry/logger.service';
-import { RegistryService } from '../../registry/registry.service';
+import { McpServerOptions } from '../../mcp.types';
+import { McpLoggerService } from '../../services/logger.service';
+import { RegistryService } from '../../services/registry.service';
 import { SessionManager } from '../../services/session.manager';
 
 @Injectable()
