@@ -1,11 +1,7 @@
 import { DiscoveryModule } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import {
-  MCP_PROMPT,
-  MCP_RESOURCE,
-  MCP_TOOL,
-} from '../decorators/capabilities.constants';
+import { MCP_PROMPT, MCP_RESOURCE, MCP_TOOL } from '../decorators';
 import { DiscoveryService } from './discovery.service';
 
 describe('DiscoveryService', () => {

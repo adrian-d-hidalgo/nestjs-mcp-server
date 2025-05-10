@@ -3,10 +3,10 @@ import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { DiscoveryModule, Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 
-import { SessionManager } from '../services/session.manager';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 import { RegistryService } from './registry.service';
+import { SessionManager } from './session.manager';
 
 describe('RegistryService', () => {
   let service: RegistryService;

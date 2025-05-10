@@ -1,7 +1,6 @@
 import { Module } from '@nestjs/common';
 
 import { McpModule } from '../../src/mcp.module';
-
 import { ToolsResolver } from './tools.resolver';
 
 @Module({

@@ -1,18 +1,7 @@
 import { DynamicModule, Module } from '@nestjs/common';
-import {
-  McpFeatureOptions,
-  McpModuleOptions,
-} from './interfaces/mcp-server-options.interface';
-import { McpCoreModule } from './mcp-core.module';
 
-// Reexporta los tipos públicos clave para uso externo
-export type {
-  McpFeatureOptions,
-  McpLoggingOptions,
-  McpModuleOptions,
-  McpModuleTransportOptions,
-  ServerOptions,
-} from './interfaces/mcp-server-options.interface';
+import { McpCoreModule } from './mcp-core.module';
+import { McpFeatureOptions, McpModuleOptions } from './mcp.types';
 
 @Module({})
 export class McpModule {
