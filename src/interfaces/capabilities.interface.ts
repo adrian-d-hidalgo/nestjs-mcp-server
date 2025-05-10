@@ -113,6 +113,7 @@ export type RequestHandlerExtra = SdkRequestHandlerExtra<
   headers: Record<string, string>;
 };
 
+// TODO: This is not an interface
 export class ResourceUriHandlerParams {
   public readonly uri: URL;
   public readonly extra: RequestHandlerExtra;
@@ -127,6 +128,7 @@ export class ResourceUriHandlerParams {
   }
 }
 
+// TODO: This is not an interface
 export class ResourceTemplateHandlerParams {
   public readonly uri: URL;
   public readonly variables?: Record<string, string>;
@@ -151,6 +153,7 @@ export class ResourceTemplateHandlerParams {
   }
 }
 
+// TODO: This is not an interface
 export class PromptHandlerParams<
   Args extends PromptArgsRawShape | undefined = undefined,
 > {
@@ -179,6 +182,7 @@ export class PromptHandlerParams<
   }
 }
 
+// TODO: This is not an interface
 export class ToolHandlerParams<
   Args extends ZodRawShape | undefined = undefined,
 > {

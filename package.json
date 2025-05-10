@@ -113,6 +113,19 @@
       "**/*.(t|j)s"
     ],
     "coverageDirectory": "../coverage",
-    "testEnvironment": "node"
+    "testEnvironment": "node",
+    "coverageThreshold": {
+      "global": {
+        "statements": 50,
+        "branches": 25,
+        "functions": 40,
+        "lines": 50
+      }
+    },
+    "coveragePathIgnorePatterns": [
+      "/index\\.ts$",
+      "\\.interface\\.ts$",
+      "\\.types\\.ts$"
+    ]
   }
 }
