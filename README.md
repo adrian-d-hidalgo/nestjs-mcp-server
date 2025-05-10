@@ -476,33 +476,65 @@ Decorate methods within a Resolver class to expose them as MCP Tools. Accepts op
 
 ```ts
 import { Tool, Resolver } from '@nestjs-mcp/server';
-import { RequestHandlerExtra } from '@nestjs-mcp/server'; // Import type for extra info
-import { z } from 'zod'; // Example using Zod for schema
+import { RequestHandlerExtra } from '@nestjs-mcp/server';
+import { z } from 'zod';
+import { CallToolResult } from '@modelcontextprotocol/sdk/types';
 
-// Example Zod schema for parameters
-const SumParams = z.object({
-  num1: z.number(),
-  num2: z.number(),
-});
-
-@Resolver('utils') // Must be in a Resolver class
-export class MyTools {
+@Resolver('user_tools')
+export class UserToolsResolver {
   @Tool({
-    name: 'calculate_sum',
-    description: 'Calculates the sum of two numbers.',
-    paramSchema: SumParams, // Use the Zod schema
+    name: 'delete_user',
+    description: 'Deletes a user by ID',
+    paramsSchema: { userId: z.string() },
+    annotations: { destructiveHint: true, readOnlyHint: false },
   })
-  sumTool(
-    params: z.infer<typeof SumParams>, // First arg is typed parameters from schema
-    extra: RequestHandlerExtra, // Contains sessionId and other metadata
-  ) {
-    console.log(`Calculating sum for session: ${extra.sessionId}`);
-    const result = params.num1 + params.num2;
-    /* ... return CallToolResult ... */
-    return { content: [{ type: 'text', text: `Result: ${result}` }] };
+  deleteUser(
+    { userId }: { userId: string },
+    extra: RequestHandlerExtra,
+  ): CallToolResult {
+    // ...logic...
+    return { content: [{ type: 'text', text: `User ${userId} deleted.` }] };
   }
 }
 ```
+
+#### Tool Annotations
+
+The `annotations` field allows you to provide protocol-level hints about the tool's behavior, such as whether it is destructive, read-only, idempotent, or has other special properties. These hints can be used by clients, UIs, or the protocol itself to display warnings, optimize calls, or enforce policies.
+
+**Common annotation keys:**
+
+- `destructiveHint` (boolean): Indicates the tool performs a destructive action (e.g., deletes data).
+- `readOnlyHint` (boolean): Indicates the tool does not modify any data.
+- `idempotentHint` (boolean): Indicates the tool can be safely called multiple times with the same effect.
+- `openWorldHint` (boolean): Indicates the tool may have side effects outside the current system.
+
+**Example:**
+
+```ts
+@Tool({
+  name: 'reset_password',
+  paramsSchema: { userId: z.string() },
+  annotations: { destructiveHint: true, idempotentHint: false }
+})
+resetPassword({ userId }: { userId: string }): CallToolResult {
+  // ...
+}
+```
+
+#### ToolOptions Variants
+
+| Variant                                          | Required Fields                              |
+| ------------------------------------------------ | -------------------------------------------- |
+| ToolBaseOptions                                  | name                                         |
+| ToolWithDescriptionOptions                       | name, description                            |
+| ToolWithParamOrAnnotationsOptions                | name, paramsSchemaOrAnnotations              |
+| ToolWithParamOrAnnotationsAndDescriptionOptions  | name, paramsSchemaOrAnnotations, description |
+| ToolWithParamAndAnnotationsOptions               | name, paramsSchema, annotations              |
+| ToolWithParamAndAnnotationsAndDescriptionOptions | name, paramsSchema, annotations, description |
+
+- `paramsSchema` and `paramsSchemaOrAnnotations` can be a Zod schema for input validation.
+- `annotations` is an object with protocol-level hints as described above.
 
 ### RequestHandlerExtra Argument
 

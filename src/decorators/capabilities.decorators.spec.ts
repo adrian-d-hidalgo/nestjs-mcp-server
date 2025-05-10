@@ -35,7 +35,7 @@ describe('MCP Decorators', () => {
 
     @Resolver('test')
     class TestClass {
-      @Tool({ name: 'tool', paramSchema: schema })
+      @Tool({ name: 'tool', paramsSchema: schema })
       toolMethod() {}
     }
 
