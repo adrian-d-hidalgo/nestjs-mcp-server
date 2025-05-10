@@ -199,6 +199,12 @@ export class AppModule {}
 
 Registers the MCP Server globally using asynchronous options, useful for integrating with configuration modules like `@nestjs/config`.
 
+> **Note:**
+>
+> - The `imports` array should include any modules that provide dependencies required by your `useFactory` (e.g., `ConfigModule` if you inject `ConfigService`).
+> - Use `forRootAsync` only once in your root module (`AppModule`).
+> - See `McpModuleAsyncOptions` for all available options.
+
 **Parameters:**
 
 - `options: McpModuleAsyncOptions` — Asynchronous configuration object:
