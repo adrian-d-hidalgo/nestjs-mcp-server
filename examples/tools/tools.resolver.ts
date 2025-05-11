@@ -15,7 +15,12 @@ export class ToolsResolver {
     name: 'tool_base',
   })
   toolBase(_extra: RequestHandlerExtra): CallToolResult {
-    return { content: [{ type: 'text', text: 'ToolBaseOptions' }] };
+    return {
+      content: [
+        { type: 'text', text: 'ToolBaseOptions' },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
+    };
   }
 
   /**
@@ -26,7 +31,12 @@ export class ToolsResolver {
     description: 'Tool with name and description',
   })
   toolWithDescription(_extra: RequestHandlerExtra): CallToolResult {
-    return { content: [{ type: 'text', text: 'ToolWithDescriptionOptions' }] };
+    return {
+      content: [
+        { type: 'text', text: 'ToolWithDescriptionOptions' },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
+    };
   }
 
   /**
@@ -41,7 +51,11 @@ export class ToolsResolver {
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {
-      content: [{ type: 'text', text: `Params: ${JSON.stringify(params)}` }],
+      content: [
+        { type: 'text', text: 'ToolWithParamsSchemaOptions' },
+        { type: 'text', text: `Params: ${JSON.stringify(params)}` },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
     };
   }
 
@@ -58,7 +72,11 @@ export class ToolsResolver {
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {
-      content: [{ type: 'text', text: `Params: ${JSON.stringify(params)}` }],
+      content: [
+        { type: 'text', text: 'ToolWithParamsSchemaAndDescriptionOptions' },
+        { type: 'text', text: `Params: ${JSON.stringify(params)}` },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
     };
   }
 
@@ -69,12 +87,12 @@ export class ToolsResolver {
     name: 'tool_with_annotations',
     annotations: { destructiveHint: true },
   })
-  toolWithAnnotations(
-    params: ParamsSchemaType,
-    _extra: RequestHandlerExtra,
-  ): CallToolResult {
+  toolWithAnnotations(_extra: RequestHandlerExtra): CallToolResult {
     return {
-      content: [{ type: 'text', text: `Params: ${JSON.stringify(params)}` }],
+      content: [
+        { type: 'text', text: 'ToolWithAnnotationsOptions' },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
     };
   }
 
@@ -87,11 +105,13 @@ export class ToolsResolver {
     annotations: { destructiveHint: true },
   })
   toolWithAnnotationsAndDescription(
-    params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {
-      content: [{ type: 'text', text: `Params: ${JSON.stringify(params)}` }],
+      content: [
+        { type: 'text', text: 'ToolWithAnnotationsAndDescriptionOptions' },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
     };
   }
 
@@ -108,7 +128,11 @@ export class ToolsResolver {
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {
-      content: [{ type: 'text', text: `Params: ${JSON.stringify(params)}` }],
+      content: [
+        { type: 'text', text: 'ToolWithParamsSchemaAndAnnotationsOptions' },
+        { type: 'text', text: `Params: ${JSON.stringify(params)}` },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
     };
   }
 
@@ -126,7 +150,14 @@ export class ToolsResolver {
     _extra: RequestHandlerExtra,
   ): CallToolResult {
     return {
-      content: [{ type: 'text', text: `Params: ${JSON.stringify(params)}` }],
+      content: [
+        {
+          type: 'text',
+          text: 'ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions',
+        },
+        { type: 'text', text: `Params: ${JSON.stringify(params)}` },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
     };
   }
 }
