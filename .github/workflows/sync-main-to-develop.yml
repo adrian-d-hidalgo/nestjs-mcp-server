@@ -32,6 +32,10 @@ jobs:
             SYNC_BRANCH="sync-main-to-develop-$(date +%s)"
             git checkout -b $SYNC_BRANCH
 
+            # Configure Git user identity
+            git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git config --global user.name "github-actions[bot]"
+
             # Attempt to merge main into develop
             git fetch origin develop:develop
             if git merge origin/develop --no-commit --no-ff; then
