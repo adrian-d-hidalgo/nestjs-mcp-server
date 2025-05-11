@@ -354,7 +354,7 @@ export class RegistryService {
           'annotations' in metadata &&
           'description' in metadata
         ) {
-          // ToolWithParamAndAnnotationsAndDescriptionOptions
+          // ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions
           server.tool(
             metadata.name,
             metadata.description,
@@ -363,31 +363,35 @@ export class RegistryService {
             wrappedHandler,
           );
         } else if ('paramsSchema' in metadata && 'annotations' in metadata) {
-          // ToolWithParamAndAnnotationsOptions
+          // ToolWithParamsSchemaAndAnnotationsOptions
           server.tool(
             metadata.name,
             metadata.paramsSchema,
             metadata.annotations,
             wrappedHandler,
           );
-        } else if (
-          'paramsSchemaOrAnnotations' in metadata &&
-          'description' in metadata
-        ) {
-          // ToolWithParamOrAnnotationsAndDescriptionOptions
+        } else if ('paramsSchema' in metadata && 'description' in metadata) {
+          // ToolWithParamsSchemaAndDescriptionOptions
           server.tool(
             metadata.name,
             metadata.description,
-            metadata.paramsSchemaOrAnnotations,
+            metadata.paramsSchema,
             wrappedHandler,
           );
-        } else if ('paramsSchemaOrAnnotations' in metadata) {
-          // ToolWithParamOrAnnotationsOptions
+        } else if ('annotations' in metadata && 'description' in metadata) {
+          // ToolWithAnnotationsAndDescriptionOptions
           server.tool(
             metadata.name,
-            metadata.paramsSchemaOrAnnotations,
+            metadata.description,
+            metadata.annotations,
             wrappedHandler,
           );
+        } else if ('paramsSchema' in metadata) {
+          // ToolWithParamsSchemaOptions
+          server.tool(metadata.name, metadata.paramsSchema, wrappedHandler);
+        } else if ('annotations' in metadata) {
+          // ToolWithAnnotationsOptions
+          server.tool(metadata.name, metadata.annotations, wrappedHandler);
         } else if ('description' in metadata) {
           // ToolWithDescriptionOptions
           server.tool(metadata.name, metadata.description, wrappedHandler);

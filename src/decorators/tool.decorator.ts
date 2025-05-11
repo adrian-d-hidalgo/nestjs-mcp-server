@@ -10,32 +10,44 @@ export interface ToolWithDescriptionOptions extends ToolBaseOptions {
   description: string;
 }
 
-export interface ToolWithParamOrAnnotationsOptions extends ToolBaseOptions {
-  paramsSchemaOrAnnotations: ZodRawShape | ToolAnnotations;
+export interface ToolWithParamsSchemaOptions extends ToolBaseOptions {
+  paramsSchema: ZodRawShape;
 }
 
-export interface ToolWithParamOrAnnotationsAndDescriptionOptions
-  extends ToolWithParamOrAnnotationsOptions {
+export interface ToolWithParamsSchemaAndDescriptionOptions
+  extends ToolWithParamsSchemaOptions {
   description: string;
 }
 
-export interface ToolWithParamAndAnnotationsOptions extends ToolBaseOptions {
+export interface ToolWithAnnotationsOptions extends ToolBaseOptions {
+  annotations: ToolAnnotations;
+}
+
+export interface ToolWithAnnotationsAndDescriptionOptions
+  extends ToolWithAnnotationsOptions {
+  description: string;
+}
+
+export interface ToolWithParamsSchemaAndAnnotationsOptions
+  extends ToolBaseOptions {
   paramsSchema: ZodRawShape;
   annotations: ToolAnnotations;
 }
 
-export interface ToolWithParamAndAnnotationsAndDescriptionOptions
-  extends ToolWithParamAndAnnotationsOptions {
+export interface ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions
+  extends ToolWithParamsSchemaAndAnnotationsOptions {
   description: string;
 }
 
 export type ToolOptions =
   | ToolBaseOptions
   | ToolWithDescriptionOptions
-  | ToolWithParamOrAnnotationsOptions
-  | ToolWithParamOrAnnotationsAndDescriptionOptions
-  | ToolWithParamAndAnnotationsOptions
-  | ToolWithParamAndAnnotationsAndDescriptionOptions;
+  | ToolWithParamsSchemaOptions
+  | ToolWithParamsSchemaAndDescriptionOptions
+  | ToolWithAnnotationsOptions
+  | ToolWithAnnotationsAndDescriptionOptions
+  | ToolWithParamsSchemaAndAnnotationsOptions
+  | ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions;
 
 export const MCP_TOOL = '__mcp_tool__';
 
