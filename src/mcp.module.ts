@@ -21,7 +21,7 @@ export class McpModule {
   static forRootAsync(options: {
     imports?: any[];
     useFactory: (
-      ...args: unknown[]
+      ...args: any[]
     ) => Promise<McpModuleOptions> | McpModuleOptions;
     inject?: any[];
   }): DynamicModule {
