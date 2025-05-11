@@ -377,14 +377,12 @@ function main() {
     checkBuildSuccess();
     checkNpmVersion(version);
 
-    // Ensure package.json version matches the tag version
-    run(`pnpm version ${version} --no-git-tag-version`);
-
-    const pkgAfter = getPackageJson();
-
-    if (pkgAfter.version !== version) {
-      console.error(`Error: Failed to set package.json version to ${version}. Current: ${pkgAfter.version}`);
+    // Ensure package.json version matches the tag version (strict validation)
+    if (pkg.version !== version) {
+      console.error(`Error: Version mismatch. package.json=${pkg.version}, tag=${version}`);
       process.exit(1);
+    } else {
+      console.log(`Package.json version matches tag version (${version}), continuing...`);
     }
 
     let publishCmd = 'npm publish';
