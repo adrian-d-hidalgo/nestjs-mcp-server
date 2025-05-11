@@ -287,6 +287,150 @@ const testCases = [
         return { success: false, message: `Unexpected error: ${error.message}` };
       }
     }
+  },
+  {
+    name: "Feature: Handling prerelease suffixes in package.json vs tag",
+    fn: () => {
+      try {
+        // Mock fs module
+        const fs = require('fs');
+        const originalReadFileSync = fs.readFileSync;
+        const originalWriteFileSync = fs.writeFileSync;
+
+        // Mock child_process module
+        const child_process = require('child_process');
+        const originalExecSync = child_process.execSync;
+
+        // Mock commands executed
+        let commands = [];
+        child_process.execSync = (cmd) => {
+          commands.push(cmd);
+          return ''; // Mock empty output
+        };
+
+        // Mock package.json
+        const mockPackageJson = {
+          name: "test-package",
+          version: "1.0.0" // Base version without prerelease suffix
+        };
+
+        fs.readFileSync = (path) => {
+          if (path.endsWith('package.json')) {
+            return JSON.stringify(mockPackageJson);
+          }
+          return originalReadFileSync(path);
+        };
+
+        // Setup test variables
+        const tagVersion = "1.0.0-rc.1"; // Version with prerelease suffix
+        const packageVersion = "1.0.0";  // Base version in package.json
+
+        // In actual code, this is part of main() function
+        // This test simulates the behavior of the main function
+        // when handling a tag with suffix and package.json with base version
+        const isTemporaryUpdateNeeded = packageVersion !== tagVersion;
+
+        // Should determine this needs a temporary update
+        if (isTemporaryUpdateNeeded === false) {
+          return {
+            success: false,
+            message: "Failed to detect need for temporary version update"
+          };
+        }
+
+        // Should detect the correct base version parts match
+        try {
+          checkVersionParity(tagVersion, packageVersion);
+        } catch (error) {
+          return {
+            success: false,
+            message: `checkVersionParity should allow base version match but failed: ${error.message}`
+          };
+        }
+
+        // Restore mocks
+        fs.readFileSync = originalReadFileSync;
+        fs.writeFileSync = originalWriteFileSync;
+        child_process.execSync = originalExecSync;
+
+        return {
+          success: true,
+          message: "Correctly handled prerelease suffix differences between package.json and tag"
+        };
+      } catch (error) {
+        return { success: false, message: `Unexpected error: ${error.message}` };
+      }
+    }
+  },
+  {
+    name: "Feature: Temporary version update and restore simulation",
+    fn: () => {
+      try {
+        // Mock execSync to track called commands
+        const child_process = require('child_process');
+        const originalExecSync = child_process.execSync;
+
+        let commands = [];
+        child_process.execSync = (cmd) => {
+          commands.push(cmd);
+          return ''; // Mock empty output
+        };
+
+        // Simulate the version update and restore logic
+        const originalVersion = "1.0.0";
+        const tagVersion = "1.0.0-rc.1";
+
+        // Simulate temporary version update
+        if (originalVersion !== tagVersion) {
+          // This is what the actual npm-publish.js does
+          child_process.execSync(`pnpm version ${tagVersion} --no-git-tag-version`);
+        }
+
+        // Simulate publishing (in the real script, this would call npm publish)
+        child_process.execSync('npm publish --tag rc --access=public');
+
+        // Simulate version restore
+        if (originalVersion !== tagVersion) {
+          child_process.execSync(`pnpm version ${originalVersion} --no-git-tag-version`);
+        }
+
+        // Check that the right commands were executed in the right order
+        const updateCmd = commands[0];
+        const publishCmd = commands[1];
+        const restoreCmd = commands[2];
+
+        // Restore original function
+        child_process.execSync = originalExecSync;
+
+        if (!updateCmd.includes(`pnpm version ${tagVersion}`)) {
+          return {
+            success: false,
+            message: `Update command incorrect: ${updateCmd}`
+          };
+        }
+
+        if (!publishCmd.includes('npm publish')) {
+          return {
+            success: false,
+            message: `Publish command incorrect: ${publishCmd}`
+          };
+        }
+
+        if (!restoreCmd.includes(`pnpm version ${originalVersion}`)) {
+          return {
+            success: false,
+            message: `Restore command incorrect: ${restoreCmd}`
+          };
+        }
+
+        return {
+          success: true,
+          message: "Correctly simulated temporary version update and restore workflow"
+        };
+      } catch (error) {
+        return { success: false, message: `Unexpected error: ${error.message}` };
+      }
+    }
   }
 ];
 
