@@ -30,13 +30,13 @@ export class ToolsResolver {
   }
 
   /**
-   * 3. ToolWithParamOrAnnotationsOptions: name + paramsSchemaOrAnnotations (ZodRawShape)
+   * 3. ToolWithParamsSchemaOptions: name + paramsSchema (ZodRawShape)
    */
   @Tool({
-    name: 'tool_with_param_schema_or_annotations',
-    paramsSchemaOrAnnotations: ParamsSchema,
+    name: 'tool_with_params_schema',
+    paramsSchema: ParamsSchema,
   })
-  toolWithParamSchemaOrAnnotations(
+  toolWithParamsSchema(
     params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
@@ -46,14 +46,14 @@ export class ToolsResolver {
   }
 
   /**
-   * 4. ToolWithParamOrAnnotationsAndDescriptionOptions: name + paramsSchemaOrAnnotations + description
+   * 4. ToolWithParamsSchemaAndDescriptionOptions: name + paramsSchema + description
    */
   @Tool({
-    name: 'tool_with_param_schema_or_annotations_and_description',
-    description: 'Tool with paramSchemaOrAnnotations and description',
-    paramsSchemaOrAnnotations: ParamsSchema,
+    name: 'tool_with_params_schema_and_description',
+    description: 'Tool with paramsSchema and description',
+    paramsSchema: ParamsSchema,
   })
-  toolWithParamSchemaOrAnnotationsAndDescription(
+  toolWithParamsSchemaAndDescription(
     params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
@@ -63,14 +63,47 @@ export class ToolsResolver {
   }
 
   /**
-   * 5. ToolWithParamAndAnnotationsOptions: name + paramsSchema + annotations
+   * 5. ToolWithAnnotationsOptions: name + annotations
    */
   @Tool({
-    name: 'tool_with_param_and_annotations',
+    name: 'tool_with_annotations',
+    annotations: { destructiveHint: true },
+  })
+  toolWithAnnotations(
+    params: ParamsSchemaType,
+    _extra: RequestHandlerExtra,
+  ): CallToolResult {
+    return {
+      content: [{ type: 'text', text: `Params: ${JSON.stringify(params)}` }],
+    };
+  }
+
+  /**
+   * 6. ToolWithAnnotationsAndDescriptionOptions: name + annotations + description
+   */
+  @Tool({
+    name: 'tool_with_annotations_and_description',
+    description: 'Tool with annotations and description',
+    annotations: { destructiveHint: true },
+  })
+  toolWithAnnotationsAndDescription(
+    params: ParamsSchemaType,
+    _extra: RequestHandlerExtra,
+  ): CallToolResult {
+    return {
+      content: [{ type: 'text', text: `Params: ${JSON.stringify(params)}` }],
+    };
+  }
+
+  /**
+   * 7. ToolWithParamsSchemaAndAnnotationsOptions: name + paramsSchema + annotations
+   */
+  @Tool({
+    name: 'tool_with_params_schema_and_annotations',
     paramsSchema: ParamsSchema,
     annotations: { destructiveHint: true },
   })
-  toolWithParamAndAnnotations(
+  toolWithParamsSchemaAndAnnotations(
     params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
@@ -80,15 +113,15 @@ export class ToolsResolver {
   }
 
   /**
-   * 6. ToolWithParamAndAnnotationsAndDescriptionOptions: name + paramsSchema + annotations + description
+   * 8. ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions: name + paramsSchema + annotations + description
    */
   @Tool({
-    name: 'tool_with_param_and_annotations_and_description',
-    description: 'Tool with paramSchema, annotations, and description',
+    name: 'tool_with_params_schema_and_annotations_and_description',
+    description: 'Tool with paramsSchema, annotations, and description',
     paramsSchema: ParamsSchema,
     annotations: { destructiveHint: true },
   })
-  toolWithParamAndAnnotationsAndDescription(
+  toolWithParamsSchemaAndAnnotationsAndDescription(
     params: ParamsSchemaType,
     _extra: RequestHandlerExtra,
   ): CallToolResult {
