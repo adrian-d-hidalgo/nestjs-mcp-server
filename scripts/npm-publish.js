@@ -347,10 +347,11 @@ function main() {
     validateSemver(version);
 
     const pkg = getPackageJson();
-    console.log(`Tag: ${tag}, extracted version: ${version}, package.json version: ${pkg.version}`);
+    const originalVersion = pkg.version;
+    console.log(`Tag: ${tag}, extracted version: ${version}, package.json version: ${originalVersion}`);
 
-    // Check version parity after extracting the 'v' prefix
-    checkVersionParity(version, pkg.version);
+    // Check base version parity (x.y.z part) without requiring the exact pre-release suffix match
+    checkVersionParity(version, originalVersion);
 
     // Detect current branch and validate pre-release suffix
     const branch = getCurrentBranch();
@@ -377,12 +378,10 @@ function main() {
     checkBuildSuccess();
     checkNpmVersion(version);
 
-    // Ensure package.json version matches the tag version (strict validation)
-    if (pkg.version !== version) {
-      console.error(`Error: Version mismatch. package.json=${pkg.version}, tag=${version}`);
-      process.exit(1);
-    } else {
-      console.log(`Package.json version matches tag version (${version}), continuing...`);
+    // Temporarily update package.json version to match the tag version
+    if (originalVersion !== version) {
+      console.log(`Temporarily updating package.json version to match tag: ${originalVersion} → ${version}`);
+      run(`pnpm version ${version} --no-git-tag-version`);
     }
 
     let publishCmd = 'npm publish';
@@ -407,12 +406,10 @@ function main() {
     }
     run(publishCmd);
 
-    // Rollback package.json to base version (x.y.z) if a pre-release was published
-    const publishedBaseVersion = version.split('-')[0];
-
-    if (version !== publishedBaseVersion) {
-      run(`pnpm version ${publishedBaseVersion} --no-git-tag-version`);
-      console.log(`Rolled back package.json to base version: ${publishedBaseVersion}`);
+    // Restore original package.json version if changed
+    if (originalVersion !== version) {
+      run(`pnpm version ${originalVersion} --no-git-tag-version`);
+      console.log(`Restored package.json to original version: ${originalVersion}`);
     }
   } catch (error) {
     console.error(`Error: ${error.message}`);
