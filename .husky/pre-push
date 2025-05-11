@@ -1,0 +1,12 @@
+#!/bin/sh
+. "$(dirname "$0")/_/husky.sh"
+
+# Run tests with coverage
+echo "Running tests with coverage check..."
+pnpm test:cov || exit 1
+
+# Run type checking
+echo "Running type checking..."
+pnpm typecheck || exit 1
+
+exit 0 
