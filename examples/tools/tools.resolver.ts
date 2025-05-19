@@ -1,204 +1,162 @@
 import { CallToolResult } from '@modelcontextprotocol/sdk/types';
-import { randomInt, randomUUID } from 'crypto';
 import { z } from 'zod';
 
-import { Resolver, Tool } from '../../src';
+import { RequestHandlerExtra, Resolver, Tool } from '../../src';
+
+const ParamsSchema = { value: z.string() };
+type ParamsSchemaType = typeof ParamsSchema;
 
 @Resolver('tools')
 export class ToolsResolver {
   /**
-   * Simple tool with only a name
-   * Use case: Basic functionality that requires no parameters
+   * 1. ToolBaseOptions: Only name
    */
   @Tool({
-    name: 'server_health_check',
+    name: 'tool_base',
   })
-  healthCheck(): CallToolResult {
+  toolBase(_extra: RequestHandlerExtra): CallToolResult {
     return {
       content: [
-        {
-          type: 'text',
-          text: 'Server is operational. All systems running normally.',
-        },
+        { type: 'text', text: 'ToolBaseOptions' },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
       ],
     };
   }
 
   /**
-   * Tool with name and parameter schema
-   * Use case: When you need validated input parameters
+   * 2. ToolWithDescriptionOptions: name + description
    */
   @Tool({
-    name: 'calculate_discount',
-    paramSchema: {
-      price: z.number().positive().min(0.01),
-      discountPercentage: z.number().min(0).max(100),
-    },
+    name: 'tool_with_description',
+    description: 'Tool with name and description',
   })
-  calculateDiscount({
-    price,
-    discountPercentage,
-  }: {
-    price: number;
-    discountPercentage: number;
-  }): CallToolResult {
-    const discountAmount = price * (discountPercentage / 100);
-    const finalPrice = price - discountAmount;
-
+  toolWithDescription(_extra: RequestHandlerExtra): CallToolResult {
     return {
       content: [
-        {
-          type: 'text',
-          text: `Original price: $${price.toFixed(2)}\nDiscount: $${discountAmount.toFixed(2)} (${discountPercentage}%)\nFinal price: $${finalPrice.toFixed(2)}`,
-        },
+        { type: 'text', text: 'ToolWithDescriptionOptions' },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
       ],
     };
   }
 
   /**
-   * Tool with name and description
-   * Use case: When additional context helps the user understand the tool's purpose
+   * 3. ToolWithParamsSchemaOptions: name + paramsSchema (ZodRawShape)
    */
   @Tool({
-    name: 'generate_unique_id',
-    description:
-      'Generates a cryptographically strong unique identifier suitable for database keys or session tokens',
+    name: 'tool_with_params_schema',
+    paramsSchema: ParamsSchema,
   })
-  generateUniqueId(): CallToolResult {
-    // Simple UUID v4 implementation for example purposes
-    const uuid = randomUUID();
-
+  toolWithParamsSchema(
+    params: ParamsSchemaType,
+    _extra: RequestHandlerExtra,
+  ): CallToolResult {
     return {
       content: [
-        {
-          type: 'text',
-          text: `Generated ID: ${uuid}`,
-        },
+        { type: 'text', text: 'ToolWithParamsSchemaOptions' },
+        { type: 'text', text: `Params: ${JSON.stringify(params)}` },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
       ],
     };
   }
 
   /**
-   * Comprehensive tool with all options
-   * Use case: Complex functionality requiring validated input and clear explanation
+   * 4. ToolWithParamsSchemaAndDescriptionOptions: name + paramsSchema + description
    */
   @Tool({
-    name: 'weather_forecast',
-    description:
-      'Retrieves weather forecast for a specified location and timeframe',
-    paramSchema: {
-      location: z.string().min(2).max(100),
-      days: z.number().int().min(1).max(7).default(3),
-      tempUnit: z.enum(['celsius', 'fahrenheit']).default('celsius'),
-    },
+    name: 'tool_with_params_schema_and_description',
+    description: 'Tool with paramsSchema and description',
+    paramsSchema: ParamsSchema,
   })
-  getWeatherForecast({
-    location,
-    days,
-    tempUnit,
-  }: {
-    location: string;
-    days: number;
-    tempUnit: 'celsius' | 'fahrenheit';
-  }): CallToolResult {
-    // Mock weather data for demonstration
-    const weatherTypes = [
-      'Sunny',
-      'Partly Cloudy',
-      'Cloudy',
-      'Rainy',
-      'Thunderstorms',
-    ];
-    const forecast = Array.from({ length: days }, (_, i) => {
-      const date = new Date();
-      date.setDate(date.getDate() + i);
-
-      // Generate mock temperature (60-85°F range or 15-30°C range)
-      let temp = Math.floor(Math.random() * 15) + 15; // celsius
-      if (tempUnit === 'fahrenheit') {
-        temp = Math.round((temp * 9) / 5 + 32);
-      }
-
-      return {
-        date: date.toDateString(),
-        condition:
-          weatherTypes[Math.floor(Math.random() * weatherTypes.length)],
-        temperature: temp,
-        unit: tempUnit === 'celsius' ? '°C' : '°F',
-      };
-    });
-
-    const formattedForecast = forecast
-      .map(
-        (day) => `${day.date}: ${day.condition}, ${day.temperature}${day.unit}`,
-      )
-      .join('\n');
-
+  toolWithParamsSchemaAndDescription(
+    params: ParamsSchemaType,
+    _extra: RequestHandlerExtra,
+  ): CallToolResult {
     return {
       content: [
-        {
-          type: 'text',
-          text: `Weather forecast for ${location} (next ${days} days):\n\n${formattedForecast}`,
-        },
+        { type: 'text', text: 'ToolWithParamsSchemaAndDescriptionOptions' },
+        { type: 'text', text: `Params: ${JSON.stringify(params)}` },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
       ],
     };
   }
 
   /**
-   * Tool with complex schema validation
-   * Use case: When you need sophisticated input validation
+   * 5. ToolWithAnnotationsOptions: name + annotations
    */
   @Tool({
-    name: 'register_user',
-    description: 'Registers a new user in the system with validation',
-    paramSchema: {
-      username: z
-        .string()
-        .min(3)
-        .max(20)
-        .regex(/^[a-zA-Z0-9_]+$/),
-      email: z.string().email(),
-      age: z.number().int().min(18).optional(),
-      preferences: z
-        .object({
-          theme: z.enum(['light', 'dark', 'system']).default('system'),
-          notifications: z.boolean().default(true),
-        })
-        .optional(),
-    },
+    name: 'tool_with_annotations',
+    annotations: { destructiveHint: true },
   })
-  registerUser({
-    username,
-    email,
-    age,
-    preferences,
-  }: {
-    username: string;
-    email: string;
-    age?: number;
-    preferences?: {
-      theme: 'light' | 'dark' | 'system';
-      notifications: boolean;
+  toolWithAnnotations(_extra: RequestHandlerExtra): CallToolResult {
+    return {
+      content: [
+        { type: 'text', text: 'ToolWithAnnotationsOptions' },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
     };
-  }): CallToolResult {
-    const userId = randomInt(10000, 100000);
+  }
 
+  /**
+   * 6. ToolWithAnnotationsAndDescriptionOptions: name + annotations + description
+   */
+  @Tool({
+    name: 'tool_with_annotations_and_description',
+    description: 'Tool with annotations and description',
+    annotations: { destructiveHint: true },
+  })
+  toolWithAnnotationsAndDescription(
+    _extra: RequestHandlerExtra,
+  ): CallToolResult {
+    return {
+      content: [
+        { type: 'text', text: 'ToolWithAnnotationsAndDescriptionOptions' },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
+    };
+  }
+
+  /**
+   * 7. ToolWithParamsSchemaAndAnnotationsOptions: name + paramsSchema + annotations
+   */
+  @Tool({
+    name: 'tool_with_params_schema_and_annotations',
+    paramsSchema: ParamsSchema,
+    annotations: { destructiveHint: true },
+  })
+  toolWithParamsSchemaAndAnnotations(
+    params: ParamsSchemaType,
+    _extra: RequestHandlerExtra,
+  ): CallToolResult {
+    return {
+      content: [
+        { type: 'text', text: 'ToolWithParamsSchemaAndAnnotationsOptions' },
+        { type: 'text', text: `Params: ${JSON.stringify(params)}` },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+      ],
+    };
+  }
+
+  /**
+   * 8. ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions: name + paramsSchema + annotations + description
+   */
+  @Tool({
+    name: 'tool_with_params_schema_and_annotations_and_description',
+    description: 'Tool with paramsSchema, annotations, and description',
+    paramsSchema: ParamsSchema,
+    annotations: { destructiveHint: true },
+  })
+  toolWithParamsSchemaAndAnnotationsAndDescription(
+    params: ParamsSchemaType,
+    _extra: RequestHandlerExtra,
+  ): CallToolResult {
     return {
       content: [
         {
           type: 'text',
-          text: `User registered successfully!\n
-          User ID: ${userId}
-          Username: ${username}
-          Email: ${email}
-          ${age ? `Age: ${age}` : ''}
-          ${
-            preferences
-              ? `Theme: ${preferences.theme}
-                Notifications: ${preferences.notifications ? 'Enabled' : 'Disabled'}`
-              : ''
-          }`,
+          text: 'ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions',
         },
+        { type: 'text', text: `Params: ${JSON.stringify(params)}` },
+        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
       ],
     };
   }

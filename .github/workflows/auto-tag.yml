@@ -1,0 +1,53 @@
+name: Auto Tag on Main Push
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  auto-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from package.json
+        id: package-version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version detected: v$VERSION"
+
+      - name: Check if tag exists
+        id: check-tag
+        run: |
+          TAG_EXISTS=$(git tag -l "v${{ steps.package-version.outputs.version }}")
+          if [ -z "$TAG_EXISTS" ]; then
+            echo "tag_exists=false" >> $GITHUB_OUTPUT
+            echo "Tag does not exist, will create it"
+          else
+            echo "tag_exists=true" >> $GITHUB_OUTPUT
+            echo "Tag already exists, skipping creation"
+          fi
+
+      - name: Create Tag
+        if: steps.check-tag.outputs.tag_exists == 'false'
+        run: |
+          git config --local user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git tag -a "v${{ steps.package-version.outputs.version }}" -m "Release v${{ steps.package-version.outputs.version }}"
+          git push origin "v${{ steps.package-version.outputs.version }}"
+          echo "Tag v${{ steps.package-version.outputs.version }} created and pushed"
+
+      - name: Notify about tag creation
+        if: steps.check-tag.outputs.tag_exists == 'false'
+        uses: peter-evans/create-or-update-comment@v3
+        with:
+          issue-number: 46
+          body: |
+            🚀 Automated tag `v${{ steps.package-version.outputs.version }}` has been created based on the package.json version.
+
+            This workflow was triggered by a push to the main branch.

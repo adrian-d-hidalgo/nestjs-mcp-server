@@ -5,13 +5,11 @@ import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 
-import {
-  McpModuleTransportOptions,
-  McpServerOptions,
-} from '../../interfaces/mcp-server-options.interface';
-import { McpLoggerService } from '../../registry/logger.service';
-import { RegistryService } from '../../registry/registry.service';
+import { McpModuleTransportOptions, McpServerOptions } from '../../mcp.types';
+import { McpLoggerService } from '../../services/logger.service';
+import { RegistryService } from '../../services/registry.service';
 import { SessionManager } from '../../services/session.manager';
+
 // TODO: Stateless mode should be handled here or in another service
 
 @Injectable()

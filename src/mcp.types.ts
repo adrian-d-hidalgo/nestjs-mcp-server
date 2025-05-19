@@ -1,10 +1,30 @@
 import { StreamableHTTPServerTransportOptions } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { ProtocolOptions } from '@modelcontextprotocol/sdk/shared/protocol.js';
+import {
+  ProtocolOptions,
+  RequestHandlerExtra as SdkRequestHandlerExtra,
+} from '@modelcontextprotocol/sdk/shared/protocol.js';
 import {
   Implementation,
   ServerCapabilities,
+  ServerNotification,
+  ServerRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Provider, Type } from '@nestjs/common';
+import { ZodOptional, ZodType, ZodTypeDef } from 'zod';
+
+// This type exists in the MCP SDK but is not exported
+export type PromptArgsRawShape = {
+  [k: string]:
+    | ZodType<string, ZodTypeDef, string>
+    | ZodOptional<ZodType<string, ZodTypeDef, string>>;
+};
+
+export type RequestHandlerExtra = SdkRequestHandlerExtra<
+  ServerRequest,
+  ServerNotification
+> & {
+  headers: Record<string, string>;
+};
 
 export type ServerOptions = {
   instructions?: string;
@@ -21,7 +41,7 @@ export type McpServerOptions = {
 /**
  * Opciones para configurar el logging del servidor MCP
  */
-export interface McpLoggingOptions {
+export type McpLoggingOptions = {
   /**
    * Habilitar o deshabilitar el logging
    * @default true
@@ -33,12 +53,12 @@ export interface McpLoggingOptions {
    * @default 'verbose'
    */
   level?: 'debug' | 'verbose' | 'log' | 'warn' | 'error';
-}
+};
 
 /**
  * Options for configuring the global MCP server module
  */
-export interface McpModuleOptions {
+export type McpModuleOptions = {
   /**
    * Additional modules to import
    */
@@ -76,7 +96,7 @@ export interface McpModuleOptions {
    * Options for configuring a feature module with MCP capabilities
    */
   transports?: McpModuleTransportOptions;
-}
+};
 
 export type McpModuleTransportOptions = {
   streamable?: {
@@ -100,6 +120,12 @@ export type McpModuleTransportOptions = {
  * Options for configuring a feature module with MCP capabilities
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type
-export interface McpFeatureOptions {
+export type McpFeatureOptions = {
   // TODO: Maybe its needed to implement Guards for all capabilities in this module o a specific logger configuration
-}
+};
+
+export type McpModuleAsyncOptions = {
+  imports?: any[];
+  useFactory: (...args: any[]) => Promise<McpModuleOptions> | McpModuleOptions;
+  inject?: any[];
+};

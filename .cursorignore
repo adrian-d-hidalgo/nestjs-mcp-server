@@ -1,0 +1,52 @@
+# Ignore dependencies and build output
+node_modules/
+dist/
+coverage/
+/build
+
+# Ignore version control and VCS metadata
+.git/
+
+# Ignore dev environment memory (but keep .vscode/ and .devcontainer/ for editing)
+.memory/
+
+# Ignore lockfiles and logs
+pnpm-lock.yaml
+logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Ignore system and OS files
+.DS_Store
+
+# Ignore local environment and config files
+*.local
+.env*
+
+# Ignore temp and runtime files
+dotenv environment variable files
+.temp
+.tmp
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Ignore IDE/editor config
+/.nyc_output
+/.idea
+.classpath
+.c9/
+*.launch
+*.sublime-workspace
+
+# Ignore Node.js diagnostic reports
+report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
+
+# Ignore Cursor's own metadata
+.cursor/*
+!.cursor/rules/*

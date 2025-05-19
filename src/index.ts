@@ -1,11 +1,12 @@
 // Core components
 export * from './mcp.module';
+export * from './mcp.types';
 
 // Interfaces
 export * from './interfaces';
 
-// Registry components
-export * from './registry';
+// Objects
+export * from './classes';
 
 // Services
 export * from './services';

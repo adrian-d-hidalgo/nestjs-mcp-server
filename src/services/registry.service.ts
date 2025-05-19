@@ -11,27 +11,27 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
-import { MCP_RESOLVER } from '../decorators';
 import {
+  PromptHandlerArgs,
+  ResourceTemplateHandlerArgs,
+  ResourceUriHandlerArgs,
+  ToolHandlerArgs,
+} from '../classes';
+import {
+  MCP_GUARDS,
   MCP_PROMPT,
+  MCP_RESOLVER,
   MCP_RESOURCE,
   MCP_TOOL,
-} from '../decorators/capabilities.constants';
-import { MCP_GUARDS } from '../decorators/capabilities.decorators';
-import {
-  PromptHandlerParams,
   PromptOptions,
-  RequestHandlerExtra,
   ResourceOptions,
-  ResourceTemplateHandlerParams,
-  ResourceUriHandlerParams,
-  ToolHandlerParams,
   ToolOptions,
-} from '../interfaces/capabilities.interface';
+} from '../decorators';
 import { McpExecutionContext } from '../interfaces/context.interface';
-import { SessionManager } from '../services/session.manager';
+import { RequestHandlerExtra } from '../mcp.types';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
+import { SessionManager } from './session.manager';
 
 @Injectable()
 export class RegistryService {
@@ -69,35 +69,32 @@ export class RegistryService {
     method: Type<any> | undefined,
     args: unknown[],
   ):
-    | ResourceUriHandlerParams
-    | ResourceTemplateHandlerParams
-    | PromptHandlerParams
-    | ToolHandlerParams {
+    | ResourceUriHandlerArgs
+    | ResourceTemplateHandlerArgs
+    | PromptHandlerArgs
+    | ToolHandlerArgs {
     if (!method) throw new Error('Method not found');
 
     switch (this.getDecoratorType(method)) {
       case 'RESOURCE':
         return args[0] instanceof URL
-          ? ResourceUriHandlerParams.from(
-              args[0],
-              args[1] as RequestHandlerExtra,
-            )
-          : ResourceTemplateHandlerParams.from(
+          ? ResourceUriHandlerArgs.from(args[0], args[1] as RequestHandlerExtra)
+          : ResourceTemplateHandlerArgs.from(
               args[0] as any,
               args[2] as RequestHandlerExtra,
               args[1] as Record<string, string>,
             );
       case 'PROMPT':
         return args.length === 1
-          ? PromptHandlerParams.from(args[0] as RequestHandlerExtra)
-          : PromptHandlerParams.from(
+          ? PromptHandlerArgs.from(args[0] as RequestHandlerExtra)
+          : PromptHandlerArgs.from(
               args[1] as RequestHandlerExtra,
               args[0] as any,
             );
       case 'TOOL':
         return args.length === 1
-          ? ToolHandlerParams.from(args[0] as RequestHandlerExtra)
-          : ToolHandlerParams.from(
+          ? ToolHandlerArgs.from(args[0] as RequestHandlerExtra)
+          : ToolHandlerArgs.from(
               args[1] as RequestHandlerExtra,
               args[0] as any,
             );
@@ -352,18 +349,54 @@ export class RegistryService {
         this.wrappedHandler(instance, handler, args);
 
       try {
-        if ('description' in metadata && 'paramSchema' in metadata) {
+        if (
+          'paramsSchema' in metadata &&
+          'annotations' in metadata &&
+          'description' in metadata
+        ) {
+          // ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions
           server.tool(
             metadata.name,
             metadata.description,
-            metadata.paramSchema,
+            metadata.paramsSchema,
+            metadata.annotations,
             wrappedHandler,
           );
-        } else if ('paramSchema' in metadata) {
-          server.tool(metadata.name, metadata.paramSchema, wrappedHandler);
+        } else if ('paramsSchema' in metadata && 'annotations' in metadata) {
+          // ToolWithParamsSchemaAndAnnotationsOptions
+          server.tool(
+            metadata.name,
+            metadata.paramsSchema,
+            metadata.annotations,
+            wrappedHandler,
+          );
+        } else if ('paramsSchema' in metadata && 'description' in metadata) {
+          // ToolWithParamsSchemaAndDescriptionOptions
+          server.tool(
+            metadata.name,
+            metadata.description,
+            metadata.paramsSchema,
+            wrappedHandler,
+          );
+        } else if ('annotations' in metadata && 'description' in metadata) {
+          // ToolWithAnnotationsAndDescriptionOptions
+          server.tool(
+            metadata.name,
+            metadata.description,
+            metadata.annotations,
+            wrappedHandler,
+          );
+        } else if ('paramsSchema' in metadata) {
+          // ToolWithParamsSchemaOptions
+          server.tool(metadata.name, metadata.paramsSchema, wrappedHandler);
+        } else if ('annotations' in metadata) {
+          // ToolWithAnnotationsOptions
+          server.tool(metadata.name, metadata.annotations, wrappedHandler);
         } else if ('description' in metadata) {
+          // ToolWithDescriptionOptions
           server.tool(metadata.name, metadata.description, wrappedHandler);
         } else {
+          // ToolBaseOptions
           server.tool(metadata.name, wrappedHandler);
         }
       } catch (error) {

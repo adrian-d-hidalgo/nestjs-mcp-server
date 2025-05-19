@@ -1,7 +1,7 @@
 import { Controller, Get, Post, Req, Res } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-import { McpLoggerService } from '../../registry/logger.service';
+import { McpLoggerService } from '../../services/logger.service';
 import { SseService } from './sse.service';
 
 @Controller()

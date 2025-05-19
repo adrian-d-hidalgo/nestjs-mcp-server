@@ -1,11 +1,11 @@
 import { ExecutionContext } from '@nestjs/common';
 
 import {
-  PromptHandlerParams,
-  ResourceTemplateHandlerParams,
-  ResourceUriHandlerParams,
-  ToolHandlerParams,
-} from './capabilities.interface';
+  PromptHandlerArgs,
+  ResourceTemplateHandlerArgs,
+  ResourceUriHandlerArgs,
+  ToolHandlerArgs,
+} from '../classes';
 /**
  * Custom execution context for MCP guards.
  * Extends NestJS ExecutionContext and adds args for MCP method arguments.
@@ -17,17 +17,17 @@ import {
 export interface McpExecutionContext extends ExecutionContext {
   // TODO: Remove this once the getArgs method implementation is complete.
   args:
-    | ResourceUriHandlerParams
-    | ResourceTemplateHandlerParams
-    | PromptHandlerParams
-    | ToolHandlerParams;
+    | ResourceUriHandlerArgs
+    | ResourceTemplateHandlerArgs
+    | PromptHandlerArgs
+    | ToolHandlerArgs;
 
   // TODO: Uncomment this once the getArgs type is fixed
   // getArgs: () =>
-  //   | ResourceUriHandlerParams
-  //   | ResourceTemplateHandlerParams
-  //   | PromptHandlerParams
-  //   | ToolHandlerParams;
+  //   | ResourceUriHandlerArgs
+  //   | ResourceTemplateHandlerArgs
+  //   | PromptHandlerArgs
+  //   | ToolHandlerArgs;
 
   getSessionId: () => string;
 }

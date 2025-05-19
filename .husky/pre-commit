@@ -1,8 +1,14 @@
 #!/bin/sh
 . "$(dirname "$0")/_/husky.sh"
 
+# Prevent direct commits to protected branches
 branch=$(git rev-parse --abbrev-ref HEAD)
+
 if echo "$branch" | grep -Eq '^(main|develop|release/.*)$'; then
   echo "❌ Direct commits to $branch are not allowed. Please use a feature or hotfix branch."
   exit 1
 fi
+
+# Run linting
+echo "Running lint check..."
+pnpm lint
