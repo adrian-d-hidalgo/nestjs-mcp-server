@@ -48,7 +48,7 @@
   - [Method-level guards](#method-level-guards)
   - [Guard Example](#guard-example)
   - [MCP Execution Context](#mcp-execution-context)
-- [Session Management](#session-management)
+- [Stateless Architecture](#stateless-architecture)
 - [Transport Options](#transport-options)
 - [Inspector Playground](#inspector-playground)
 - [Examples](#examples)
@@ -187,7 +187,6 @@ import { McpModule } from '@nestjs-mcp/server';
       version: '1.0.0',
       instructions: 'A server providing utility tools and data.',
       logging: { level: 'log' },
-      transports: { sse: { enabled: false } }, // Disable SSE transport
       // ...other MCP options
     }),
   ],
@@ -544,18 +543,18 @@ All MCP capability methods (`@Prompt`, `@Resource`, `@Tool`) always receive a `R
 
 - `signal`: An `AbortSignal` used to communicate if the request was cancelled
 - `authInfo`: Optional information about a validated access token
-- `sessionId`: The session ID from the transport, if available
+- `sessionId`: The session ID from the transport, if available (may be undefined in stateless mode)
 - `sendNotification`: Function to send a notification related to the current request
 - `sendRequest`: Function to send a request related to the current request
 
 **Extended Properties:**
 
-- `headers`: HTTP headers from the original request (added by @nestjs-mcp/server)
+- `request`: Express Request object providing access to headers, body, query params, IP, etc. (added by @nestjs-mcp/server)
 
 **Usage Example:**
 
 ```ts
-import { Tool, Resolver, SessionManager } from '@nestjs-mcp/server';
+import { Tool, Resolver } from '@nestjs-mcp/server';
 import { RequestHandlerExtra } from '@nestjs-mcp/server';
 import { CallToolResult } from '@modelcontextprotocol/sdk/types';
 
@@ -570,14 +569,16 @@ export class AuthResolver {
     params: { username: string; password: string },
     extra: RequestHandlerExtra, // Always the last parameter
   ): CallToolResult {
-    // Access the session ID
-    console.log(`Request received in session: ${extra.sessionId}`);
+    // Access request headers
+    const authHeader = extra.request.headers.authorization;
+    const userAgent = extra.request.headers['user-agent'];
+    const clientIp = extra.request.ip;
+    
+    console.log(`Request from: ${userAgent} (${clientIp})`);
 
-    // Access request headers (extended property)
-    const authHeader = extra.headers.authorization;
-    const userAgent = extra.headers['user-agent'];
-    console.log(`Request from: ${userAgent}`);
-
+    // Access request body
+    const requestBody = extra.request.body;
+    
     // Check if request was cancelled
     if (extra.signal.aborted) {
       return {
@@ -593,10 +594,24 @@ export class AuthResolver {
 }
 ```
 
+**Available Request Properties:**
+
+The `extra.request` object is a standard Express Request with access to:
+
+- `headers` - HTTP headers
+- `body` - Request body (parsed by body-parser middleware)
+- `query` - Query string parameters
+- `params` - Route parameters
+- `ip` - Client IP address
+- `method` - HTTP method (GET, POST, etc.)
+- `url` - Request URL
+- `cookies` - Cookies (if cookie-parser middleware is used)
+- And all other Express Request properties
+
 **Important Notes:**
 
 - `extra` is always the last parameter in any method decorated with `@Resource`, `@Prompt`, or `@Tool`
-- The `headers` property is an extension added by @nestjs-mcp/server to access HTTP headers directly
+- The `request` property provides direct access to the Express Request object
 
 ---
 
@@ -606,7 +621,7 @@ Apply one or more guards to a Resolver, to individual methods, or globally. Guar
 
 ### Global-level guards
 
-This approach uses the standard NestJS global guard system (`APP_GUARD`). A global guard will protect **all** NestJS routes, including the MCP transport endpoints (like `/mcp` or `/sse`). Use this for broad authentication or checks that apply before any MCP-specific logic runs.
+This approach uses the standard NestJS global guard system (`APP_GUARD`). A global guard will protect **all** NestJS routes, including the MCP transport endpoint (`/mcp`). Use this for broad authentication or checks that apply before any MCP-specific logic runs.
 
 ```ts
 // src/guards/global-auth.guard.ts
@@ -696,20 +711,14 @@ A guard for Resolver or Method-level protection:
 ```ts
 // src/guards/my-mcp.guard.ts
 import { CanActivate, Injectable } from '@nestjs/common';
-import { McpExecutionContext, SessionManager } from '@nestjs-mcp/server';
+import { McpExecutionContext } from '@nestjs-mcp/server';
 
 @Injectable()
 export class MyMcpGuard implements CanActivate {
-  constructor(private readonly sessionManager: SessionManager) {}
-
   canActivate(context: McpExecutionContext): boolean {
     const sessionId = context.getSessionId();
-    if (!sessionId) return false;
-
     const handlerArgs = context.getArgs();
-
-    const session = this.sessionManager.getSession(sessionId);
-    const request = session?.request;
+    const request = context.switchToHttp().getRequest();
     const userAgent = request?.headers['user-agent'];
 
     console.log(`Guard activated for session ${sessionId} from ${userAgent}`);
@@ -725,36 +734,26 @@ export class MyMcpGuard implements CanActivate {
 When implementing **Resolver-level** or **Method-level** guards using `@UseGuards()` from this library, your `canActivate` method receives an `McpExecutionContext` instance. This context provides access to MCP-specific information:
 
 ```typescript
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { McpExecutionContext, SessionManager } from '@nestjs-mcp/server';
+import { CanActivate, Injectable } from '@nestjs/common';
+import { McpExecutionContext } from '@nestjs-mcp/server';
 import { Request } from 'express';
 
 @Injectable()
 export class McpAuthGuard implements CanActivate {
-  constructor(private readonly sessionManager: SessionManager) {}
-
   canActivate(context: McpExecutionContext): boolean {
     const sessionId = context.getSessionId();
-    if (!sessionId) {
-      console.error('Guard Error: MCP Session ID not found in context.');
-      return false;
-    }
-
     const handlerArgs = context.getArgs<any>();
-    console.log('MCP Handler Arguments:', handlerArgs);
+    const request = context.switchToHttp().getRequest<Request>();
 
-    const session = this.sessionManager.getSession(sessionId);
-    if (!session) {
-      console.error(`Guard Error: Session not found for ID: ${sessionId}`);
-      return false;
-    }
-    const request = session.request as Request;
+    console.log('MCP Handler Arguments:', handlerArgs);
+    console.log('Session ID:', sessionId);
 
     const authHeader = request.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       console.log('Guard Denied: Missing or invalid Bearer token.');
       return false;
     }
+    
     const token = authHeader.split(' ')[1];
     const isValidToken = token === 'VALID_TOKEN';
 
@@ -771,106 +770,75 @@ export class McpAuthGuard implements CanActivate {
 
 **Key points for `McpExecutionContext`:**
 
-- `getSessionId()`: Retrieves the unique ID for the current MCP session. **Crucial** for relating the guard check to the session state stored by `SessionManager`.
-- Arguments (`handlerArgs`): Provides the arguments passed specifically to the MCP handler method (`@Tool`, `@Prompt`, `@Resource`) being invoked. The structure of these arguments depends on the capability type and its definition (e.g., `params` for tools, `query`/`params` for resources). You access these via `context.getArgs()`, but be mindful of the actual structure based on the capability.
-- Request Data: Use the `SessionManager` injected into your guard to fetch the session details (including the original `Request`) based on the `sessionId` obtained from the context.
-- `switchToHttp().getResponse()` / `switchToHttp().getNext()`: These will throw errors as the Response object is not directly available or relevant in this context.
-
-Use `SessionManager` injected into your guard to fetch the session details (including the original `Request`) based on the `sessionId` obtained from the context.
+- `getSessionId()`: Retrieves the unique ID for the current MCP session (may be undefined in stateless mode)
+- `getArgs()`: Provides the arguments passed to the MCP handler method (`@Tool`, `@Prompt`, `@Resource`)
+- `switchToHttp().getRequest()`: Returns the Express Request object with access to headers, body, query params, etc.
+- `switchToHttp().getResponse()` / `switchToHttp().getNext()`: These will throw errors as the Response object is not directly available in this context
 
 ---
 
-## Session Management
+## Stateless Architecture
 
-This library includes a `SessionManager` service responsible for tracking active MCP sessions. Each incoming MCP connection establishes a session, identified by a unique `sessionId`. The `SessionManager` typically stores the associated initial `Request` object for each session.
+This library implements a **stateless** approach following the recommended "Without Session Management" pattern from `@modelcontextprotocol/sdk`. Each request is handled independently without maintaining session state between requests.
 
-**Why is it important?**
+### How It Works
 
-- **Accessing Request Data:** Since MCP operations (tool calls, prompt executions) might happen independently of the initial HTTP connection (especially with streaming transports like SSE), the `SessionManager` provides a way to retrieve the original `Request` context associated with a specific `sessionId`. This is essential for guards or capability methods (within Resolvers) that need access to request headers, parameters, or other connection-specific details from the original request.
-- **State Management:** While currently focused on storing the request, the `SessionManager` could be extended to store additional session-specific state if needed by your application.
+1. **Request Flow:**
+   - Client sends POST request to `/mcp`
+   - Server creates a new transport for each request with `sessionIdGenerator: undefined`
+   - Request is processed and transport is closed when response completes
 
-**Usage Example (in a Resolver):**
+2. **Request Context:**
+   - The original Express Request is made available via `AsyncLocalStorage`
+   - Guards and handlers can access request data through `extra.request`
+   - No session state is maintained between requests
 
-Resolvers might need access to the original request, for example, to get user information or API keys passed in headers during the initial connection.
+### Benefits
+
+- **Simpler Architecture**: No session state to manage
+- **Better Scalability**: Each request is independent
+- **SDK Compliance**: Follows recommended approach from `@modelcontextprotocol/sdk`
+- **Reduced Memory Usage**: No session storage overhead
+- **Easier Debugging**: No cross-request state issues
+
+### Accessing Request Data
+
+All MCP handlers receive the Express Request object in the `extra` parameter:
 
 ```typescript
-import { Tool, Resolver, SessionManager } from '@nestjs-mcp/server';
-import { RequestHandlerExtra } from '@nestjs-mcp/server'; // Provides sessionId
-import { Request } from 'express';
-import { CallToolResult } from '@modelcontextprotocol/sdk/types';
-import { z } from 'zod';
-
-const UserToolParams = z.object({
-  user_id: z.string().optional(),
-});
-
-@Resolver('user_tools') // No @Injectable() needed
-export class UserToolsResolver {
-  // Inject SessionManager
-  constructor(private readonly sessionManager: SessionManager) {}
-
-  @Tool({
-    name: 'get_user_agent',
-    description:
-      'Gets the user agent from the original request for the session.',
-    paramSchema: UserToolParams,
-  })
-  getUserAgent(
-    params: z.infer<typeof UserToolParams>,
-    extra: RequestHandlerExtra, // Get extra info, including sessionId
-  ): CallToolResult {
-    const sessionId = extra.sessionId;
-    if (!sessionId) {
-      return {
-        content: [{ type: 'text', text: 'Error: Session ID missing.' }],
-      };
-    }
-
-    // Use sessionId to get the session from the manager
-    const session = this.sessionManager.getSession(sessionId);
-    if (!session) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error: Session not found for ID: ${sessionId}`,
-          },
-        ],
-      };
-    }
-
-    // Access the original request stored in the session
-    const request = session.request as Request;
-    const userAgent = request.headers['user-agent'] || 'Unknown';
-
-    return {
-      content: [
-        { type: 'text', text: `Session ${sessionId} User Agent: ${userAgent}` },
-      ],
-    };
-  }
+@Tool({ name: 'my_tool' })
+myTool(params: any, extra: RequestHandlerExtra): CallToolResult {
+  // Access headers
+  const authHeader = extra.request.headers.authorization;
+  
+  // Access body
+  const body = extra.request.body;
+  
+  // Access IP
+  const clientIp = extra.request.ip;
+  
+  // ... use request data
 }
 ```
 
-In this example:
+Guards can also access the request through the execution context:
 
-1. The `@Tool` method receives `extra: RequestHandlerExtra`, which contains the `sessionId`.
-2. The `SessionManager` is injected into the `UserToolsResolver`.
-3. The `sessionId` is used with `sessionManager.getSession()` to retrieve the session data.
-4. The original `request` object is accessed from the retrieved session data.
-
-The `SessionManager` is automatically registered as a provider when you use `McpModule.forRoot` or `McpModule.forRootAsync` and can be injected like any other NestJS provider.
+```typescript
+@Injectable()
+export class MyGuard implements CanActivate {
+  canActivate(context: McpExecutionContext): boolean {
+    const request = context.switchToHttp().getRequest<Request>();
+    const apiKey = request.headers['x-api-key'];
+    return !!apiKey;
+  }
+}
+```
 
 ---
 
 ## Transport Options
 
-The MCP server can communicate over different transport mechanisms. This library includes built-in support for:
-
-1.  **Streamable (`/mcp` endpoint):** A common transport using standard HTTP POST requests and responses. Suitable for most request/response interactions. Enabled by default.
-2.  **SSE (Server-Sent Events) (`/sse` endpoint):** A transport mechanism allowing the server to push updates to the client over a single HTTP connection. Useful for streaming responses or long-running operations. **Note:** This is considered a legacy transport but remains supported for compatibility. Enabled by default.
-
-You can configure which transports are enabled globally using the `transports` option in `McpModule.forRoot` or `McpModule.forRootAsync`.
+The MCP server communicates over HTTP using the Streamable transport mechanism. This transport uses standard HTTP POST requests and responses, suitable for most request/response interactions.
 
 **Configuration:**
 
@@ -884,8 +852,7 @@ import { McpModule } from '@nestjs-mcp/server';
       name: 'My Server',
       version: '1.0.0',
       transports: {
-        streamable: { enabled: true }, // Keep streamable enabled (default)
-        sse: { enabled: false }, // Disable legacy SSE transport
+        streamable: { enabled: true }, // Streamable is enabled by default
       },
     }),
   ],
@@ -895,7 +862,7 @@ export class AppModule {}
 
 **Default Configuration:**
 
-If the `transports` option is omitted, both `streamable` (`/mcp`) and `sse` (`/sse`) are enabled by default.
+If the `transports` option is omitted, the streamable transport (`/mcp` endpoint) is enabled by default.
 
 ```typescript
 import { Module } from '@nestjs/common';
@@ -906,14 +873,14 @@ import { McpModule } from '@nestjs-mcp/server';
     McpModule.forRoot({
       name: 'My Server',
       version: '1.0.0',
-      // Both streamable and sse will be enabled
+      // Streamable transport is enabled by default
     }),
   ],
 })
 export class AppModule {}
 ```
 
-Disabling unused transports can slightly reduce the application's surface area and resource usage.
+The server will be accessible at the `/mcp` endpoint for all MCP client requests.
 
 ---
 

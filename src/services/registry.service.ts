@@ -177,6 +177,15 @@ export class RegistryService {
     }
 
     const methodName = handler.name;
+    const request = this.asyncLocalStorage.getStore();
+
+    if (request) {
+      args[args.length - 1] = {
+        ...(args[args.length - 1] as RequestHandlerExtra),
+        request,
+      };
+    }
+
     await this.runGuards(instance, methodName, args);
 
     return handler(...(args as TArgs));

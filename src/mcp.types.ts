@@ -10,6 +10,7 @@ import {
   ServerRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Provider, Type } from '@nestjs/common';
+import { Request } from 'express';
 import { ZodOptional, ZodType, ZodTypeDef } from 'zod';
 
 export type PromptArgsRawShape = {
@@ -21,7 +22,9 @@ export type PromptArgsRawShape = {
 export type RequestHandlerExtra = SdkRequestHandlerExtra<
   ServerRequest,
   ServerNotification
->;
+> & {
+  request: Request;
+};
 
 export type ServerOptions = {
   instructions?: string;

@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { ResourceUriHandlerArgs } from './resource-uri.args';
 
 describe('ResourceUriHandlerArgs', () => {
   const uri = new URL('users://list');
   const extra = {
-    headers: { foo: 'bar' },
+    request: {} as any,
     signal: new AbortController().signal,
     requestId: 'test',
     sendNotification: jest.fn(),
@@ -23,9 +25,9 @@ describe('ResourceUriHandlerArgs', () => {
     expect(args.extra).toBe(extra);
   });
 
-  it('should construct with minimal extra (headers, signal)', () => {
+  it('should construct with minimal extra', () => {
     const minimalExtra = {
-      headers: { bar: 'baz' },
+      request: {} as any,
       signal: new AbortController().signal,
       requestId: 'minimal',
       sendNotification: jest.fn(),
@@ -34,18 +36,5 @@ describe('ResourceUriHandlerArgs', () => {
     const args = ResourceUriHandlerArgs.from(uri, minimalExtra);
     expect(args.uri).toBe(uri);
     expect(args.extra).toBe(minimalExtra);
-  });
-
-  it('should construct with empty headers', () => {
-    const emptyHeadersExtra = {
-      headers: {},
-      signal: new AbortController().signal,
-      requestId: 'empty',
-      sendNotification: jest.fn(),
-      sendRequest: jest.fn(),
-    };
-    const args = ResourceUriHandlerArgs.from(uri, emptyHeadersExtra);
-    expect(args.uri).toBe(uri);
-    expect(args.extra).toBe(emptyHeadersExtra);
   });
 });

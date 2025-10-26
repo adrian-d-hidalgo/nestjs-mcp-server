@@ -1,8 +1,10 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { PromptHandlerArgs } from './prompt.args';
 
 describe('PromptHandlerArgs', () => {
   const extra = {
-    headers: { foo: 'bar' },
+    request: {} as any,
     signal: new AbortController().signal,
     requestId: 'test',
     sendNotification: jest.fn(),
@@ -29,7 +31,7 @@ describe('PromptHandlerArgs', () => {
 
   it('should construct with extra with empty headers', () => {
     const emptyHeadersExtra = {
-      headers: {},
+      request: {} as any,
       signal: new AbortController().signal,
       requestId: 'empty',
       sendNotification: jest.fn(),
