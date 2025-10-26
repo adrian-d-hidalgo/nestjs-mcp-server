@@ -19,8 +19,6 @@ import {
 import { DiscoveryService } from './services/discovery.service';
 import { McpLoggerService } from './services/logger.service';
 import { RegistryService } from './services/registry.service';
-import { SessionManager } from './services/session.manager';
-import { SseController, SseService } from './transports/sse';
 import {
   StreamableController,
   StreamableService,
@@ -36,58 +34,25 @@ import {
       useValue: new AsyncLocalStorage(),
     },
     McpLoggerService,
-    SessionManager,
   ],
-  exports: [SessionManager],
 })
 export class McpCoreModule {
-  /**
-   * Helper: Get active transport controllers and providers
-   */
   private static getActiveTransportControllersAndProviders(
     transports?: McpModuleTransportOptions,
   ) {
     const controllers = new Set<Type<any>>();
     const providers = new Set<Provider>();
 
-    // Transport configurations
-    const STREAMABLE_TRANSPORT = {
-      controller: StreamableController,
-      service: StreamableService,
-    };
-
-    const SSE_TRANSPORT = {
-      controller: SseController,
-      service: SseService,
-    };
-
-    // Default configuration
-    const defaultTransports: McpModuleTransportOptions = {
-      streamable: { enabled: true },
-      sse: { enabled: true },
-    };
-
-    // Merge default with provided transports
     const config = {
       streamable: {
-        ...defaultTransports.streamable,
+        enabled: true,
         ...(transports?.streamable ?? {}),
-      },
-      sse: {
-        ...defaultTransports.sse,
-        ...(transports?.sse ?? {}),
       },
     };
 
-    // Add controllers and providers based on enabled transports
     if (config.streamable.enabled) {
-      controllers.add(STREAMABLE_TRANSPORT.controller);
-      providers.add(STREAMABLE_TRANSPORT.service);
-    }
-
-    if (config.sse.enabled) {
-      controllers.add(SSE_TRANSPORT.controller);
-      providers.add(SSE_TRANSPORT.service);
+      controllers.add(StreamableController);
+      providers.add(StreamableService);
     }
 
     return {
@@ -96,9 +61,6 @@ export class McpCoreModule {
     };
   }
 
-  /**
-   * Helper to build server info, options, and logging config
-   */
   private static buildServerConfig(options: McpModuleOptions) {
     const serverInfo: Implementation = {
       name: options.name,
@@ -116,9 +78,6 @@ export class McpCoreModule {
     return { serverInfo, serverOptions, loggingOptions };
   }
 
-  /**
-   * Helper: Create async options provider
-   */
   private static createAsyncOptionsProvider(
     options: McpModuleAsyncOptions,
   ): Provider {
@@ -129,9 +88,6 @@ export class McpCoreModule {
     };
   }
 
-  /**
-   * Helper: Create all async providers
-   */
   private static createAsyncProviders(
     options: McpModuleAsyncOptions,
   ): Provider[] {
@@ -166,12 +122,6 @@ export class McpCoreModule {
     ];
   }
 
-  /**
-   * Configures the MCP module with global options
-   *
-   * @param options Configuration options for the MCP server
-   * @returns Dynamic module configuration
-   */
   static forRoot(options: McpModuleOptions): DynamicModule {
     const imports = options.imports || [];
     const { controllers, providers } =
@@ -206,17 +156,9 @@ export class McpCoreModule {
     };
   }
 
-  /**
-   * Configures the MCP module with global options and ConfigModule support
-   * Allows using environment variables and centralized configurations
-   *
-   * @param options Configuration options for the MCP server
-   * @returns Dynamic module configuration
-   */
   static forRootAsync(options: McpModuleAsyncOptions): DynamicModule {
     const { imports = [] } = options;
     const asyncProviders = this.createAsyncProviders(options);
-    // Synchronously resolve controllers/providers using a factory function
     const defaultControllers =
       McpCoreModule.getActiveTransportControllersAndProviders().controllers;
     const defaultProviders =
@@ -230,7 +172,6 @@ export class McpCoreModule {
         RegistryService,
         DiscoveryService,
         McpLoggerService,
-        SessionManager,
         {
           provide: AsyncLocalStorage,
           useValue: new AsyncLocalStorage(),
@@ -240,15 +181,6 @@ export class McpCoreModule {
       global: true,
     };
   }
-
-  /**
-   * Registers feature-specific capabilities like tools, prompts, and resources
-   * through dedicated service providers
-   *
-   * @param options Configuration options for the feature module
-   * @returns A dynamic module configuration
-   */
-  // TODO: Implement specific Module options
 
   static forFeature(_options?: McpFeatureOptions): DynamicModule {
     return {
