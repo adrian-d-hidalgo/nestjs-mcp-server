@@ -1,9 +1,11 @@
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+
 import { ResourceTemplateHandlerArgs } from './resource-template.args';
 
 describe('ResourceTemplateArgs', () => {
   const uri = new URL('https://example.com/users/:userId');
   const extra = {
-    headers: { foo: 'bar' },
+    request: {} as any,
     signal: new AbortController().signal,
     requestId: 'test',
     sendNotification: jest.fn(),

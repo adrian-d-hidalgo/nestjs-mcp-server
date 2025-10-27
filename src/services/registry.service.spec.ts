@@ -2,16 +2,14 @@ import {
   McpServer,
   ResourceTemplate,
 } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { DiscoveryModule, Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AsyncLocalStorage } from 'async_hooks';
 
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 import { RegistryService } from './registry.service';
-import { SessionManager } from './session.manager';
 
-// Definimos interfaces para los objetos de método mock
 interface MockMethod {
   metadata: Record<string, unknown>;
   instance: Record<string, unknown>;
@@ -29,7 +27,10 @@ describe('RegistryService', () => {
           RegistryService,
           DiscoveryService,
           McpLoggerService,
-          SessionManager,
+          {
+            provide: AsyncLocalStorage,
+            useValue: new AsyncLocalStorage(),
+          },
           Reflector,
         ],
       }).compile();
@@ -76,11 +77,7 @@ describe('RegistryService', () => {
       has: jest.Mock;
       hasMetadata: jest.Mock;
     };
-    let mockSession: {
-      getSession: jest.Mock;
-      setSession: jest.Mock;
-      deleteSession: jest.Mock;
-    };
+    let mockAsyncLocalStorage: { getStore: jest.Mock };
     let mockServer: { resource: jest.Mock; prompt: jest.Mock; tool: jest.Mock };
 
     beforeEach(() => {
@@ -97,10 +94,8 @@ describe('RegistryService', () => {
         has: jest.fn(),
         hasMetadata: jest.fn(),
       };
-      mockSession = {
-        getSession: jest.fn(),
-        setSession: jest.fn(),
-        deleteSession: jest.fn(),
+      mockAsyncLocalStorage = {
+        getStore: jest.fn(),
       };
       mockServer = {
         resource: jest.fn(),
@@ -111,7 +106,7 @@ describe('RegistryService', () => {
         mockDiscovery as unknown as DiscoveryService,
         mockLogger as unknown as McpLoggerService,
         mockReflector as unknown as Reflector,
-        mockSession as unknown as SessionManager,
+        mockAsyncLocalStorage as unknown as AsyncLocalStorage<any>,
       );
     });
 
@@ -119,7 +114,6 @@ describe('RegistryService', () => {
       const handler = jest.fn();
       const instance = { constructor: () => {} };
 
-      // Mock Reflect.hasMetadata (used inside RegistryService)
       jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(false);
 
       await expect(
@@ -127,112 +121,45 @@ describe('RegistryService', () => {
       ).rejects.toThrow(/must be decorated with @Resolver/);
     });
 
-    it('should throw UnauthorizedException if sessionId is missing', async () => {
-      const handler = jest.fn();
-      const instance = { constructor: { name: 'TestResolver' } };
-
-      // Mock Reflect.hasMetadata to return true for MCP_RESOLVER
-      jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(true);
-
-      await expect(
-        service['wrappedHandler'](instance, handler, [{}]),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should throw ForbiddenException if session not found', async () => {
-      const handler = jest.fn();
-      const instance = { constructor: { name: 'TestResolver' } };
-
-      // Mock Reflect.hasMetadata to return true for MCP_RESOLVER
-      jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(true);
-
-      mockSession.getSession.mockReturnValue(undefined);
-
-      await expect(
-        service['wrappedHandler'](instance, handler, [
-          { sessionId: 'notfound' },
-        ]),
-      ).rejects.toThrow(ForbiddenException);
-    });
-
     it('should successfully execute the handler when everything is valid', async () => {
       const handler = jest
         .fn<string, [Record<string, unknown>]>()
         .mockReturnValue('success');
       const instance = { constructor: { name: 'TestResolver' } };
-      const sessionId = 'valid-session';
-      const extra = { sessionId };
 
-      // Mock Reflect.hasMetadata to return true for MCP_RESOLVER
       jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(true);
-
-      mockSession.getSession.mockReturnValue({
-        request: { headers: { 'x-test': 'value' }, body: { key: 'value' } },
-      });
-
-      // Mock runGuards to resolve successfully
       jest.spyOn(service as any, 'runGuards').mockResolvedValue(undefined);
 
       const result = await service['wrappedHandler'](instance, handler, [
-        extra,
+        {},
       ] as unknown[]);
 
       expect(result).toBe('success');
-      expect(handler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          sessionId,
-          headers: { 'x-test': 'value' },
-          body: { key: 'value' },
-        }),
-      );
       expect(service['runGuards']).toHaveBeenCalled();
     });
 
     it('runGuards should resolve if no guards', async () => {
       const instance = { constructor: () => {} };
       const methodName = 'someMethod';
-      const sessionId = 'abc';
-      const request: unknown = {};
       const args: unknown[] = [];
 
       await expect(
-        service['runGuards'](
-          instance,
-          methodName,
-          sessionId,
-          request as any,
-          args,
-        ),
+        service['runGuards'](instance, methodName, args),
       ).resolves.toBeUndefined();
     });
 
     it('runGuards should throw if guard denies access', async () => {
       const instance = { constructor: () => {} };
       const methodName = 'someMethod';
-      const sessionId = 'abc';
-      const request: unknown = {};
       const args: unknown[] = [];
       const guard = { canActivate: jest.fn().mockResolvedValue(false) };
 
-      // Mock Reflect.getMetadata to return the guard
       jest.spyOn(Reflect, 'getMetadata').mockReturnValue([guard]);
-
-      // Mock the private methods that are called inside runGuards
       jest.spyOn(service as any, 'getDecoratorType').mockReturnValue('TOOL');
-      jest.spyOn(service as any, 'getHandlerArgs').mockReturnValue({
-        sessionId,
-        headers: {},
-        body: {},
-      });
+      jest.spyOn(service as any, 'getHandlerArgs').mockReturnValue({});
 
       await expect(
-        service['runGuards'](
-          instance,
-          methodName,
-          sessionId,
-          request as any,
-          args,
-        ),
+        service['runGuards'](instance, methodName, args),
       ).rejects.toThrow(/Access denied by guard/);
     });
 

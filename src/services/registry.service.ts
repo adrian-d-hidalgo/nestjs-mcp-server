@@ -3,12 +3,9 @@ import {
   ResourceTemplate,
 } from '@modelcontextprotocol/sdk/server/mcp.js';
 import type { CanActivate, Type } from '@nestjs/common';
-import {
-  ForbiddenException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+import { AsyncLocalStorage } from 'async_hooks';
 import { Request } from 'express';
 
 import {
@@ -31,7 +28,6 @@ import { McpExecutionContext } from '../interfaces/context.interface';
 import { RequestHandlerExtra } from '../mcp.types';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
-import { SessionManager } from './session.manager';
 
 @Injectable()
 export class RegistryService {
@@ -39,7 +35,7 @@ export class RegistryService {
     private readonly discoveryService: DiscoveryService,
     private readonly logger: McpLoggerService,
     private readonly reflector: Reflector,
-    private readonly sessionManager: SessionManager,
+    private readonly asyncLocalStorage: AsyncLocalStorage<Request>,
   ) {}
 
   async registerAll(server: McpServer): Promise<void> {
@@ -103,39 +99,23 @@ export class RegistryService {
     }
   }
 
-  /**
-   * Executes all guards attached to the resolver class and method.
-   * Throws an error if any guard denies access.
-   *
-   * @param instance The resolver instance
-   * @param methodName The method name being invoked
-   * @param args The arguments passed to the method
-   * @throws Error if any guard denies access
-   */
   private runGuards(
     instance: object,
     methodName: string,
-    sessionId: string,
-    request: Request,
     args: unknown[],
   ): Promise<void> {
-    // Retrieve class-level guards
     const classConstructor = instance.constructor;
-
     const classGuards: (CanActivate | { new (): CanActivate })[] =
       (Reflect.getMetadata(MCP_GUARDS, classConstructor) as (
         | CanActivate
         | { new (): CanActivate }
       )[]) || [];
 
-    // Retrieve method-level guards
     const prototype = Object.getPrototypeOf(instance) as Record<
       string,
       unknown
     >;
-
     const methodKey = prototype[methodName] as Type<any> | undefined;
-
     const methodGuards: (CanActivate | { new (): CanActivate })[] =
       (methodKey &&
         (Reflect.getMetadata(MCP_GUARDS, methodKey) as (
@@ -144,12 +124,11 @@ export class RegistryService {
         )[])) ||
       [];
 
-    // Combine guards: class-level first, then method-level
     const allGuards = [...classGuards, ...methodGuards];
-
     if (!allGuards.length) return Promise.resolve();
 
     const handlerArgs = this.getHandlerArgs(methodKey, args);
+    const request = this.asyncLocalStorage.getStore();
 
     const context: McpExecutionContext = {
       args: handlerArgs,
@@ -158,7 +137,8 @@ export class RegistryService {
       getClass: () => instance.constructor as Type<any>,
       getArgs: <T = any>() => args as T,
       getArgByIndex: <T = any>(index: number) => args[index] as T,
-      getSessionId: () => sessionId,
+      getSessionId: () =>
+        (args[args.length - 1] as RequestHandlerExtra)?.sessionId,
       getHandler: () => methodKey as unknown as Type<any>,
       switchToHttp: () => ({
         getRequest: <R = Request>() => request as R,
@@ -197,32 +177,16 @@ export class RegistryService {
     }
 
     const methodName = handler.name;
+    const request = this.asyncLocalStorage.getStore();
 
-    const { sessionId } = args[args.length - 1] as RequestHandlerExtra;
-
-    if (!sessionId) {
-      throw new UnauthorizedException('Session ID is required');
+    if (request) {
+      args[args.length - 1] = {
+        ...(args[args.length - 1] as RequestHandlerExtra),
+        request,
+      };
     }
 
-    const session = this.sessionManager.getSession(sessionId);
-
-    if (!session) {
-      throw new ForbiddenException('Session not found');
-    }
-
-    args[args.length - 1] = {
-      ...(args[args.length - 1] as RequestHandlerExtra),
-      headers: session.request.headers,
-      body: session.request.body as Record<string, string>,
-    };
-
-    await this.runGuards(
-      instance,
-      methodName,
-      sessionId,
-      session.request,
-      args,
-    );
+    await this.runGuards(instance, methodName, args);
 
     return handler(...(args as TArgs));
   }
@@ -354,7 +318,6 @@ export class RegistryService {
           'annotations' in metadata &&
           'description' in metadata
         ) {
-          // ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions
           server.tool(
             metadata.name,
             metadata.description,
@@ -363,7 +326,6 @@ export class RegistryService {
             wrappedHandler,
           );
         } else if ('paramsSchema' in metadata && 'annotations' in metadata) {
-          // ToolWithParamsSchemaAndAnnotationsOptions
           server.tool(
             metadata.name,
             metadata.paramsSchema,
@@ -371,7 +333,6 @@ export class RegistryService {
             wrappedHandler,
           );
         } else if ('paramsSchema' in metadata && 'description' in metadata) {
-          // ToolWithParamsSchemaAndDescriptionOptions
           server.tool(
             metadata.name,
             metadata.description,
@@ -379,7 +340,6 @@ export class RegistryService {
             wrappedHandler,
           );
         } else if ('annotations' in metadata && 'description' in metadata) {
-          // ToolWithAnnotationsAndDescriptionOptions
           server.tool(
             metadata.name,
             metadata.description,
@@ -387,16 +347,12 @@ export class RegistryService {
             wrappedHandler,
           );
         } else if ('paramsSchema' in metadata) {
-          // ToolWithParamsSchemaOptions
           server.tool(metadata.name, metadata.paramsSchema, wrappedHandler);
         } else if ('annotations' in metadata) {
-          // ToolWithAnnotationsOptions
           server.tool(metadata.name, metadata.annotations, wrappedHandler);
         } else if ('description' in metadata) {
-          // ToolWithDescriptionOptions
           server.tool(metadata.name, metadata.description, wrappedHandler);
         } else {
-          // ToolBaseOptions
           server.tool(metadata.name, wrappedHandler);
         }
       } catch (error) {
