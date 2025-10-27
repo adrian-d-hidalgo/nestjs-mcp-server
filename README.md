@@ -1,5 +1,11 @@
 # MCP Server NestJS Module Library <!-- omit in toc -->
 
+This repository is a fork of https://github.com/adrian-d-hidalgo/nestjs-mcp-server.
+Changes in this fork:
+
+- multi-instance support - removed session-manager and sessions
+- removed sse transport
+
 [![NPM Version](https://img.shields.io/npm/v/@nestjs-mcp/server)](https://www.npmjs.com/package/@nestjs-mcp/server)
 [![Semantic Release](https://img.shields.io/badge/%20%20%F0%9F%93%A6%F0%9F%9A%80-semantic--release-e10079.svg)](https://github.com/semantic-release/semantic-release)
 [![Downloads](https://img.shields.io/npm/dm/@nestjs-mcp/server)](https://www.npmjs.com/package/@nestjs-mcp/server)
@@ -573,12 +579,12 @@ export class AuthResolver {
     const authHeader = extra.request.headers.authorization;
     const userAgent = extra.request.headers['user-agent'];
     const clientIp = extra.request.ip;
-    
+
     console.log(`Request from: ${userAgent} (${clientIp})`);
 
     // Access request body
     const requestBody = extra.request.body;
-    
+
     // Check if request was cancelled
     if (extra.signal.aborted) {
       return {
@@ -753,7 +759,7 @@ export class McpAuthGuard implements CanActivate {
       console.log('Guard Denied: Missing or invalid Bearer token.');
       return false;
     }
-    
+
     const token = authHeader.split(' ')[1];
     const isValidToken = token === 'VALID_TOKEN';
 
@@ -784,6 +790,7 @@ This library implements a **stateless** approach following the recommended "With
 ### How It Works
 
 1. **Request Flow:**
+
    - Client sends POST request to `/mcp`
    - Server creates a new transport for each request with `sessionIdGenerator: undefined`
    - Request is processed and transport is closed when response completes
@@ -810,13 +817,13 @@ All MCP handlers receive the Express Request object in the `extra` parameter:
 myTool(params: any, extra: RequestHandlerExtra): CallToolResult {
   // Access headers
   const authHeader = extra.request.headers.authorization;
-  
+
   // Access body
   const body = extra.request.body;
-  
+
   // Access IP
   const clientIp = extra.request.ip;
-  
+
   // ... use request data
 }
 ```
