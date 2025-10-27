@@ -1,8 +1,8 @@
 {
-  "name": "@nestjs-mcp/server",
+  "name": "alexahdp/nestjs-mcp/server",
   "version": "0.3.0",
   "description": "Modular library for building scalable MCP servers with NestJS, providing decorators and integration patterns as a wrapper for the official MCP TypeScript SDK.",
-  "author": "Adrián Darío Hidalgo Flores",
+  "author": "Adrián Darío Hidalgo Flores, Aleksandr Pezikov",
   "license": "MIT",
   "engines": {
     "node": ">=22",
@@ -20,11 +20,10 @@
   "types": "dist/index.d.ts",
   "repository": {
     "type": "git",
-    "url": "https://github.com/adrian-d-hidalgo/nestjs-mcp-server.git"
+    "url": "https://github.com/alexahdp/nestjs-mcp-server.git"
   },
-  "homepage": "https://github.com/adrian-d-hidalgo/nestjs-mcp-server#readme",
   "bugs": {
-    "url": "https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues"
+    "url": "https://github.com/alexahdp/nestjs-mcp-server/issues"
   },
   "keywords": [
     "decorators",
