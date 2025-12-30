@@ -1,56 +1,92 @@
 {
   "name": "NestJS MCP Server",
-  "dockerComposeFile": "docker-compose.yml",
+  "dockerComposeFile": "../docker-compose.yml",
   "service": "package",
   "workspaceFolder": "/package",
   "remoteUser": "node",
-  "features": {
-    "ghcr.io/devcontainers/features/git:1": {}
-  },
+  "postStartCommand": "bash /package/scripts/docker/post-start.sh",
+  "waitFor": "postStartCommand",
   "customizations": {
     "vscode": {
       "extensions": [
-        // TypeScript & NestJS
-        "vscode.typescript-language-features",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "anthropic.claude-code",
+
         "christian-kohler.path-intellisense",
         "yoavbls.pretty-ts-errors",
         "meganrogge.template-string-converter",
 
-        // ESLint & Prettier
-        "dbaeumer.vscode-eslint",
-        "esbenp.prettier-vscode",
-
-        // Testing
         "orta.vscode-jest",
         "firsttris.vscode-jest-runner",
 
-        // Docker
         "ms-azuretools.vscode-docker",
 
-        // Database
-        "mtxr.sqltools",
-        "mtxr.sqltools-driver-pg",
-
-        // Git
         "eamodio.gitlens",
         "github.vscode-github-actions",
         "mhutchie.git-graph",
 
-        // Environment & Configuration
         "mikestead.dotenv",
         "redhat.vscode-yaml",
         "editorconfig.editorconfig",
 
-        // Documentation
         "yzhang.markdown-all-in-one",
         "bierner.markdown-mermaid",
 
-        // Utilities
-        "visualstudioexptteam.vscodeintellicode",
         "wayou.vscode-todo-highlight",
         "gruntfuggly.todo-tree",
         "pkief.material-icon-theme"
-      ]
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.codeActionsOnSave": {
+          "source.fixAll.eslint": "explicit"
+        },
+
+        "[typescript]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+        "[json]": {
+          "editor.defaultFormatter": "esbenp.prettier-vscode"
+        },
+
+        "eslint.validate": ["javascript", "typescript"],
+        "typescript.tsdk": "node_modules/typescript/lib",
+
+        "git.enableSmartCommit": true,
+        "git.autofetch": true,
+
+        "dev.containers.copyGitConfig": true
+      }
     }
+  },
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "installOhMyZsh": true,
+      "upgradePackages": true,
+      "username": "node",
+      "userUid": "1000",
+      "userGid": "1000"
+    },
+    "ghcr.io/devcontainers/features/git:1": {
+      "version": "latest",
+      "ppa": false
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {
+      "installDirectlyFromGitHubRelease": true,
+      "version": "latest"
+    },
+    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+  },
+  "mounts": [
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.ssh,target=/home/node/.ssh,readonly,type=bind",
+    "source=${localEnv:HOME}${localEnv:USERPROFILE}/.claude,target=/home/node/.claude,type=bind"
+  ],
+  "remoteEnv": {
+    "SSH_AUTH_SOCK": "${localEnv:SSH_AUTH_SOCK}"
   }
 }
