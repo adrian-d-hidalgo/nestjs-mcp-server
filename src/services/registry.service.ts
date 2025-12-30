@@ -79,7 +79,7 @@ export class RegistryService {
         return args[0] instanceof URL
           ? ResourceUriHandlerArgs.from(args[0], args[1] as RequestHandlerExtra)
           : ResourceTemplateHandlerArgs.from(
-              args[0] as any,
+              args[0] as URL,
               args[2] as RequestHandlerExtra,
               args[1] as Record<string, string>,
             );
@@ -88,14 +88,14 @@ export class RegistryService {
           ? PromptHandlerArgs.from(args[0] as RequestHandlerExtra)
           : PromptHandlerArgs.from(
               args[1] as RequestHandlerExtra,
-              args[0] as any,
+              args[0] as undefined,
             );
       case 'TOOL':
         return args.length === 1
           ? ToolHandlerArgs.from(args[0] as RequestHandlerExtra)
           : ToolHandlerArgs.from(
               args[1] as RequestHandlerExtra,
-              args[0] as any,
+              args[0] as undefined,
             );
       default:
         throw new Error(`Unknown decorator type for method ${method.name}`);

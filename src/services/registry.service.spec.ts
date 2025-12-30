@@ -212,17 +212,11 @@ describe('RegistryService', () => {
       const instance = { constructor: () => {} };
       const methodName = 'someMethod';
       const sessionId = 'abc';
-      const request: unknown = {};
+      const request = {} as Request;
       const args: unknown[] = [];
 
       await expect(
-        service['runGuards'](
-          instance,
-          methodName,
-          sessionId,
-          request as any,
-          args,
-        ),
+        service['runGuards'](instance, methodName, sessionId, request, args),
       ).resolves.toBeUndefined();
     });
 
@@ -230,7 +224,7 @@ describe('RegistryService', () => {
       const instance = { constructor: () => {} };
       const methodName = 'someMethod';
       const sessionId = 'abc';
-      const request: unknown = {};
+      const request = {} as Request;
       const args: unknown[] = [];
       const guard = { canActivate: jest.fn().mockResolvedValue(false) };
 
@@ -246,13 +240,7 @@ describe('RegistryService', () => {
       });
 
       await expect(
-        service['runGuards'](
-          instance,
-          methodName,
-          sessionId,
-          request as any,
-          args,
-        ),
+        service['runGuards'](instance, methodName, sessionId, request, args),
       ).rejects.toThrow(/Access denied by guard/);
     });
 
