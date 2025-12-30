@@ -16,7 +16,6 @@ This document defines the Git workflow, branch naming conventions, commit messag
 - [Branch Protection and Pull Request Rules](#branch-protection-and-pull-request-rules)
 - [Revert and Rebase Policy](#revert-and-rebase-policy)
 - [Automation](#automation)
-- [Automatic Sync from Main to Develop](#automatic-sync-from-main-to-develop)
 - [Special Workflow Cases](#special-workflow-cases)
   - [Bugfixes vs Hotfixes vs Relfixes](#bugfixes-vs-hotfixes-vs-relfixes)
     - [Bugfix](#bugfix)
@@ -30,59 +29,54 @@ This document outlines our Git workflow, branch naming conventions, and commit m
 
 ## Branch Structure
 
-We follow a modified GitFlow workflow with the following branches:
+We follow a trunk-based development workflow with the following branches:
 
-| Branch Type             | Created From | PR Target                                                 | Purpose                                                                                                                                                                               |
-| ----------------------- | ------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `main`                  | -            | - (PR to develop if conflicts after hotfix/release merge) | Stable production code. If there are conflicts during the automatic sync to develop (after a hotfix or release merge), a PR from main to develop is required for conflict resolution. |
-| `develop`               | `main`       | -                                                         | Latest changes, potentially unstable. Does not make PRs to main directly.                                                                                                             |
-| `feature/*`             | `develop`    | `develop`                                                 | New features and enhancements                                                                                                                                                         |
-| `bugfix/*`              | `develop`    | `develop`                                                 | Non-urgent bug fixes that can wait for the next release                                                                                                                               |
-| `hotfix/*`              | `main`       | `main`                                                    | Urgent production fixes that need immediate deployment                                                                                                                                |
-| `relfix/*`              | `release/*`  | `release/*`                                               | Bug fixes specifically for a release in preparation                                                                                                                                   |
-| `release/*`             | `develop`    | `main`                                                    | Preparing a new release                                                                                                                                                               |
-| `main → develop (auto)` | `main`       | `develop`                                                 | Automatic sync after hotfix/release merge to main (if no conflicts; otherwise, manual resolution required via PR from main to develop)                                                |
-
-> Note: The PR from main to develop for conflict resolution may originate from either a hotfix or a release merge. The develop branch never makes PRs to main directly. All production releases flow through release or hotfix branches.
+| Branch Type   | Created From | PR Target    | Purpose                                              |
+| ------------- | ------------ | ------------ | ---------------------------------------------------- |
+| `main`        | -            | -            | Stable production code                               |
+| `feature/*`   | `main`       | `main`       | New features and enhancements                        |
+| `bugfix/*`    | `main`       | `main`       | Non-urgent bug fixes                                 |
+| `hotfix/*`    | `main`       | `main`       | Urgent production fixes                              |
+| `release/*`   | `main`       | `main`       | Release preparation                                  |
+| `relfix/*`    | `release/*`  | `release/*`  | Bug fixes specifically for a release in preparation  |
 
 ## Workflow Diagram
 
+```mermaid
+gitGraph
+   commit id: "main"
+   branch feature/issue-1
+   commit id: "feat: add feature"
+   checkout main
+   merge feature/issue-1
+   branch bugfix/issue-2
+   commit id: "fix: bug fix"
+   checkout main
+   merge bugfix/issue-2
+   branch release/1.0.0
+   commit id: "chore: bump version"
+   branch relfix/issue-3
+   commit id: "fix: release fix"
+   checkout release/1.0.0
+   merge relfix/issue-3
+   checkout main
+   merge release/1.0.0 tag: "v1.0.0"
+   branch hotfix/1.0.1
+   commit id: "fix: urgent fix"
+   checkout main
+   merge hotfix/1.0.1 tag: "v1.0.1"
 ```
-  main
-  ▲  ▲
-  │  │
-  │  └─────────────┐
-  │                │
-  │             release/* <───── relfix/*
-  │                ▲
-  │                │
-  │             develop
-  │             ▲     ▲
-  │             │     │
-  │       feature/*  bugfix/*
-  │
-  └───── hotfix/*
 
-   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-   .                                                                 .
-   .         (auto PR after merge)                                   .
-   .                main  ───────────────▶  develop                  .
-   . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-
----
-- Arrows indicate the direction of PR/merge.
-- Dotted arrow shows the automatic PR from main to develop after merging a release or hotfix.
-- bugfix/* and feature/* are created from develop
-- feature/* and bugfix/* → PR to develop
-- release/* → PR to main
-- hotfix/* → PR to main
-- relfix/* → PR to its release/*
-```
+**Key points:**
+- All branches are created from `main`
+- All branches (except `relfix/*`) create PRs to `main`
+- `relfix/*` branches create PRs to their parent `release/*` branch
+- `release/*` branches are used for release preparation before merging to `main`
 
 ## Branch Naming Conventions
 
 - `feature/issue-{id}-{short-description}`: For new features
-- `bugfix/issue-{id}-{short-description}`: For non-critical bug fixes that can wait for next release
+- `bugfix/issue-{id}-{short-description}`: For non-critical bug fixes
 - `hotfix/{version-number}`: For urgent production bug fixes requiring immediate deployment
 - `relfix/issue-{id}-{short-description}`: For bug fixes specifically targeting a release in preparation
 - `release/{version-number}`: For release preparation (follows SemVer)
@@ -140,10 +134,10 @@ Resolves #56
 
 ## Pull Request Process
 
-1. Create a branch from `develop` using the appropriate naming convention
+1. Create a branch from `main` using the appropriate naming convention
 2. Make your changes and commit them following the commit guidelines
-3. Pull the latest changes from the target branch
-4. Push your branch and create a PR to the appropriate target branch
+3. Pull the latest changes from `main`
+4. Push your branch and create a PR to `main`
 5. Request at least one reviewer
 6. Address any feedback from code reviews
 7. Once approved, the PR will be merged by a maintainer
@@ -152,17 +146,17 @@ Resolves #56
 
 If conflicts arise when merging:
 
-1. Pull the latest changes from the target branch
+1. Pull the latest changes from `main`
 2. Resolve conflicts locally
 3. Commit the resolved conflicts
 4. Push the changes to your branch
 
 ## Branch Protection and Pull Request Rules
 
-- Only `main`, `develop`, and `release/*` branches accept pull requests. PRs to any other branch are not permitted.
-- The branches `main`, `develop`, and all `release/*` branches **must be protected** against direct push and force push. Only merges via pull request are allowed.
+- Only `main` and `release/*` branches accept pull requests. PRs to any other branch are not permitted (except `relfix/*` to `release/*`).
+- The branches `main` and all `release/*` branches **must be protected** against direct push and force push. Only merges via pull request are allowed.
 - All other branches (e.g., `feature/*`, `bugfix/*`, `hotfix/*`, `relfix/*`) can receive updates via direct push.
-- This ensures the stability and integrity of the main development and release branches, while allowing flexibility in feature and fix branches.
+- This ensures the stability and integrity of the main and release branches, while allowing flexibility in feature and fix branches.
 
 ## Revert and Rebase Policy
 
@@ -172,10 +166,6 @@ If conflicts arise when merging:
 
 All possible validations and checks (linting, tests, version progression, branch naming, etc.) are automated via CI/CD workflows. Manual steps should be minimized and clearly documented if required.
 
-## Automatic Sync from Main to Develop
-
-After a `hotfix/*` or `release/*` branch is merged into `main`, an automated process will create a PR to sync `main` into `develop`. If there are no conflicts, this PR can be merged automatically. If conflicts are detected, manual resolution is required before merging.
-
 ## Special Workflow Cases
 
 ### Bugfixes vs Hotfixes vs Relfixes
@@ -184,12 +174,12 @@ We use different branch types for different kinds of fixes:
 
 #### Bugfix
 
-For non-urgent issues that can wait for the next regular release:
+For non-urgent issues:
 
-1. Create a `bugfix/` branch from `develop`
+1. Create a `bugfix/` branch from `main`
 2. Fix the issue and commit changes
-3. Create a PR to `develop`
-4. Changes will go to production with the next release cycle
+3. Create a PR to `main`
+4. Changes will be merged after review
 
 #### Hotfix
 
@@ -199,8 +189,7 @@ For urgent production issues requiring immediate deployment:
 2. Fix the issue and commit changes
 3. Create a PR to `main`
 4. After approval, merge to `main`
-5. An automated PR will sync `main` to `develop` (manual conflict resolution may be required)
-6. Deploy to production immediately after merging to `main`
+5. Deploy to production immediately after merging to `main`
 
 #### Relfix
 
@@ -215,12 +204,11 @@ For issues found during release preparation:
 
 To prepare a new release (using SemVer):
 
-1. Create a `release/` branch from `develop` (e.g., `release/1.2.0`)
+1. Create a `release/` branch from `main` (e.g., `release/1.2.0`)
 2. Only `relfix/` branches can be merged into this branch
 3. When ready, create a PR from `release/*` to `main`
 4. After approval, merge to `main`
-5. An automated PR will sync `main` to `develop` (manual conflict resolution may be required)
-6. Tag the release in `main` with the version number
+5. Tag the release in `main` with the version number
 
 ### SemVer Versioning
 
