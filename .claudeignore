@@ -1,0 +1,82 @@
+# Build outputs & generated files
+
+dist/
+build/
+\*.tsbuildinfo
+.turbo/
+
+# Dependencies
+
+node_modules/
+
+# Test coverage & reports
+
+coverage/
+.nyc_output/
+\*.lcov
+
+# Temporary & cache files
+
+_.log
+_.swp
+_.swo
+_~
+.DS_Store
+Thumbs.db
+.cache/
+.temp/
+.tmp/
+tmp/
+temp/
+\*.tmp
+
+# IDE & editor files (except essential config)
+
+.idea/
+_.sublime-_
+\*.code-workspace
+.history/
+.vscode/settings.local.json
+
+# Environment & secrets
+
+.env
+.env._
+!.env.example
+_.pem
+_.key
+_.crt
+
+# Lock files (keep package.json visible)
+
+pnpm-lock.yaml
+
+# Git metadata
+
+.git/
+.gitattributes
+
+# Docker & CI artifacts
+
+.docker-cache/
+
+# Backup files
+
+_.bak
+_.backup
+\*.old
+
+# Testing snapshots
+
+\*\*/**snapshots**/
+
+# Database files
+
+_.sqlite
+_.db
+\*.db-journal
+
+# Misc
+
+.husky/\_/
+.claude/settings.local.json
