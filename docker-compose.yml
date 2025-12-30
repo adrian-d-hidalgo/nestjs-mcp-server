@@ -4,6 +4,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+    user: "node"
     ports:
       - 3000:3000
       - 9229:9229
@@ -12,4 +13,8 @@ services:
       GITHUB_ACCESS_TOKEN: ${GITHUB_ACCESS_TOKEN}
     volumes:
       - .:/package
-      - /package/node_modules
+      - node_modules:/package/node_modules
+
+volumes:
+  node_modules:
+    name: nestjs-mcp-node-modules

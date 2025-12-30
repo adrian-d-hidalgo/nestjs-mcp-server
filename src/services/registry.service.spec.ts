@@ -41,7 +41,7 @@ describe('RegistryService', () => {
       expect(service).toBeDefined();
     });
 
-    it('should call registerResources, registerPrompts, registerTools in registerAll', async () => {
+    it('should call registerResources, registerPrompts, registerTools in registerAll', () => {
       const server = {
         resource: jest.fn(),
         prompt: jest.fn(),
@@ -60,7 +60,7 @@ describe('RegistryService', () => {
         .spyOn(service as any, 'registerTools')
         .mockImplementation(() => {});
 
-      await service.registerAll(server);
+      service.registerAll(server);
 
       expect(spyRes).toHaveBeenCalledWith(server);
       expect(spyPro).toHaveBeenCalledWith(server);
@@ -758,6 +758,151 @@ describe('RegistryService', () => {
           expect.stringContaining('Test stack trace'),
           undefined,
           'tools',
+        );
+      });
+    });
+
+    describe('registerTools with Zod schemas', () => {
+      let mockToolMethod: MockMethod;
+      let mockInstance: Record<string, unknown>;
+      let mockHandler: jest.Mock;
+
+      beforeEach(() => {
+        mockInstance = { constructor: { name: 'ToolResolver' } };
+        mockHandler = jest.fn().mockReturnValue('tool-result');
+        jest
+          .spyOn(service as any, 'wrappedHandler')
+          .mockReturnValue(() => 'wrapped-result');
+      });
+
+      it('should register a tool with string paramsSchema', async () => {
+        const { z } = await import('zod');
+
+        const schema = { name: z.string() };
+
+        mockToolMethod = {
+          metadata: {
+            name: 'string-tool',
+            description: 'Tool with string schema',
+            paramsSchema: schema,
+          },
+          instance: mockInstance,
+          handler: mockHandler,
+        };
+
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          mockToolMethod,
+        ]);
+
+        service['registerTools'](mockServer as unknown as McpServer);
+
+        expect(mockServer.tool).toHaveBeenCalledWith(
+          'string-tool',
+          'Tool with string schema',
+          schema,
+          expect.any(Function),
+        );
+      });
+
+      it('should register a tool with complex paramsSchema', async () => {
+        const { z } = await import('zod');
+
+        const schema = {
+          name: z.string(),
+          age: z.number().optional(),
+          tags: z.array(z.string()),
+        };
+
+        mockToolMethod = {
+          metadata: {
+            name: 'complex-tool',
+            description: 'Tool with complex schema',
+            paramsSchema: schema,
+          },
+          instance: mockInstance,
+          handler: mockHandler,
+        };
+
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          mockToolMethod,
+        ]);
+
+        service['registerTools'](mockServer as unknown as McpServer);
+
+        expect(mockServer.tool).toHaveBeenCalledWith(
+          'complex-tool',
+          'Tool with complex schema',
+          schema,
+          expect.any(Function),
+        );
+      });
+
+      it('should register a tool with enum paramsSchema', async () => {
+        const { z } = await import('zod');
+
+        const schema = {
+          status: z.enum(['active', 'inactive', 'pending']),
+        };
+
+        mockToolMethod = {
+          metadata: {
+            name: 'enum-tool',
+            description: 'Tool with enum schema',
+            paramsSchema: schema,
+          },
+          instance: mockInstance,
+          handler: mockHandler,
+        };
+
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          mockToolMethod,
+        ]);
+
+        service['registerTools'](mockServer as unknown as McpServer);
+
+        expect(mockServer.tool).toHaveBeenCalledWith(
+          'enum-tool',
+          'Tool with enum schema',
+          schema,
+          expect.any(Function),
+        );
+      });
+
+      it('should register a tool with nested object paramsSchema', async () => {
+        const { z } = await import('zod');
+
+        const schema = {
+          user: z.object({
+            name: z.string(),
+            email: z.string().email(),
+            profile: z.object({
+              bio: z.string().optional(),
+              avatar: z.string().url().optional(),
+            }),
+          }),
+        };
+
+        mockToolMethod = {
+          metadata: {
+            name: 'nested-tool',
+            description: 'Tool with nested schema',
+            paramsSchema: schema,
+          },
+          instance: mockInstance,
+          handler: mockHandler,
+        };
+
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          mockToolMethod,
+        ]);
+
+        service['registerTools'](mockServer as unknown as McpServer);
+
+        expect(mockServer.tool).toHaveBeenCalledWith(
+          'nested-tool',
+          'Tool with nested schema',
+          schema,
+          expect.any(Function),
         );
       });
     });

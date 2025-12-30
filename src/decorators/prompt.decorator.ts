@@ -15,8 +15,7 @@ export interface PromptWithArgsSchemaOptions extends PromptBaseOptions {
 }
 
 export interface PromptWithDescriptionAndArgsSchemaOptions
-  extends PromptWithDescriptionOptions,
-    PromptWithArgsSchemaOptions {}
+  extends PromptWithDescriptionOptions, PromptWithArgsSchemaOptions {}
 
 export type PromptOptions =
   | PromptBaseOptions

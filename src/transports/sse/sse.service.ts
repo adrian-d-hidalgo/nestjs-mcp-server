@@ -22,9 +22,9 @@ export class SseService implements OnModuleInit {
     this.server = new McpServer(this.options.serverInfo, this.options.options);
   }
 
-  async onModuleInit() {
+  onModuleInit() {
     this.logger.log('Starting MCP controller registration', 'MCP_SERVER');
-    await this.registry.registerAll(this.server);
+    this.registry.registerAll(this.server);
     this.logger.log('MCP initialization completed', 'MCP_SERVER');
   }
 
