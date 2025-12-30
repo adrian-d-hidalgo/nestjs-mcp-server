@@ -45,11 +45,15 @@
   "scripts": {
     "build": "nest build",
     "prepare": "is-ci || husky",
-    "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start:example": "npx -y ts-node-dev --respawn examples/$EXAMPLE/main.ts",
     "start:inspector": "npx -y @modelcontextprotocol/inspector",
-    "lint": "eslint \"{src,test,examples}/**/*.ts\" --fix",
+    "lint:check": "eslint \"{src,test,examples}/**/*.ts\"",
+    "lint:fix": "eslint \"{src,test,examples}/**/*.ts\" --fix",
+    "format:check": "prettier --check \"{src,test,examples}/**/*.ts\"",
+    "format:fix": "prettier --write \"{src,test,examples}/**/*.ts\"",
     "typecheck": "tsc --noEmit",
+    "quality:check": "pnpm lint:check && pnpm format:check && pnpm typecheck",
+    "quality:fix": "pnpm lint:fix && pnpm format:fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
@@ -92,6 +96,7 @@
     "husky": "^9.1.7",
     "is-ci": "^4.1.0",
     "jest": "^29.7.0",
+    "lint-staged": "^16.2.7",
     "prettier": "^3.4.2",
     "source-map-support": "^0.5.21",
     "supertest": "^7.0.0",
@@ -101,6 +106,12 @@
     "tsconfig-paths": "^4.2.0",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0"
+  },
+  "lint-staged": {
+    "{src,test,examples}/**/*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   },
   "jest": {
     "moduleFileExtensions": [
