@@ -2,7 +2,7 @@ import {
   CallToolResult,
   GetPromptResult,
 } from '@modelcontextprotocol/sdk/types';
-import { CanActivate } from '@nestjs/common';
+import { CanActivate, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 
 import {
@@ -10,12 +10,11 @@ import {
   Prompt,
   RequestHandlerExtra,
   Resolver,
+  SessionManager,
   Tool,
   UseGuards,
 } from '../../src';
 
-// Resolver-level guard
-// Applies to all methods in the resolver
 export class ResolverLogGuard implements CanActivate {
   canActivate(_context: McpExecutionContext): boolean {
     console.log('[ResolverLogGuard] Resolver-level guard executed');
@@ -24,13 +23,29 @@ export class ResolverLogGuard implements CanActivate {
   }
 }
 
-// Method-level guard
-// Applies to a single method in the resolver but it has the same context as the resolver-level guard
 export class MethodLogGuard implements CanActivate {
   canActivate(_context: McpExecutionContext): boolean {
     console.log('[MethodLogGuard] Method-level guard executed');
 
     return true;
+  }
+}
+
+@Injectable()
+export class SessionAwareGuard implements CanActivate {
+  constructor(private readonly sessionManager: SessionManager) {}
+
+  canActivate(context: McpExecutionContext): boolean {
+    const sessionId = context.getSessionId();
+    const session = this.sessionManager.getSession(sessionId);
+
+    console.log(
+      '[SessionAwareGuard] Session check:',
+      session ? 'valid' : 'invalid',
+    );
+
+    // Allow if session exists
+    return !!session;
   }
 }
 
@@ -62,6 +77,22 @@ export class GuardsResolver {
   ): CallToolResult {
     return {
       content: [{ type: 'text', text: `[${args.prefix}] Tool executed` }],
+    };
+  }
+
+  @UseGuards(SessionAwareGuard)
+  @Tool({
+    name: 'session_protected_tool',
+    description: 'A tool protected by a guard that uses SessionManager via DI',
+  })
+  sessionProtectedTool(extra: RequestHandlerExtra): CallToolResult {
+    return {
+      content: [
+        {
+          type: 'text',
+          text: `Session validated! SessionId: ${extra.sessionId}`,
+        },
+      ],
     };
   }
 }

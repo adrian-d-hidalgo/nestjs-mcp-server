@@ -2,10 +2,17 @@ import {
   McpServer,
   ResourceTemplate,
 } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { ForbiddenException, UnauthorizedException } from '@nestjs/common';
-import { DiscoveryModule, Reflector } from '@nestjs/core';
+import {
+  CanActivate,
+  ForbiddenException,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { DiscoveryModule, ModuleRef, Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
+import { Request } from 'express';
 
+import { MCP_GUARDS, MCP_RESOLVER, MCP_TOOL } from '../decorators';
+import { McpExecutionContext } from '../interfaces/context.interface';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 import { RegistryService } from './registry.service';
@@ -107,12 +114,25 @@ describe('RegistryService', () => {
         prompt: jest.fn(),
         tool: jest.fn(),
       };
+      const mockModuleRef = {
+        get: jest.fn().mockImplementation(() => {
+          throw new Error('Not found in DI');
+        }),
+        create: jest.fn().mockImplementation(() => {
+          throw new Error('Cannot create');
+        }),
+      };
       service = new RegistryService(
         mockDiscovery as unknown as DiscoveryService,
         mockLogger as unknown as McpLoggerService,
         mockReflector as unknown as Reflector,
         mockSession as unknown as SessionManager,
+        mockModuleRef as unknown as ModuleRef,
       );
+    });
+
+    afterEach(() => {
+      jest.restoreAllMocks();
     });
 
     it('should throw if wrappedHandler is called on non-resolver', async () => {
@@ -192,17 +212,11 @@ describe('RegistryService', () => {
       const instance = { constructor: () => {} };
       const methodName = 'someMethod';
       const sessionId = 'abc';
-      const request: unknown = {};
+      const request = {} as Request;
       const args: unknown[] = [];
 
       await expect(
-        service['runGuards'](
-          instance,
-          methodName,
-          sessionId,
-          request as any,
-          args,
-        ),
+        service['runGuards'](instance, methodName, sessionId, request, args),
       ).resolves.toBeUndefined();
     });
 
@@ -210,7 +224,7 @@ describe('RegistryService', () => {
       const instance = { constructor: () => {} };
       const methodName = 'someMethod';
       const sessionId = 'abc';
-      const request: unknown = {};
+      const request = {} as Request;
       const args: unknown[] = [];
       const guard = { canActivate: jest.fn().mockResolvedValue(false) };
 
@@ -226,13 +240,7 @@ describe('RegistryService', () => {
       });
 
       await expect(
-        service['runGuards'](
-          instance,
-          methodName,
-          sessionId,
-          request as any,
-          args,
-        ),
+        service['runGuards'](instance, methodName, sessionId, request, args),
       ).rejects.toThrow(/Access denied by guard/);
     });
 
@@ -905,6 +913,240 @@ describe('RegistryService', () => {
           expect.any(Function),
         );
       });
+    });
+  });
+
+  describe('guard dependency injection', () => {
+    /**
+     * This test verifies that guards can receive dependencies via NestJS DI.
+     * Issue #70: SessionManager injection in guards was not working because
+     * guards were instantiated with `new Guard()` instead of using ModuleRef.
+     */
+    it('should use ModuleRef.get to resolve guards from DI container', async () => {
+      // Simple guard that always returns true
+      class TestGuard implements CanActivate {
+        canActivate(_context: McpExecutionContext): boolean {
+          return true;
+        }
+      }
+
+      const mockSessionManager = new SessionManager();
+      const mockDiscoveryService = { getAllMethodsWithMetadata: jest.fn() };
+      const mockLoggerService = {
+        log: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      };
+      const mockReflector = new Reflector();
+
+      // Pre-instantiated guard (simulating what DI would return)
+      const resolvedGuardInstance = new TestGuard();
+
+      // Mock ModuleRef to return our pre-instantiated guard
+      const mockModuleRef = {
+        get: jest.fn().mockReturnValue(resolvedGuardInstance),
+        create: jest.fn(),
+      };
+
+      const registryService = new RegistryService(
+        mockDiscoveryService as unknown as DiscoveryService,
+        mockLoggerService as unknown as McpLoggerService,
+        mockReflector,
+        mockSessionManager,
+        mockModuleRef as unknown as ModuleRef,
+      );
+
+      const sessionId = 'test-session';
+      const mockRequest = { headers: {}, body: {} } as unknown as Request;
+
+      // Create resolver with guard attached
+      class TestResolver {
+        testMethod(): string {
+          return 'success';
+        }
+      }
+
+      const resolverInstance = new TestResolver();
+
+      // Set up metadata
+      Reflect.defineMetadata(MCP_RESOLVER, { name: 'test' }, TestResolver);
+      Reflect.defineMetadata(MCP_GUARDS, [TestGuard], TestResolver);
+
+      // Mock getHandlerArgs to avoid Reflector dependency
+      jest.spyOn(registryService as any, 'getHandlerArgs').mockReturnValue({
+        sessionId,
+        headers: {},
+        body: {},
+      });
+
+      // Run guards
+      await registryService['runGuards'](
+        resolverInstance,
+        'testMethod',
+        sessionId,
+        mockRequest,
+        [{ sessionId }],
+      );
+
+      // Verify ModuleRef.get was called with the guard class
+      expect(mockModuleRef.get).toHaveBeenCalledWith(TestGuard, {
+        strict: false,
+      });
+    });
+
+    it('should inject SessionManager into guards when registered as providers', async () => {
+      // Guard that verifies SessionManager was injected
+      class SessionAwareGuard implements CanActivate {
+        public sessionManagerInjected = false;
+
+        constructor(private sessionManager: SessionManager) {
+          this.sessionManagerInjected = sessionManager !== undefined;
+        }
+
+        canActivate(_context: McpExecutionContext): boolean {
+          if (!this.sessionManager) {
+            throw new Error('SessionManager was not injected!');
+          }
+          // Just verify injection worked, always allow
+          return true;
+        }
+      }
+
+      const mockSessionManager = new SessionManager();
+      const mockDiscoveryService = { getAllMethodsWithMetadata: jest.fn() };
+      const mockLoggerService = {
+        log: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      };
+      const mockReflector = new Reflector();
+
+      // Pre-instantiated guard WITH SessionManager injected
+      const injectedGuard = new SessionAwareGuard(mockSessionManager);
+      expect(injectedGuard.sessionManagerInjected).toBe(true);
+
+      // ModuleRef returns the pre-injected guard
+      const mockModuleRef = {
+        get: jest.fn().mockReturnValue(injectedGuard),
+        create: jest.fn(),
+      };
+
+      const registryService = new RegistryService(
+        mockDiscoveryService as unknown as DiscoveryService,
+        mockLoggerService as unknown as McpLoggerService,
+        mockReflector,
+        mockSessionManager,
+        mockModuleRef as unknown as ModuleRef,
+      );
+
+      const sessionId = 'test-session';
+      const mockRequest = { headers: {}, body: {} } as unknown as Request;
+
+      class TestResolver {
+        testMethod(): string {
+          return 'success';
+        }
+      }
+
+      const resolverInstance = new TestResolver();
+      Reflect.defineMetadata(MCP_RESOLVER, { name: 'test' }, TestResolver);
+      Reflect.defineMetadata(MCP_GUARDS, [SessionAwareGuard], TestResolver);
+
+      jest.spyOn(registryService as any, 'getHandlerArgs').mockReturnValue({
+        sessionId,
+        headers: {},
+        body: {},
+      });
+
+      // Should NOT throw - the guard should have SessionManager injected
+      await expect(
+        registryService['runGuards'](
+          resolverInstance,
+          'testMethod',
+          sessionId,
+          mockRequest,
+          [{ sessionId }],
+        ),
+      ).resolves.toBeUndefined();
+
+      expect(mockModuleRef.get).toHaveBeenCalled();
+    });
+
+    it('should instantiate guards directly when not registered in DI container', async () => {
+      class SimpleGuard implements CanActivate {
+        canActivate(_context: McpExecutionContext): boolean {
+          return true;
+        }
+      }
+
+      const mockSessionManager = new SessionManager();
+      const mockDiscoveryService = {
+        getAllMethodsWithMetadata: jest.fn(),
+      };
+      const mockLoggerService = {
+        log: jest.fn(),
+        error: jest.fn(),
+        debug: jest.fn(),
+      };
+      const mockReflector = new Reflector();
+      const mockModuleRef = {
+        get: jest.fn().mockImplementation(() => {
+          throw new Error('Not found in DI');
+        }),
+        create: jest.fn().mockImplementation(() => {
+          throw new Error('Cannot create');
+        }),
+      };
+      const registryService = new RegistryService(
+        mockDiscoveryService as unknown as DiscoveryService,
+        mockLoggerService as unknown as McpLoggerService,
+        mockReflector,
+        mockSessionManager,
+        mockModuleRef as unknown as ModuleRef,
+      );
+
+      const sessionId = 'test-session-simple-guard';
+      const mockRequest = { headers: {}, body: {} } as unknown as Request;
+      type SessionTransport2 = Parameters<
+        typeof mockSessionManager.setSession
+      >[1]['transport'];
+      mockSessionManager.setSession(sessionId, {
+        transport: {} as unknown as SessionTransport2,
+        request: mockRequest,
+      });
+
+      class TestResolver {
+        testMethod(this: void): string {
+          return 'success';
+        }
+      }
+
+      const resolverInstance = new TestResolver();
+      const testMethodRef = TestResolver.prototype.testMethod;
+
+      Reflect.defineMetadata(MCP_RESOLVER, { name: 'test' }, TestResolver);
+      Reflect.defineMetadata(MCP_GUARDS, [SimpleGuard], TestResolver);
+      Reflect.defineMetadata(MCP_TOOL, { name: 'test_tool' }, testMethodRef);
+
+      // Mock getHandlerArgs to return valid handler args
+      jest.spyOn(registryService as any, 'getHandlerArgs').mockReturnValue({
+        sessionId,
+        headers: {},
+        body: {},
+      });
+
+      // Should work via fallback to direct instantiation
+      await expect(
+        registryService['runGuards'](
+          resolverInstance,
+          'testMethod',
+          sessionId,
+          mockRequest,
+          [{ sessionId }],
+        ),
+      ).resolves.toBeUndefined();
+
+      mockSessionManager.deleteSession(sessionId);
     });
   });
 });

@@ -8,7 +8,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { ModuleRef, Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
 import {
@@ -40,6 +40,7 @@ export class RegistryService {
     private readonly logger: McpLoggerService,
     private readonly reflector: Reflector,
     private readonly sessionManager: SessionManager,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   registerAll(server: McpServer): void {
@@ -78,7 +79,7 @@ export class RegistryService {
         return args[0] instanceof URL
           ? ResourceUriHandlerArgs.from(args[0], args[1] as RequestHandlerExtra)
           : ResourceTemplateHandlerArgs.from(
-              args[0] as any,
+              args[0] as URL,
               args[2] as RequestHandlerExtra,
               args[1] as Record<string, string>,
             );
@@ -87,17 +88,35 @@ export class RegistryService {
           ? PromptHandlerArgs.from(args[0] as RequestHandlerExtra)
           : PromptHandlerArgs.from(
               args[1] as RequestHandlerExtra,
-              args[0] as any,
+              args[0] as undefined,
             );
       case 'TOOL':
         return args.length === 1
           ? ToolHandlerArgs.from(args[0] as RequestHandlerExtra)
           : ToolHandlerArgs.from(
               args[1] as RequestHandlerExtra,
-              args[0] as any,
+              args[0] as undefined,
             );
       default:
         throw new Error(`Unknown decorator type for method ${method.name}`);
+    }
+  }
+
+  private async resolveGuard(
+    Guard: CanActivate | { new (): CanActivate },
+  ): Promise<CanActivate> {
+    if (typeof Guard !== 'function') {
+      return Guard;
+    }
+
+    try {
+      return this.moduleRef.get<CanActivate>(Guard, { strict: false });
+    } catch {
+      try {
+        return await this.moduleRef.create<CanActivate>(Guard);
+      } catch {
+        return new Guard();
+      }
     }
   }
 
@@ -171,8 +190,7 @@ export class RegistryService {
 
     return (async () => {
       for (const Guard of allGuards) {
-        const guardInstance: CanActivate =
-          typeof Guard === 'function' ? new Guard() : Guard;
+        const guardInstance = await this.resolveGuard(Guard);
         const allowed = await guardInstance.canActivate(context);
 
         if (!allowed)
