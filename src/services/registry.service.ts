@@ -8,7 +8,7 @@ import {
   Injectable,
   UnauthorizedException,
 } from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import { ModuleRef, Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
 import {
@@ -40,6 +40,7 @@ export class RegistryService {
     private readonly logger: McpLoggerService,
     private readonly reflector: Reflector,
     private readonly sessionManager: SessionManager,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   registerAll(server: McpServer): void {
@@ -98,6 +99,24 @@ export class RegistryService {
             );
       default:
         throw new Error(`Unknown decorator type for method ${method.name}`);
+    }
+  }
+
+  private async resolveGuard(
+    Guard: CanActivate | { new (): CanActivate },
+  ): Promise<CanActivate> {
+    if (typeof Guard !== 'function') {
+      return Guard;
+    }
+
+    try {
+      return this.moduleRef.get<CanActivate>(Guard, { strict: false });
+    } catch {
+      try {
+        return await this.moduleRef.create<CanActivate>(Guard);
+      } catch {
+        return new Guard();
+      }
     }
   }
 
@@ -171,8 +190,7 @@ export class RegistryService {
 
     return (async () => {
       for (const Guard of allGuards) {
-        const guardInstance: CanActivate =
-          typeof Guard === 'function' ? new Guard() : Guard;
+        const guardInstance = await this.resolveGuard(Guard);
         const allowed = await guardInstance.canActivate(context);
 
         if (!allowed)

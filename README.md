@@ -20,7 +20,6 @@
 
 ## Table of Contents <!-- omit in toc -->
 
-- [Overview](#overview)
 - [Installation](#installation)
 - [Quickstart](#quickstart)
 - [What is MCP?](#what-is-mcp)
@@ -30,9 +29,9 @@
   - [Tool](#tool)
   - [Prompt](#prompt)
 - [Module API](#module-api)
-  - [forRoot](#mcpmoduleforroot)
-  - [forRootAsync](#mcpmoduleforrootasync)
-  - [forFeature](#mcpmoduleforfeature)
+  - [`McpModule.forRoot`](#mcpmoduleforroot)
+  - [`McpModule.forRootAsync`](#mcpmoduleforrootasync)
+  - [`McpModule.forFeature`](#mcpmoduleforfeature)
 - [Module Usage](#module-usage)
   - [1. Global Registration with `McpModule.forRoot`](#1-global-registration-with-mcpmoduleforroot)
   - [2. Feature Module Registration with `McpModule.forFeature`](#2-feature-module-registration-with-mcpmoduleforfeature)
@@ -41,13 +40,16 @@
   - [Prompt Decorator](#prompt-decorator)
   - [Resource Decorator](#resource-decorator)
   - [Tool Decorator](#tool-decorator)
-  - [RequestHandlerExtra Parameter](#requesthandlerextra-argument)
+    - [Tool Annotations](#tool-annotations)
+    - [ToolOptions Variants](#tooloptions-variants)
+  - [RequestHandlerExtra Argument](#requesthandlerextra-argument)
 - [Guards](#guards)
   - [Global-level guards](#global-level-guards)
   - [Resolver-level guards](#resolver-level-guards)
   - [Method-level guards](#method-level-guards)
   - [Guard Example](#guard-example)
   - [MCP Execution Context](#mcp-execution-context)
+  - [Guards with Dependency Injection](#guards-with-dependency-injection)
 - [Session Management](#session-management)
 - [Transport Options](#transport-options)
 - [Inspector Playground](#inspector-playground)
@@ -777,6 +779,30 @@ export class McpAuthGuard implements CanActivate {
 - `switchToHttp().getResponse()` / `switchToHttp().getNext()`: These will throw errors as the Response object is not directly available or relevant in this context.
 
 Use `SessionManager` injected into your guard to fetch the session details (including the original `Request`) based on the `sessionId` obtained from the context.
+
+### Guards with Dependency Injection
+
+Guards can inject NestJS providers like `SessionManager`. Use `@Injectable()` and register the guard as a provider:
+
+```typescript
+@Injectable()
+export class AuthGuard implements CanActivate {
+  constructor(private readonly sessionManager: SessionManager) {}
+
+  canActivate(context: McpExecutionContext): boolean {
+    const session = this.sessionManager.getSession(context.getSessionId());
+    return !!session?.request.headers.authorization;
+  }
+}
+
+@Module({
+  imports: [McpModule.forRoot({ name: 'my-server', version: '1.0.0' })],
+  providers: [AuthGuard, MyResolver],
+})
+export class AppModule {}
+```
+
+> Guards without `@Injectable()` still work but won't receive injected dependencies.
 
 ---
 
