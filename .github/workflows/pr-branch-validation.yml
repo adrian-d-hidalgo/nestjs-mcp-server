@@ -3,7 +3,7 @@ name: PR Branch Validation
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
-    branches: [develop, main, 'release/*']
+    branches: [main, 'release/*']
 
 jobs:
   validate-pr-branches:
@@ -28,16 +28,9 @@ jobs:
           SOURCE_TYPE=$(echo $SOURCE_BRANCH | cut -d'/' -f1)
 
           # Validate branch relationships based on workflow rules
-          if [[ "$SOURCE_TYPE" == "feature" ]] || [[ "$SOURCE_TYPE" == "bugfix" ]]; then
-            if [[ "$TARGET_BRANCH" != "develop" ]]; then
-              echo "ERROR: feature and bugfix branches must target the develop branch."
-              exit 1
-            fi
-
-          elif [[ "$SOURCE_TYPE" == "hotfix" ]] || [[ "$SOURCE_TYPE" == "release" ]]; then
+          if [[ "$SOURCE_TYPE" == "feature" ]] || [[ "$SOURCE_TYPE" == "bugfix" ]] || [[ "$SOURCE_TYPE" == "hotfix" ]] || [[ "$SOURCE_TYPE" == "release" ]]; then
             if [[ "$TARGET_BRANCH" != "main" ]]; then
-              echo "ERROR: hotfix and release branches must target the main branch."
-              echo "Note: Sync to develop will be handled automatically after merge to main."
+              echo "ERROR: feature, bugfix, hotfix and release branches must target the main branch."
               exit 1
             fi
 

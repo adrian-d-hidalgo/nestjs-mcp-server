@@ -235,11 +235,10 @@ Now Git will be able to verify SSH-signed commits using the allowed signers file
 
 ## Development Workflow
 
-- All feature branches should be created from `main`.
-- Pull requests should target the `develop` branch.
-- The `develop` branch contains the latest (potentially unstable) changes.
-- The `main` branch contains the latest stable release.
-- For detailed information on our Git workflow and commit guidelines, please refer to `.handbook/git-guidelines.md`.
+- All branches should be created from `main`.
+- Pull requests should target `main` (except `relfix/*` which targets `release/*`).
+- The `main` branch contains the stable production code.
+- For detailed information on our Git workflow and commit guidelines, please refer to [.handbook/GIT_GUIDELINES.md](.handbook/GIT_GUIDELINES.md).
 
 ## Testing
 
