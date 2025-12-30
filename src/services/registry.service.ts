@@ -42,17 +42,15 @@ export class RegistryService {
     private readonly sessionManager: SessionManager,
   ) {}
 
-  async registerAll(server: McpServer): Promise<void> {
+  registerAll(server: McpServer): void {
     this.logger.log(
       'Starting registration of all MCP capabilities...',
       'registry',
     );
 
-    await Promise.all([
-      this.registerResources(server),
-      this.registerPrompts(server),
-      this.registerTools(server),
-    ]);
+    this.registerResources(server);
+    this.registerPrompts(server);
+    this.registerTools(server);
   }
 
   private getDecoratorType(method: Type<any> | undefined): string | null {

@@ -1,4 +1,5 @@
 import { StreamableHTTPServerTransportOptions } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import {
   ProtocolOptions,
   RequestHandlerExtra as SdkRequestHandlerExtra,
@@ -10,14 +11,9 @@ import {
   ServerRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Provider, Type } from '@nestjs/common';
-import { ZodOptional, ZodType, ZodTypeDef } from 'zod';
 
-// This type exists in the MCP SDK but is not exported
-export type PromptArgsRawShape = {
-  [k: string]:
-    | ZodType<string, ZodTypeDef, string>
-    | ZodOptional<ZodType<string, ZodTypeDef, string>>;
-};
+// Use SDK's ZodRawShapeCompat for Zod v3/v4 compatibility
+export type PromptArgsRawShape = ZodRawShapeCompat;
 
 export type RequestHandlerExtra = SdkRequestHandlerExtra<
   ServerRequest,

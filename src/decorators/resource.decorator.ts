@@ -16,8 +16,7 @@ export interface ResourceTemplateOptions extends ResourceBaseOptions {
   template: string;
 }
 
-export interface ResourceTemplateWithMetadataOptions
-  extends ResourceTemplateOptions {
+export interface ResourceTemplateWithMetadataOptions extends ResourceTemplateOptions {
   metadata: Record<string, any>;
 }
 

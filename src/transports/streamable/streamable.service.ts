@@ -28,8 +28,8 @@ export class StreamableService implements OnModuleInit {
     this.server = new McpServer(this.options.serverInfo, this.options.options);
   }
 
-  async onModuleInit() {
-    await this.registry.registerAll(this.server);
+  onModuleInit() {
+    this.registry.registerAll(this.server);
 
     this.logger.log('MCP STREAMEABLE initialization completed');
   }

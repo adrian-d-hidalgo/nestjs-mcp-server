@@ -10,17 +10,23 @@ RUN apt-get update && \
   curl \
   && rm -rf /var/lib/apt/lists/*
 
-# Install PNPM and NestJS CLI
+# Install PNPM and NestJS CLI globally
 RUN npm install -g pnpm@10 @nestjs/cli
 
-# Copy package files
-COPY package.json pnpm-lock.yaml ./
+# Set ownership of workdir to node user before copying files
+RUN chown -R node:node /package
 
-# Install dependencies as root first
+# Copy package files with correct ownership
+COPY --chown=node:node package.json pnpm-lock.yaml ./
+
+# Switch to node user for dependency installation
+USER node
+
+# Install dependencies as node user
 RUN pnpm install
 
-# Copy the rest of the application code
-COPY . .
+# Copy the rest of the application code with correct ownership
+COPY --chown=node:node . .
 
 EXPOSE 3000 9229 6277
 

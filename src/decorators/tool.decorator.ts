@@ -1,6 +1,6 @@
 import { ToolAnnotations } from '@modelcontextprotocol/sdk/types';
+import { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import { SetMetadata } from '@nestjs/common';
-import { ZodRawShape } from 'zod';
 
 export interface ToolBaseOptions {
   name: string;
@@ -11,11 +11,10 @@ export interface ToolWithDescriptionOptions extends ToolBaseOptions {
 }
 
 export interface ToolWithParamsSchemaOptions extends ToolBaseOptions {
-  paramsSchema: ZodRawShape;
+  paramsSchema: ZodRawShapeCompat;
 }
 
-export interface ToolWithParamsSchemaAndDescriptionOptions
-  extends ToolWithParamsSchemaOptions {
+export interface ToolWithParamsSchemaAndDescriptionOptions extends ToolWithParamsSchemaOptions {
   description: string;
 }
 
@@ -23,19 +22,16 @@ export interface ToolWithAnnotationsOptions extends ToolBaseOptions {
   annotations: ToolAnnotations;
 }
 
-export interface ToolWithAnnotationsAndDescriptionOptions
-  extends ToolWithAnnotationsOptions {
+export interface ToolWithAnnotationsAndDescriptionOptions extends ToolWithAnnotationsOptions {
   description: string;
 }
 
-export interface ToolWithParamsSchemaAndAnnotationsOptions
-  extends ToolBaseOptions {
-  paramsSchema: ZodRawShape;
+export interface ToolWithParamsSchemaAndAnnotationsOptions extends ToolBaseOptions {
+  paramsSchema: ZodRawShapeCompat;
   annotations: ToolAnnotations;
 }
 
-export interface ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions
-  extends ToolWithParamsSchemaAndAnnotationsOptions {
+export interface ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions extends ToolWithParamsSchemaAndAnnotationsOptions {
   description: string;
 }
 
