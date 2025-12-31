@@ -7,7 +7,6 @@ on:
   pull_request:
     branches:
       - main
-      - 'release/*'
   schedule:
     - cron: '0 0 * * 1'
 
@@ -22,7 +21,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22.x'
+          node-version-file: '.nvmrc'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -46,7 +45,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22.x'
+          node-version-file: '.nvmrc'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -87,7 +86,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: '22.x'
+          node-version-file: '.nvmrc'
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4

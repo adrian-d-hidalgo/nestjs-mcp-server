@@ -93,10 +93,17 @@ export class MyResolver {
 
 ## Git Workflow Summary
 
-- **Branches**: `feature/issue-{id}-{desc}`, `bugfix/issue-{id}-{desc}`, `hotfix/{version}`, `release/{version}`
+- **Branches**: `feature/issue-{id}-{desc}`, `bugfix/issue-{id}-{desc}`, `alpha`, `beta`, `rc` (pre-releases)
 - **Commits**: Conventional (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`)
-- **PRs**: Target `main` (except `relfix/*` → `release/*`)
-- **Signed commits required**: `git commit -S`
+- **PRs**: Target `main`
+- **Releases**: GitHub Actions → Release → Run workflow (manual trigger)
+- **Version bumps**: Automatic via semantic-release based on commit types
+
+| Commit Type | Version Bump |
+|-------------|--------------|
+| `fix:` | PATCH |
+| `feat:` | MINOR |
+| `feat!:` / `BREAKING CHANGE:` | MAJOR |
 
 ## Pre-PR Checklist
 
