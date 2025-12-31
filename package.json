@@ -4,6 +4,7 @@
   "description": "Modular library for building scalable MCP servers with NestJS, providing decorators and integration patterns as a wrapper for the official MCP TypeScript SDK.",
   "author": "Adrián Darío Hidalgo Flores",
   "license": "MIT",
+  "packageManager": "pnpm@10.12.1",
   "engines": {
     "node": ">=24",
     "pnpm": ">=10"
