@@ -64,7 +64,7 @@ Thank you for your interest in contributing to NestJS MCP Server!
 
 #### Manual Setup (pnpm)
 
-1. Install [Node.js](https://nodejs.org/) v22+ and [PNPM](https://pnpm.io/).
+1. Install [Node.js](https://nodejs.org/) v24+ and [PNPM](https://pnpm.io/) (see `.nvmrc` for exact version).
 2. Clone the repository:
    ```sh
    git clone https://github.com/adrian-d-hidalgo/nestjs-mcp-server.git
@@ -236,8 +236,9 @@ Now Git will be able to verify SSH-signed commits using the allowed signers file
 ## Development Workflow
 
 - All branches should be created from `main`.
-- Pull requests should target `main` (except `relfix/*` which targets `release/*`).
+- Pull requests should target `main`.
 - The `main` branch contains the stable production code.
+- Releases are automated via semantic-release (triggered manually via GitHub Actions).
 - For detailed information on our Git workflow and commit guidelines, please refer to [.handbook/GIT_GUIDELINES.md](.handbook/GIT_GUIDELINES.md).
 
 ## Testing

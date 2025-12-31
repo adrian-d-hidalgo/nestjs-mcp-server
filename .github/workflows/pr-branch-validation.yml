@@ -3,19 +3,12 @@ name: PR Branch Validation
 on:
   pull_request:
     types: [opened, synchronize, reopened, edited]
-    branches: [main, 'release/*']
+    branches: [main]
 
 jobs:
   validate-pr-branches:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Install jq
-        run: sudo apt-get update && sudo apt-get install -y jq
-
       - name: Validate PR source and target branches
         run: |
           # Get source and target branches
@@ -28,60 +21,26 @@ jobs:
           SOURCE_TYPE=$(echo $SOURCE_BRANCH | cut -d'/' -f1)
 
           # Validate branch relationships based on workflow rules
-          if [[ "$SOURCE_TYPE" == "feature" ]] || [[ "$SOURCE_TYPE" == "bugfix" ]] || [[ "$SOURCE_TYPE" == "hotfix" ]] || [[ "$SOURCE_TYPE" == "release" ]]; then
+          # Allowed: feature/*, bugfix/* → main
+          # Pre-release branches (alpha, beta, rc) are handled by semantic-release
+          if [[ "$SOURCE_TYPE" == "feature" ]] || [[ "$SOURCE_TYPE" == "bugfix" ]]; then
             if [[ "$TARGET_BRANCH" != "main" ]]; then
-              echo "ERROR: feature, bugfix, hotfix and release branches must target the main branch."
+              echo "ERROR: feature and bugfix branches must target the main branch."
               exit 1
             fi
+            echo "PR branch validation passed"
 
-          elif [[ "$SOURCE_TYPE" == "relfix" ]]; then
-            if [[ ! "$TARGET_BRANCH" =~ ^release/ ]]; then
-              echo "ERROR: relfix branches must target a release branch."
+          elif [[ "$SOURCE_BRANCH" == "alpha" ]] || [[ "$SOURCE_BRANCH" == "beta" ]] || [[ "$SOURCE_BRANCH" == "rc" ]]; then
+            # Pre-release branches can be merged to main
+            if [[ "$TARGET_BRANCH" != "main" ]]; then
+              echo "ERROR: pre-release branches (alpha, beta, rc) must target the main branch."
               exit 1
             fi
+            echo "PR branch validation passed"
 
           else
-            echo "Unknown branch type: $SOURCE_TYPE"
+            echo "ERROR: Unknown branch type: $SOURCE_TYPE"
+            echo "Allowed branch prefixes: feature/, bugfix/"
+            echo "Allowed pre-release branches: alpha, beta, rc"
             exit 1
           fi
-
-          echo "PR branch validation passed"
-
-      - name: Validate version is strictly progressive (release/hotfix to main only)
-        if: github.base_ref == 'main' && (contains(github.head_ref, 'release/') || contains(github.head_ref, 'hotfix/'))
-        run: |
-          # Get the base and head commit SHAs
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
-
-          # Fetch the base branch package.json
-          git fetch origin ${{ github.base_ref }}
-          git checkout $BASE_SHA -- package.json
-          BASE_VERSION=$(jq -r .version package.json)
-
-          # Fetch the head branch package.json
-          git checkout $HEAD_SHA -- package.json
-          HEAD_VERSION=$(jq -r .version package.json)
-
-          # Get current branch
-          BRANCH="${{ github.head_ref }}"
-
-          # Use centralized version validation from npm-publish.js script
-          node -e "
-            try {
-              const npmPublish = require('./scripts/npm-publish.js');
-              
-              // Validate that the version follows semver
-              npmPublish.validateSemver('$HEAD_VERSION');
-              
-              // Check that the new version is greater than the old version
-              // and follows branch-specific rules (major/minor for release, patch for hotfix)
-              npmPublish.validateVersionIncrement('$HEAD_VERSION', '$BASE_VERSION', '$BRANCH');
-              
-              console.log('✅ Version validation passed');
-              process.exit(0);
-            } catch (error) {
-              console.error('❌ ' + error.message);
-              process.exit(1);
-            }
-          "

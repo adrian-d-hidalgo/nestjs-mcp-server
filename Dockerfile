@@ -1,4 +1,7 @@
-FROM node:22.14
+# syntax=docker/dockerfile:1
+# Node version from .nvmrc (keep in sync)
+ARG NODE_VERSION=24
+FROM node:${NODE_VERSION}
 
 # Set working directory
 WORKDIR /package
