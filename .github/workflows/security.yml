@@ -1,10 +1,10 @@
-name: 'Security Scan'
+name: Security
 
 on:
-  push:
-    branches: [hotfix/*]
-  pull_request:
-    branches: [main, release/*]
+  workflow_run:
+    workflows: ['Tests']
+    types:
+      - completed
   schedule:
     - cron: '0 0 * * 1'
 
@@ -12,6 +12,7 @@ jobs:
   codeql-analysis:
     name: CodeQL Analysis
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       actions: read
       contents: read
@@ -24,17 +25,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
         with:
           node-version: '22.x'
-          registry-url: 'https://registry.npmjs.org'
 
-      - name: Install PNPM
+      - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -43,28 +43,29 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Initialize CodeQL
-        uses: github/codeql-action/init@v3
+        uses: github/codeql-action/init@v4
         with:
           languages: ${{ matrix.language }}
           queries: security-extended
           config-file: ./.github/codeql-config.yml
 
       - name: Build project for analysis
-        run: pnpm run build
+        run: pnpm build
 
       - name: Perform CodeQL Analysis
-        uses: github/codeql-action/analyze@v3
+        uses: github/codeql-action/analyze@v4
         with:
           category: '/language:${{matrix.language}}'
 
   snyk-scan:
     name: Snyk Scan
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'schedule' || github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
-      issues: write
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v6
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -72,9 +73,9 @@ jobs:
           version: 10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: 'pnpm'
 
       - name: Install dependencies
@@ -85,18 +86,11 @@ jobs:
         env:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          args: --severity-threshold=low
+          args: --severity-threshold=high
 
-      # Si encuentras vulnerabilidades críticas, podrías crear un issue automáticamente
-      - name: Create issue on critical vulnerabilities
-        if: ${{ failure() }}
-        uses: actions/github-script@v6
+      - name: Run Snyk code analysis
+        uses: snyk/actions/node@master
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
-          script: |
-            github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: 'Vulnerabilidades críticas detectadas por Snyk',
-              body: 'El escaneo periódico de seguridad ha detectado vulnerabilidades críticas. Por favor revisa el último workflow de "Periodic Security Scan".',
-              labels: ['security', 'high-priority']
-            })
+          command: code test
