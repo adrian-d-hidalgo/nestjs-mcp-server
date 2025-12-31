@@ -1,3 +1,18 @@
+# [0.4.0-rc.1](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v0.3.0...v0.4.0-rc.1) (2025-12-31)
+
+
+### Bug Fixes
+
+* add packageManager field for pnpm version specification ([#90](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/90)) ([8878104](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/8878104c0dc30dbf3ee8904c48e99b23dedd07c6)), closes [#89](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/89)
+* **husky:** update pre-commit hook and add quality scripts ([#76](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/76)) ([d245124](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/d2451247d68307acbf1142bc00f51615f1dcf124)), closes [#75](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/75)
+* resolve guards from DI container using ModuleRef ([#82](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/82)) ([476b547](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/476b547e026b4108d96c8ee29b40513b78d7b637)), closes [#70](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/70)
+
+
+### Features
+
+* **release:** migrate to semantic-release and standardize Node.js v24 ([c81b017](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/c81b017fcb2f00e06dfedb9e2200732f0592ec4a)), closes [#87](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/87)
+* **release:** migrate to semantic-release and standardize Node.js v24 ([#88](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/88)) ([d4e48b8](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/d4e48b88b77ecc077b5662c0e1fd9d77164b47d4)), closes [#87](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/87)
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
