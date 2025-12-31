@@ -37,6 +37,9 @@ describe('StreamableService', () => {
   };
 
   beforeEach(async () => {
+    // Silence console.error from SDK internals during tests
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+
     const module: TestingModule = await Test.createTestingModule({
       imports: [DiscoveryModule],
       providers: [
