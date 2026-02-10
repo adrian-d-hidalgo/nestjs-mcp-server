@@ -3,29 +3,89 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-import { McpServerOptions } from '../../mcp.types';
+import { McpServerOptions, McpSessionOptions } from '../../mcp.types';
 import { McpLoggerService } from '../../services/logger.service';
 import { RegistryService } from '../../services/registry.service';
 import { SessionManager } from '../../services/session.manager';
 
 @Injectable()
 export class SseService implements OnModuleInit {
-  private server: McpServer;
+  private readonly sessionTimeoutMs: number;
+  private readonly maxConcurrentSessions: number;
+  private readonly cleanupIntervalMs: number;
+  private cleanupTimer?: NodeJS.Timeout;
 
   constructor(
     @Inject('MCP_SERVER_OPTIONS')
     private readonly options: McpServerOptions,
+    @Inject('MCP_SESSION_OPTIONS')
+    private readonly sessionOptions: McpSessionOptions,
     private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
     private readonly sessionManager: SessionManager,
   ) {
-    this.server = new McpServer(this.options.serverInfo, this.options.options);
+    // Initialize with config values or defaults
+    this.sessionTimeoutMs = sessionOptions.sessionTimeoutMs ?? 1800000;
+    this.maxConcurrentSessions = sessionOptions.maxConcurrentSessions ?? 1000;
+    this.cleanupIntervalMs = sessionOptions.cleanupIntervalMs ?? 300000;
   }
 
   onModuleInit() {
-    this.logger.log('Starting MCP controller registration', 'MCP_SERVER');
-    this.registry.registerAll(this.server);
     this.logger.log('MCP initialization completed', 'MCP_SERVER');
+    this.startCleanupJob();
+  }
+
+  onModuleDestroy() {
+    this.stopCleanupJob();
+  }
+
+  private startCleanupJob(): void {
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupInactiveSessions();
+    }, this.cleanupIntervalMs);
+  }
+
+  private stopCleanupJob(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
+  }
+
+  private cleanupInactiveSessions(): void {
+    const inactiveSessions = this.sessionManager.getInactiveSessions(
+      this.sessionTimeoutMs,
+    );
+
+    if (inactiveSessions.length > 0) {
+      this.logger.debug(
+        `Cleaning up ${inactiveSessions.length} inactive sessions`,
+        'SSE',
+      );
+
+      for (const sessionId of inactiveSessions) {
+        const session = this.sessionManager.getSession(sessionId);
+        if (session) {
+          try {
+            void session.transport.close();
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.logger.error(
+              `Error closing transport for session ${sessionId}`,
+              errorMessage,
+              'SSE',
+            );
+          }
+          this.sessionManager.deleteSession(sessionId);
+        }
+      }
+    }
+  }
+
+  private createServer(): McpServer {
+    const server = new McpServer(this.options.serverInfo, this.options.options);
+    this.registry.registerAll(server);
+    return server;
   }
 
   /**
@@ -34,6 +94,22 @@ export class SseService implements OnModuleInit {
    * This establishes a connection for server-to-client notifications
    */
   async handleSse(req: Request, res: Response) {
+    // Check session limit
+    if (
+      this.sessionManager.getActiveSessionCount() >= this.maxConcurrentSessions
+    ) {
+      this.logger.warn(
+        `Maximum concurrent sessions reached: ${this.maxConcurrentSessions}`,
+        'SSE',
+      );
+      res
+        .status(503)
+        .send(
+          'Service temporarily unavailable: Maximum concurrent sessions reached',
+        );
+      return;
+    }
+
     // Create SSE transport for legacy clients
     const transport = new SSEServerTransport('/messages', res);
 
@@ -44,14 +120,25 @@ export class SseService implements OnModuleInit {
 
     this.logger.debug(
       `Starting SSE for sessionId: ${transport.sessionId}`,
-      'api',
+      'SSE',
     );
 
     res.on('close', () => {
+      this.logger.debug(
+        `SSE connection closed for session: ${transport.sessionId}`,
+        'SSE',
+      );
       this.sessionManager.deleteSession(transport.sessionId);
     });
 
-    await this.server.connect(transport);
+    try {
+      const server = this.createServer();
+      await server.connect(transport);
+    } catch (error) {
+      this.logger.error('Failed to create or connect server', error, 'SSE');
+      this.sessionManager.deleteSession(transport.sessionId);
+      res.status(500).send('Internal server error');
+    }
   }
 
   /**
