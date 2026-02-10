@@ -52,6 +52,14 @@ describe('SseService', () => {
             options: {},
           },
         },
+        {
+          provide: 'MCP_SESSION_OPTIONS',
+          useValue: {
+            sessionTimeoutMs: 1800000,
+            cleanupIntervalMs: 300000,
+            maxConcurrentSessions: 1000,
+          },
+        },
       ],
     }).compile();
 
@@ -223,13 +231,17 @@ describe('SseService', () => {
 
       jest.spyOn(logger, 'debug').mockImplementation(() => {});
 
-      const serverConnectSpy = jest
-        .spyOn(service['server'], 'connect')
-        .mockResolvedValue(undefined);
+      const mockServer = {
+        connect: jest.fn().mockResolvedValue(undefined),
+      };
+      const createServerSpy = jest
+        .spyOn(service as any, 'createServer')
+        .mockReturnValue(mockServer);
 
       await service.handleSse(req as Request, res as Response);
 
-      expect(serverConnectSpy).toHaveBeenCalled();
+      expect(createServerSpy).toHaveBeenCalled();
+      expect(mockServer.connect).toHaveBeenCalled();
 
       const sessions = Array.from(
         (sessionManager as unknown as { sessions: Map<string, unknown> })
@@ -255,7 +267,11 @@ describe('SseService', () => {
       };
 
       jest.spyOn(logger, 'debug').mockImplementation(() => {});
-      jest.spyOn(service['server'], 'connect').mockResolvedValue(undefined);
+
+      const mockServer = {
+        connect: jest.fn().mockResolvedValue(undefined),
+      };
+      jest.spyOn(service as any, 'createServer').mockReturnValue(mockServer);
 
       await service.handleSse(req as Request, res as unknown as Response);
 
@@ -275,19 +291,23 @@ describe('SseService', () => {
   });
 
   describe('onModuleInit', () => {
-    it('should register all capabilities and log initialization', () => {
+    it('should log initialization', () => {
       const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => {});
 
       service.onModuleInit();
 
       expect(logSpy).toHaveBeenCalledWith(
-        'Starting MCP controller registration',
-        'MCP_SERVER',
-      );
-      expect(logSpy).toHaveBeenCalledWith(
         'MCP initialization completed',
         'MCP_SERVER',
       );
+
+      // Cleanup to prevent open handles
+      service.onModuleDestroy();
     });
+  });
+
+  afterAll(() => {
+    // Ensure cleanup timer is cleared
+    service.onModuleDestroy();
   });
 });

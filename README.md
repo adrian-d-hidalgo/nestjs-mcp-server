@@ -51,6 +51,7 @@
   - [MCP Execution Context](#mcp-execution-context)
   - [Guards with Dependency Injection](#guards-with-dependency-injection)
 - [Session Management](#session-management)
+  - [Session Management Options](#session-management-options)
 - [Transport Options](#transport-options)
 - [Inspector Playground](#inspector-playground)
 - [Examples](#examples)
@@ -940,6 +941,82 @@ export class AppModule {}
 ```
 
 Disabling unused transports can slightly reduce the application's surface area and resource usage.
+
+---
+
+## Session Management Options
+
+Configure session timeouts, cleanup intervals, and resource limits to optimize your server for production workloads.
+
+**Configuration:**
+
+```typescript
+import { Module } from '@nestjs/common';
+import { McpModule } from '@nestjs-mcp/server';
+
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'My Server',
+      version: '1.0.0',
+      session: {
+        sessionTimeoutMs: 1800000, // 30 minutes (default)
+        cleanupIntervalMs: 300000, // 5 minutes (default)
+        maxConcurrentSessions: 1000, // Max sessions (default)
+      },
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+**Configuration Options:**
+
+| Option                    | Type     | Default               | Description                                          |
+| ------------------------- | -------- | --------------------- | ---------------------------------------------------- |
+| `sessionTimeoutMs`        | `number` | `1800000` (30 min)    | Maximum inactivity time before session cleanup      |
+| `cleanupIntervalMs`       | `number` | `300000` (5 min)      | Frequency of cleanup job execution                   |
+| `maxConcurrentSessions`   | `number` | `1000`                | Maximum concurrent sessions allowed                  |
+
+**How It Works:**
+
+- **Activity Tracking**: Each session's `lastActivity` timestamp updates on every request
+- **Cleanup Job**: Runs every `cleanupIntervalMs` to close and remove inactive sessions
+- **Session Limit**: New connections are rejected (503) when `maxConcurrentSessions` is reached
+
+**Production Recommendations:**
+
+- **High-traffic servers**: Increase `maxConcurrentSessions` (2000-5000) and decrease `cleanupIntervalMs` (2-3 min)
+- **Low-memory environments**: Decrease `maxConcurrentSessions` (100-500) and `sessionTimeoutMs` (10-15 min)
+- **Long-running workflows**: Increase `sessionTimeoutMs` (60-90 min)
+
+**Example with Environment Variables:**
+
+```typescript
+import { Module } from '@nestjs/common';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+import { McpModule } from '@nestjs-mcp/server';
+
+@Module({
+  imports: [
+    ConfigModule.forRoot(),
+    McpModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        name: 'My Server',
+        version: '1.0.0',
+        session: {
+          sessionTimeoutMs: config.get('MCP_SESSION_TIMEOUT', 1800000),
+          cleanupIntervalMs: config.get('MCP_CLEANUP_INTERVAL', 300000),
+          maxConcurrentSessions: config.get('MCP_MAX_SESSIONS', 1000),
+        },
+      }),
+    }),
+  ],
+})
+export class AppModule {}
+```
 
 ---
 

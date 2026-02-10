@@ -52,6 +52,29 @@ export type McpLoggingOptions = {
 };
 
 /**
+ * Options for session management and resource control
+ */
+export type McpSessionOptions = {
+  /**
+   * Maximum time (in milliseconds) a session can remain inactive before being cleaned up
+   * @default 1800000 (30 minutes)
+   */
+  sessionTimeoutMs?: number;
+
+  /**
+   * Interval (in milliseconds) at which the cleanup job runs to remove inactive sessions
+   * @default 300000 (5 minutes)
+   */
+  cleanupIntervalMs?: number;
+
+  /**
+   * Maximum number of concurrent sessions allowed
+   * @default 1000
+   */
+  maxConcurrentSessions?: number;
+};
+
+/**
  * Options for configuring the global MCP server module
  */
 export type McpModuleOptions = {
@@ -88,6 +111,10 @@ export type McpModuleOptions = {
    * Options for configuring MCP server logging
    */
   logging?: McpLoggingOptions;
+  /**
+   * Options for session management and resource control
+   */
+  session?: McpSessionOptions;
   /**
    * Options for configuring a feature module with MCP capabilities
    */

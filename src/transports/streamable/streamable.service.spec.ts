@@ -59,6 +59,14 @@ describe('StreamableService', () => {
           provide: 'MCP_TRANSPORT_OPTIONS',
           useValue: { streamable: { enabled: true, options: {} } },
         },
+        {
+          provide: 'MCP_SESSION_OPTIONS',
+          useValue: {
+            sessionTimeoutMs: 1800000,
+            cleanupIntervalMs: 300000,
+            maxConcurrentSessions: 1000,
+          },
+        },
       ],
     }).compile();
 
@@ -133,6 +141,13 @@ describe('StreamableService', () => {
     });
 
     it('should attempt to create new transport for initialize request', async () => {
+      const mockServer = {
+        connect: jest.fn().mockResolvedValue(undefined),
+      };
+      const createServerSpy = jest
+        .spyOn(service as any, 'createServer')
+        .mockReturnValue(mockServer);
+
       const req = createMockRequest({
         headers: {},
         body: {
@@ -152,6 +167,7 @@ describe('StreamableService', () => {
         service.handlePostRequest(req as Request, res as Response),
       ).rejects.toThrow();
 
+      expect(createServerSpy).toHaveBeenCalled();
       expect(res.status).not.toHaveBeenCalledWith(400);
     });
   });
@@ -308,6 +324,14 @@ describe('StreamableService', () => {
       expect(logSpy).toHaveBeenCalledWith(
         'MCP STREAMEABLE initialization completed',
       );
+
+      // Cleanup to prevent open handles
+      service.onModuleDestroy();
     });
+  });
+
+  afterAll(() => {
+    // Ensure cleanup timer is cleared
+    service.onModuleDestroy();
   });
 });

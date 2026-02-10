@@ -5,7 +5,11 @@ import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 
-import { McpModuleTransportOptions, McpServerOptions } from '../../mcp.types';
+import {
+  McpModuleTransportOptions,
+  McpServerOptions,
+  McpSessionOptions,
+} from '../../mcp.types';
 import { McpLoggerService } from '../../services/logger.service';
 import { RegistryService } from '../../services/registry.service';
 import { SessionManager } from '../../services/session.manager';
@@ -14,24 +18,84 @@ import { SessionManager } from '../../services/session.manager';
 
 @Injectable()
 export class StreamableService implements OnModuleInit {
-  private server: McpServer;
+  private readonly sessionTimeoutMs: number;
+  private readonly maxConcurrentSessions: number;
+  private readonly cleanupIntervalMs: number;
+  private cleanupTimer?: NodeJS.Timeout;
 
   constructor(
     @Inject('MCP_SERVER_OPTIONS')
     private readonly options: McpServerOptions,
     @Inject('MCP_TRANSPORT_OPTIONS')
     private readonly transportOptions: McpModuleTransportOptions,
+    @Inject('MCP_SESSION_OPTIONS')
+    private readonly sessionOptions: McpSessionOptions,
     private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
     private readonly sessionManager: SessionManager,
   ) {
-    this.server = new McpServer(this.options.serverInfo, this.options.options);
+    // Initialize with config values or defaults
+    this.sessionTimeoutMs = sessionOptions.sessionTimeoutMs ?? 1800000;
+    this.maxConcurrentSessions = sessionOptions.maxConcurrentSessions ?? 1000;
+    this.cleanupIntervalMs = sessionOptions.cleanupIntervalMs ?? 300000;
   }
 
   onModuleInit() {
-    this.registry.registerAll(this.server);
-
     this.logger.log('MCP STREAMEABLE initialization completed');
+    this.startCleanupJob();
+  }
+
+  onModuleDestroy() {
+    this.stopCleanupJob();
+  }
+
+  private startCleanupJob(): void {
+    this.cleanupTimer = setInterval(() => {
+      this.cleanupInactiveSessions();
+    }, this.cleanupIntervalMs);
+  }
+
+  private stopCleanupJob(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+    }
+  }
+
+  private cleanupInactiveSessions(): void {
+    const inactiveSessions = this.sessionManager.getInactiveSessions(
+      this.sessionTimeoutMs,
+    );
+
+    if (inactiveSessions.length > 0) {
+      this.logger.debug(
+        `Cleaning up ${inactiveSessions.length} inactive sessions`,
+        'STREAMABLE',
+      );
+
+      for (const sessionId of inactiveSessions) {
+        const session = this.sessionManager.getSession(sessionId);
+        if (session) {
+          try {
+            void session.transport.close();
+          } catch (error) {
+            const errorMessage =
+              error instanceof Error ? error.message : String(error);
+            this.logger.error(
+              `Error closing transport for session ${sessionId}`,
+              errorMessage,
+              'STREAMABLE',
+            );
+          }
+          this.sessionManager.deleteSession(sessionId);
+        }
+      }
+    }
+  }
+
+  private createServer(): McpServer {
+    const server = new McpServer(this.options.serverInfo, this.options.options);
+    this.registry.registerAll(server);
+    return server;
   }
 
   /**
@@ -49,6 +113,27 @@ export class StreamableService implements OnModuleInit {
     let transport: StreamableHTTPServerTransport;
 
     const { options } = this.transportOptions?.streamable || {};
+
+    // Check session limit for new connections
+    if (
+      !sessionId &&
+      this.sessionManager.getActiveSessionCount() >= this.maxConcurrentSessions
+    ) {
+      this.logger.warn(
+        `Maximum concurrent sessions reached: ${this.maxConcurrentSessions}`,
+        'STREAMABLE',
+      );
+      res.status(503).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32000,
+          message:
+            'Service temporarily unavailable: Maximum concurrent sessions reached',
+        },
+        id: null,
+      });
+      return;
+    }
 
     if (sessionId && this.sessionManager.getSession(sessionId)) {
       const session = this.sessionManager.getSession(sessionId);
@@ -79,11 +164,34 @@ export class StreamableService implements OnModuleInit {
 
       transport.onclose = () => {
         if (transport.sessionId) {
+          this.logger.debug(
+            `Transport closed for session: ${transport.sessionId}`,
+            'STREAMABLE',
+          );
           this.sessionManager.deleteSession(transport.sessionId);
         }
       };
 
-      await this.server.connect(transport);
+      try {
+        const server = this.createServer();
+        await server.connect(transport);
+      } catch (error) {
+        this.logger.error(
+          'Failed to create or connect server',
+          error,
+          'STREAMABLE',
+        );
+        await transport.close();
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: {
+            code: -32603,
+            message: 'Internal server error',
+          },
+          id: null,
+        });
+        return;
+      }
     } else {
       // Invalid request
       res.status(400).json({

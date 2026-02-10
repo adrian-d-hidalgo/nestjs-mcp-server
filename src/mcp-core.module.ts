@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import {
   MCP_LOGGING_OPTIONS,
   MCP_MODULE_OPTIONS,
+  MCP_SESSION_OPTIONS,
   MCP_TRANSPORT_OPTIONS,
 } from './mcp.constants';
 import {
@@ -151,6 +152,16 @@ export class McpCoreModule {
         inject: [MCP_MODULE_OPTIONS],
       },
       {
+        provide: MCP_SESSION_OPTIONS,
+        useFactory: (mcpOptions: McpModuleOptions) => ({
+          sessionTimeoutMs: mcpOptions.session?.sessionTimeoutMs ?? 1800000,
+          cleanupIntervalMs: mcpOptions.session?.cleanupIntervalMs ?? 300000,
+          maxConcurrentSessions:
+            mcpOptions.session?.maxConcurrentSessions ?? 1000,
+        }),
+        inject: [MCP_MODULE_OPTIONS],
+      },
+      {
         provide: 'MCP_SERVER_OPTIONS',
         useFactory: (mcpOptions: McpModuleOptions) => {
           const { serverInfo, serverOptions, loggingOptions } =
@@ -200,6 +211,15 @@ export class McpCoreModule {
         {
           provide: 'MCP_TRANSPORT_OPTIONS',
           useValue: options.transports,
+        },
+        {
+          provide: 'MCP_SESSION_OPTIONS',
+          useValue: {
+            sessionTimeoutMs: options.session?.sessionTimeoutMs ?? 1800000,
+            cleanupIntervalMs: options.session?.cleanupIntervalMs ?? 300000,
+            maxConcurrentSessions:
+              options.session?.maxConcurrentSessions ?? 1000,
+          },
         },
       ],
       global: true,
