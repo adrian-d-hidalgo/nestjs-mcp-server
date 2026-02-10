@@ -324,6 +324,14 @@ describe('StreamableService', () => {
       expect(logSpy).toHaveBeenCalledWith(
         'MCP STREAMEABLE initialization completed',
       );
+
+      // Cleanup to prevent open handles
+      service.onModuleDestroy();
     });
+  });
+
+  afterAll(() => {
+    // Ensure cleanup timer is cleared
+    service.onModuleDestroy();
   });
 });

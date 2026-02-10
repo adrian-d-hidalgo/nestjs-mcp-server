@@ -300,6 +300,14 @@ describe('SseService', () => {
         'MCP initialization completed',
         'MCP_SERVER',
       );
+
+      // Cleanup to prevent open handles
+      service.onModuleDestroy();
     });
+  });
+
+  afterAll(() => {
+    // Ensure cleanup timer is cleared
+    service.onModuleDestroy();
   });
 });
