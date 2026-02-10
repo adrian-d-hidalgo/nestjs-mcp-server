@@ -3,7 +3,16 @@ import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { Request, Response } from 'express';
 
-import { McpServerOptions, McpSessionOptions } from '../../mcp.types';
+import {
+  MCP_SERVER_OPTIONS,
+  MCP_SESSION_OPTIONS,
+  MCP_TRANSPORT_OPTIONS,
+} from '../../mcp.constants';
+import {
+  McpModuleTransportOptions,
+  McpServerOptions,
+  McpSessionOptions,
+} from '../../mcp.types';
 import { McpLoggerService } from '../../services/logger.service';
 import { RegistryService } from '../../services/registry.service';
 import { SessionManager } from '../../services/session.manager';
@@ -13,17 +22,23 @@ export class SseService implements OnModuleInit {
   private readonly sessionTimeoutMs: number;
   private readonly maxConcurrentSessions: number;
   private readonly cleanupIntervalMs: number;
+  private readonly enabled: boolean;
   private cleanupTimer?: NodeJS.Timeout;
 
   constructor(
-    @Inject('MCP_SERVER_OPTIONS')
+    @Inject(MCP_SERVER_OPTIONS)
     private readonly options: McpServerOptions,
-    @Inject('MCP_SESSION_OPTIONS')
+    @Inject(MCP_SESSION_OPTIONS)
     private readonly sessionOptions: McpSessionOptions,
+    @Inject(MCP_TRANSPORT_OPTIONS)
+    private readonly transportOptions: McpModuleTransportOptions,
     private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
     private readonly sessionManager: SessionManager,
   ) {
+    // Check if SSE transport is enabled (default: true)
+    this.enabled = transportOptions?.sse?.enabled !== false;
+
     // Initialize with config values or defaults
     this.sessionTimeoutMs = sessionOptions.sessionTimeoutMs ?? 1800000;
     this.maxConcurrentSessions = sessionOptions.maxConcurrentSessions ?? 1000;
@@ -31,6 +46,11 @@ export class SseService implements OnModuleInit {
   }
 
   onModuleInit() {
+    if (!this.enabled) {
+      this.logger.log('SSE transport disabled', 'MCP_SERVER');
+      return;
+    }
+
     this.logger.log('MCP initialization completed', 'MCP_SERVER');
     this.startCleanupJob();
   }
@@ -94,6 +114,11 @@ export class SseService implements OnModuleInit {
    * This establishes a connection for server-to-client notifications
    */
   async handleSse(req: Request, res: Response) {
+    if (!this.enabled) {
+      res.status(404).send('SSE transport is disabled');
+      return;
+    }
+
     // Check session limit
     if (
       this.sessionManager.getActiveSessionCount() >= this.maxConcurrentSessions
@@ -145,6 +170,11 @@ export class SseService implements OnModuleInit {
    * Handle SSE messages sent from client to server
    */
   async handleMessage(req: Request, res: Response) {
+    if (!this.enabled) {
+      res.status(404).send('SSE transport is disabled');
+      return;
+    }
+
     const sessionId = req.query.sessionId as string;
     const session = this.sessionManager.getSession(sessionId);
 

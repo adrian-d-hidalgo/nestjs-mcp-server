@@ -19,7 +19,6 @@ import {
   MCP_RESOURCE,
   MCP_TOOL,
 } from '../decorators';
-import { McpExecutionContext } from '../interfaces/context.interface';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 import { RegistryService } from './registry.service';
@@ -932,7 +931,7 @@ describe('RegistryService', () => {
     it('should use ModuleRef.get to resolve guards from DI container', async () => {
       // Simple guard that always returns true
       class TestGuard implements CanActivate {
-        canActivate(_context: McpExecutionContext): boolean {
+        canActivate(_context: any): boolean {
           return true;
         }
       }
@@ -1010,7 +1009,7 @@ describe('RegistryService', () => {
           this.sessionManagerInjected = sessionManager !== undefined;
         }
 
-        canActivate(_context: McpExecutionContext): boolean {
+        canActivate(_context: any): boolean {
           if (!this.sessionManager) {
             throw new Error('SessionManager was not injected!');
           }
@@ -1081,7 +1080,7 @@ describe('RegistryService', () => {
 
     it('should instantiate guards directly when not registered in DI container', async () => {
       class SimpleGuard implements CanActivate {
-        canActivate(_context: McpExecutionContext): boolean {
+        canActivate(_context: any): boolean {
           return true;
         }
       }

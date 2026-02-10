@@ -1,5 +1,5 @@
 import { StreamableHTTPServerTransportOptions } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
+import { ZodRawShapeCompat as SdkZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import {
   ProtocolOptions,
   RequestHandlerExtra as SdkRequestHandlerExtra,
@@ -11,6 +11,9 @@ import {
   ServerRequest,
 } from '@modelcontextprotocol/sdk/types.js';
 import { Provider, Type } from '@nestjs/common';
+
+// Re-export SDK's ZodRawShapeCompat for Zod v3/v4 compatibility
+export type ZodRawShapeCompat = SdkZodRawShapeCompat;
 
 // Use SDK's ZodRawShapeCompat for Zod v3/v4 compatibility
 export type PromptArgsRawShape = ZodRawShapeCompat;

@@ -6,6 +6,11 @@ import { randomUUID } from 'crypto';
 import { Request, Response } from 'express';
 
 import {
+  MCP_SERVER_OPTIONS,
+  MCP_SESSION_OPTIONS,
+  MCP_TRANSPORT_OPTIONS,
+} from '../../mcp.constants';
+import {
   McpModuleTransportOptions,
   McpServerOptions,
   McpSessionOptions,
@@ -21,19 +26,23 @@ export class StreamableService implements OnModuleInit {
   private readonly sessionTimeoutMs: number;
   private readonly maxConcurrentSessions: number;
   private readonly cleanupIntervalMs: number;
+  private readonly enabled: boolean;
   private cleanupTimer?: NodeJS.Timeout;
 
   constructor(
-    @Inject('MCP_SERVER_OPTIONS')
+    @Inject(MCP_SERVER_OPTIONS)
     private readonly options: McpServerOptions,
-    @Inject('MCP_TRANSPORT_OPTIONS')
+    @Inject(MCP_TRANSPORT_OPTIONS)
     private readonly transportOptions: McpModuleTransportOptions,
-    @Inject('MCP_SESSION_OPTIONS')
+    @Inject(MCP_SESSION_OPTIONS)
     private readonly sessionOptions: McpSessionOptions,
     private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
     private readonly sessionManager: SessionManager,
   ) {
+    // Check if Streamable transport is enabled (default: true)
+    this.enabled = transportOptions?.streamable?.enabled !== false;
+
     // Initialize with config values or defaults
     this.sessionTimeoutMs = sessionOptions.sessionTimeoutMs ?? 1800000;
     this.maxConcurrentSessions = sessionOptions.maxConcurrentSessions ?? 1000;
@@ -41,6 +50,11 @@ export class StreamableService implements OnModuleInit {
   }
 
   onModuleInit() {
+    if (!this.enabled) {
+      this.logger.log('Streamable transport disabled', 'MCP_SERVER');
+      return;
+    }
+
     this.logger.log('MCP STREAMEABLE initialization completed');
     this.startCleanupJob();
   }
@@ -109,6 +123,18 @@ export class StreamableService implements OnModuleInit {
    * @param res Express Response object
    */
   async handlePostRequest(req: Request, res: Response) {
+    if (!this.enabled) {
+      res.status(404).json({
+        jsonrpc: '2.0',
+        error: {
+          code: -32000,
+          message: 'Streamable transport is disabled',
+        },
+        id: null,
+      });
+      return;
+    }
+
     const sessionId = req.headers['mcp-session-id'] as string | undefined;
     let transport: StreamableHTTPServerTransport;
 

@@ -9,6 +9,8 @@ import { McpCoreModule } from './mcp-core.module';
 import {
   MCP_LOGGING_OPTIONS,
   MCP_MODULE_OPTIONS,
+  MCP_SERVER_OPTIONS,
+  MCP_SESSION_OPTIONS,
   MCP_TRANSPORT_OPTIONS,
 } from './mcp.constants';
 import { McpModuleOptions } from './mcp.types';
@@ -118,7 +120,7 @@ describe('McpCoreModule', () => {
       const module = McpCoreModule.forRoot(options);
 
       const loggingProvider = module.providers?.find(
-        (p: any) => p.provide === 'MCP_LOGGING_OPTIONS',
+        (p: any) => p.provide === MCP_LOGGING_OPTIONS,
       ) as any;
 
       expect(loggingProvider.useValue).toEqual({
@@ -136,7 +138,7 @@ describe('McpCoreModule', () => {
       const module = McpCoreModule.forRoot(options);
 
       const loggingProvider = module.providers?.find(
-        (p: any) => p.provide === 'MCP_LOGGING_OPTIONS',
+        (p: any) => p.provide === MCP_LOGGING_OPTIONS,
       ) as any;
 
       expect(loggingProvider.useValue).toEqual({
@@ -158,7 +160,7 @@ describe('McpCoreModule', () => {
       const module = McpCoreModule.forRoot(options);
 
       const serverOptionsProvider = module.providers?.find(
-        (p: any) => p.provide === 'MCP_SERVER_OPTIONS',
+        (p: any) => p.provide === MCP_SERVER_OPTIONS,
       ) as any;
 
       expect(serverOptionsProvider.useValue.serverInfo).toEqual({
@@ -272,7 +274,7 @@ describe('McpCoreModule', () => {
       expect(providerTokens).toContain(MCP_MODULE_OPTIONS);
       expect(providerTokens).toContain(MCP_LOGGING_OPTIONS);
       expect(providerTokens).toContain(MCP_TRANSPORT_OPTIONS);
-      expect(providerTokens).toContain('MCP_SERVER_OPTIONS');
+      expect(providerTokens).toContain(MCP_SERVER_OPTIONS);
     });
 
     it('should work with real NestJS TestingModule', async () => {
@@ -343,7 +345,7 @@ describe('McpCoreModule', () => {
       const module = McpCoreModule.forRoot(options);
 
       const serverOptionsProvider = module.providers?.find(
-        (p: any) => p.provide === 'MCP_SERVER_OPTIONS',
+        (p: any) => p.provide === MCP_SERVER_OPTIONS,
       ) as any;
 
       expect(

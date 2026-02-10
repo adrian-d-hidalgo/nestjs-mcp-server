@@ -5,8 +5,8 @@ export * from './mcp.types';
 // Interfaces
 export * from './interfaces';
 
-// Objects
-export * from './classes';
+// Types
+export * from './types/handler-args.types';
 
 // Services
 export * from './services';

@@ -3,6 +3,11 @@ import { DiscoveryModule } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Request, Response } from 'express';
 
+import {
+  MCP_SERVER_OPTIONS,
+  MCP_SESSION_OPTIONS,
+  MCP_TRANSPORT_OPTIONS,
+} from '../../mcp.constants';
 import { DiscoveryService } from '../../services/discovery.service';
 import { McpLoggerService } from '../../services/logger.service';
 import { RegistryService } from '../../services/registry.service';
@@ -46,18 +51,25 @@ describe('SseService', () => {
         SessionManager,
         DiscoveryService,
         {
-          provide: 'MCP_SERVER_OPTIONS',
+          provide: MCP_SERVER_OPTIONS,
           useValue: {
             serverInfo: { name: 'test-server', version: '1.0.0' },
             options: {},
           },
         },
         {
-          provide: 'MCP_SESSION_OPTIONS',
+          provide: MCP_SESSION_OPTIONS,
           useValue: {
             sessionTimeoutMs: 1800000,
             cleanupIntervalMs: 300000,
             maxConcurrentSessions: 1000,
+          },
+        },
+        {
+          provide: MCP_TRANSPORT_OPTIONS,
+          useValue: {
+            sse: { enabled: true },
+            streamable: { enabled: true },
           },
         },
       ],

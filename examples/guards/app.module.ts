@@ -15,6 +15,8 @@ export class GlobalLogGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
     console.log('Global guard executed', '[GlobalLogGuard]');
 
+    // Global guards receive standard ExecutionContext
+    // For HTTP contexts (including MCP over HTTP), switchToHttp() works
     const request = context.switchToHttp().getRequest<Request>();
 
     console.log('headers', request.headers);
