@@ -6,6 +6,7 @@ import { AsyncLocalStorage } from 'async_hooks';
 import {
   MCP_LOGGING_OPTIONS,
   MCP_MODULE_OPTIONS,
+  MCP_SERVER_OPTIONS,
   MCP_SESSION_OPTIONS,
   MCP_TRANSPORT_OPTIONS,
 } from './mcp.constants';
@@ -162,7 +163,7 @@ export class McpCoreModule {
         inject: [MCP_MODULE_OPTIONS],
       },
       {
-        provide: 'MCP_SERVER_OPTIONS',
+        provide: MCP_SERVER_OPTIONS,
         useFactory: (mcpOptions: McpModuleOptions) => {
           const { serverInfo, serverOptions, loggingOptions } =
             McpCoreModule.buildServerConfig(mcpOptions);
@@ -197,7 +198,7 @@ export class McpCoreModule {
       providers: [
         ...allProviders,
         {
-          provide: 'MCP_SERVER_OPTIONS',
+          provide: MCP_SERVER_OPTIONS,
           useValue: {
             serverInfo,
             options: serverOptions,
@@ -205,15 +206,15 @@ export class McpCoreModule {
           },
         },
         {
-          provide: 'MCP_LOGGING_OPTIONS',
+          provide: MCP_LOGGING_OPTIONS,
           useValue: loggingOptions,
         },
         {
-          provide: 'MCP_TRANSPORT_OPTIONS',
+          provide: MCP_TRANSPORT_OPTIONS,
           useValue: options.transports,
         },
         {
-          provide: 'MCP_SESSION_OPTIONS',
+          provide: MCP_SESSION_OPTIONS,
           useValue: {
             sessionTimeoutMs: options.session?.sessionTimeoutMs ?? 1800000,
             cleanupIntervalMs: options.session?.cleanupIntervalMs ?? 300000,
@@ -236,17 +237,23 @@ export class McpCoreModule {
   static forRootAsync(options: McpModuleAsyncOptions): DynamicModule {
     const { imports = [] } = options;
     const asyncProviders = this.createAsyncProviders(options);
-    // Synchronously resolve controllers/providers using a factory function
-    const defaultControllers =
-      McpCoreModule.getActiveTransportControllersAndProviders().controllers;
-    const defaultProviders =
-      McpCoreModule.getActiveTransportControllersAndProviders().providers;
+
+    // Register ALL transport controllers/providers by default.
+    // Individual transport services will check their config and no-op if disabled.
+    // This allows async configuration while keeping the implementation simple.
+    const { controllers, providers } =
+      McpCoreModule.getActiveTransportControllersAndProviders({
+        sse: { enabled: true },
+        streamable: { enabled: true },
+      });
+
     return {
       module: McpCoreModule,
       imports,
-      controllers: defaultControllers,
+      controllers,
       providers: [
         ...asyncProviders,
+        ...providers,
         RegistryService,
         DiscoveryService,
         McpLoggerService,
@@ -255,7 +262,6 @@ export class McpCoreModule {
           provide: AsyncLocalStorage,
           useValue: new AsyncLocalStorage(),
         },
-        ...defaultProviders,
       ],
       global: true,
     };

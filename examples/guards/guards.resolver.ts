@@ -16,7 +16,7 @@ import {
 } from '../../src';
 
 export class ResolverLogGuard implements CanActivate {
-  canActivate(_context: McpExecutionContext): boolean {
+  canActivate(_context: any): boolean {
     console.log('[ResolverLogGuard] Resolver-level guard executed');
 
     return true;
@@ -24,7 +24,7 @@ export class ResolverLogGuard implements CanActivate {
 }
 
 export class MethodLogGuard implements CanActivate {
-  canActivate(_context: McpExecutionContext): boolean {
+  canActivate(_context: any): boolean {
     console.log('[MethodLogGuard] Method-level guard executed');
 
     return true;
@@ -35,8 +35,8 @@ export class MethodLogGuard implements CanActivate {
 export class SessionAwareGuard implements CanActivate {
   constructor(private readonly sessionManager: SessionManager) {}
 
-  canActivate(context: McpExecutionContext): boolean {
-    const sessionId = context.getSessionId();
+  canActivate(context: any): boolean {
+    const sessionId = (context as McpExecutionContext).getSessionId();
     const session = this.sessionManager.getSession(sessionId);
 
     console.log(

@@ -12,12 +12,6 @@ import { ModuleRef, Reflector } from '@nestjs/core';
 import { Request } from 'express';
 
 import {
-  PromptHandlerArgs,
-  ResourceTemplateHandlerArgs,
-  ResourceUriHandlerArgs,
-  ToolHandlerArgs,
-} from '../classes';
-import {
   MCP_GUARDS,
   MCP_PROMPT,
   MCP_RESOLVER,
@@ -29,6 +23,7 @@ import {
 } from '../decorators';
 import { McpExecutionContext } from '../interfaces/context.interface';
 import { RequestHandlerExtra } from '../mcp.types';
+import type { McpHandlerArgs } from '../types/handler-args.types';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 import { SessionManager } from './session.manager';
@@ -67,36 +62,45 @@ export class RegistryService {
   private getHandlerArgs(
     method: Type<any> | undefined,
     args: unknown[],
-  ):
-    | ResourceUriHandlerArgs
-    | ResourceTemplateHandlerArgs
-    | PromptHandlerArgs
-    | ToolHandlerArgs {
+  ): McpHandlerArgs {
     if (!method) throw new Error('Method not found');
 
     switch (this.getDecoratorType(method)) {
       case 'RESOURCE':
         return args[0] instanceof URL
-          ? ResourceUriHandlerArgs.from(args[0], args[1] as RequestHandlerExtra)
-          : ResourceTemplateHandlerArgs.from(
-              args[0] as URL,
-              args[2] as RequestHandlerExtra,
-              args[1] as Record<string, string>,
-            );
+          ? {
+              type: 'resource:uri',
+              uri: args[0],
+              extra: args[1] as RequestHandlerExtra,
+            }
+          : {
+              type: 'resource:template',
+              uri: args[0] as URL,
+              variables: args[1] as Record<string, string>,
+              extra: args[2] as RequestHandlerExtra,
+            };
       case 'PROMPT':
         return args.length === 1
-          ? PromptHandlerArgs.from(args[0] as RequestHandlerExtra)
-          : PromptHandlerArgs.from(
-              args[1] as RequestHandlerExtra,
-              args[0] as undefined,
-            );
+          ? {
+              type: 'prompt',
+              extra: args[0] as RequestHandlerExtra,
+            }
+          : {
+              type: 'prompt',
+              args: args[0] as undefined,
+              extra: args[1] as RequestHandlerExtra,
+            };
       case 'TOOL':
         return args.length === 1
-          ? ToolHandlerArgs.from(args[0] as RequestHandlerExtra)
-          : ToolHandlerArgs.from(
-              args[1] as RequestHandlerExtra,
-              args[0] as undefined,
-            );
+          ? {
+              type: 'tool',
+              extra: args[0] as RequestHandlerExtra,
+            }
+          : {
+              type: 'tool',
+              params: args[0] as undefined,
+              extra: args[1] as RequestHandlerExtra,
+            };
       default:
         throw new Error(`Unknown decorator type for method ${method.name}`);
     }
@@ -169,29 +173,19 @@ export class RegistryService {
     const handlerArgs = this.getHandlerArgs(methodKey, args);
 
     const context: McpExecutionContext = {
-      args: handlerArgs,
-      // @ts-expect-error: Default types are 'http' | 'ws' | 'rpc' but in our case, we are using 'mcp'
       getType: () => 'mcp',
       getClass: () => instance.constructor as Type<any>,
-      getArgs: <T = any>() => args as T,
-      getArgByIndex: <T = any>(index: number) => args[index] as T,
+      getHandler: () => methodKey as unknown as (...args: any[]) => any,
       getSessionId: () => sessionId,
-      getHandler: () => methodKey as unknown as Type<any>,
-      switchToHttp: () => ({
-        getRequest: <R = Request>() => request as R,
-        getResponse: () => {
-          throw new Error('Response not available in MCP context');
-        },
-        getNext: () => {
-          throw new Error('Next not available in MCP context');
-        },
-      }),
+      getArgs: <T = any>() => handlerArgs as T,
+      getRequest: <R = Request>() => request as R,
     };
 
     return (async () => {
       for (const Guard of allGuards) {
         const guardInstance = await this.resolveGuard(Guard);
-        const allowed = await guardInstance.canActivate(context);
+        // Cast to any since MCP guards receive McpExecutionContext, not ExecutionContext
+        const allowed = await guardInstance.canActivate(context as any);
 
         if (!allowed)
           throw new Error(`Access denied by guard on ${methodName}`);

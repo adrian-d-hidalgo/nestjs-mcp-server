@@ -6,6 +6,7 @@ import {
   Optional,
 } from '@nestjs/common';
 
+import { MCP_LOGGING_OPTIONS } from '../mcp.constants';
 import { McpLoggingOptions } from '../mcp.types';
 
 /**
@@ -17,7 +18,7 @@ export class McpLoggerService implements LoggerService {
   private readonly options: Required<McpLoggingOptions>;
 
   constructor(
-    @Optional() @Inject('MCP_LOGGING_OPTIONS') options?: McpLoggingOptions,
+    @Optional() @Inject(MCP_LOGGING_OPTIONS) options?: McpLoggingOptions,
   ) {
     this.options = {
       enabled: options?.enabled !== false, // Habilitado por defecto
