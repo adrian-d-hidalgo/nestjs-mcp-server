@@ -69,7 +69,7 @@
     "rxjs": "^7.8.1"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.25.1",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "zod": "^4.2.1"
   },
   "devDependencies": {
