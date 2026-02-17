@@ -1,3 +1,24 @@
+# [1.0.0](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v0.4.0...v1.0.0) (2026-02-17)
+
+
+* refactor!: architectural improvements for v1.0 stability ([#92](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/92)) ([#105](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/105)) ([4fd5955](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/4fd59551dc12404190b8a8e7e61e26c6def6fd73))
+
+
+### Bug Fixes
+
+* resolve multi-session timeout issues with per-session architecture ([#103](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/103)) ([457f62b](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/457f62b1ffe6f587b7199ce748826a2ca0ab5257)), closes [#100](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/100)
+
+
+### BREAKING CHANGES
+
+* McpExecutionContext API changes and DI token updates
+
+- Migrated DI tokens from strings to Symbols
+- Replaced 4 factory classes (250+ lines) with discriminated unions (84 lines)
+- Redesigned McpExecutionContext: removed ExecutionContext inheritance,
+  changed args property to getArgs() method, added getRequest() method
+- Fixed forRootAsync bug where async transport config was ignored
+
 # [0.4.0](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v0.3.0...v0.4.0) (2026-01-02)
 
 
