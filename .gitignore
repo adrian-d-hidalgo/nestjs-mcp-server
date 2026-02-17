@@ -55,5 +55,12 @@ pids
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
+# pnpm store (local cache)
+.pnpm-store/
+
+# npm/yarn lock files (project uses pnpm exclusively)
+package-lock.json
+yarn.lock
+
 # Claude Code
 .claude/settings.local.json
