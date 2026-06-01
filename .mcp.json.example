@@ -4,6 +4,14 @@
       "command": "npx",
       "args": ["-y", "@upstash/context7-mcp@latest"]
     },
+    "codegraph": {
+      "type": "stdio",
+      "command": "codegraph",
+      "args": [
+        "serve",
+        "--mcp"
+      ]
+    },
     "github": {
       "type": "http",
       "url": "https://api.githubcopilot.com/mcp/",

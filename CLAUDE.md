@@ -1,56 +1,39 @@
-# CLAUDE.md
+<!-- last-reviewed: 2026-06-01 -->
 
-## Project Identity
+# @nestjs-mcp/server — Agent Instructions
 
-**@nestjs-mcp/server** - NestJS wrapper library for `@modelcontextprotocol/sdk`
+## Non-negotiable principles
 
-**Purpose**: Provide decorators (`@Tool`, `@Prompt`, `@Resource`, `@Resolver`) and module patterns (`McpModule.forRoot/forRootAsync/forFeature`) to build MCP servers in NestJS.
+- **No autonomous git or destructive ops.** Never run `git commit`, `git push`, `git reset --hard`, `git rebase`, or publish without the user typing the exact command. "Finish the task" is not authorization.
+- **No time estimates.** Describe scope instead ("touches 3 resolvers", "requires an SDK type change").
+- **Honesty about coverage.** Any claim without evidence is labeled `[Unverified]` or `[Inference]`. Compiling is not executing; types verify code, not behavior. A fix grounded in `[Inference]` is not done — get the evidence or say you couldn't and stop.
+- **Always check SDK types before defining new ones.** This library wraps `@modelcontextprotocol/sdk`. Reuse SDK types (`CallToolResult`, `RequestHandlerExtra`, etc.) from `@modelcontextprotocol/sdk/types`.
+- **If in doubt, ask.** A short question costs 30 seconds; a wrong-direction change costs an hour.
 
-**Critical Principle**: This wraps the official SDK - always check SDK types before defining new ones. Reuse SDK types (`CallToolResult`, `RequestHandlerExtra`, etc.) from `@modelcontextprotocol/sdk/types`.
+## Commands
 
-## Quick Reference
+| Action                | Command                             |
+| --------------------- | ----------------------------------- |
+| Install               | `pnpm install`                      |
+| Build                 | `pnpm build`                        |
+| Test                  | `pnpm test`                         |
+| Single test           | `pnpm test -- path/to/file.spec.ts` |
+| E2E test              | `pnpm test:e2e`                     |
+| Lint + format + types | `pnpm quality:check`                |
+| Fix lint / format     | `pnpm quality:fix`                  |
+| Dead-code scan        | `pnpm knip`                         |
+| Run example           | `EXAMPLE=tools pnpm start:example`  |
+| MCP Inspector         | `pnpm start:inspector`              |
 
-| Action                | Command                            |
-| --------------------- | ---------------------------------- |
-| Install               | `pnpm install`                     |
-| Build                 | `pnpm build`                       |
-| Test                  | `pnpm test`                        |
-| Lint + Format + Types | `pnpm quality:check`               |
-| Fix lint/format       | `pnpm quality:fix`                 |
-| Run example           | `EXAMPLE=tools pnpm start:example` |
-| MCP Inspector         | `pnpm start:inspector`             |
+## Core patterns (no-lintable)
 
-## Key Files
-
-| File                                                                   | Purpose                                                    |
-| ---------------------------------------------------------------------- | ---------------------------------------------------------- |
-| [src/mcp.module.ts](src/mcp.module.ts)                                 | Public API: `forRoot()`, `forRootAsync()`, `forFeature()`  |
-| [src/mcp.types.ts](src/mcp.types.ts)                                   | Module options and type definitions                        |
-| [src/decorators/](src/decorators/)                                     | `@Resolver`, `@Tool`, `@Prompt`, `@Resource`, `@UseGuards` |
-| [src/services/registry.service.ts](src/services/registry.service.ts)   | Registers capabilities with McpServer                      |
-| [src/services/discovery.service.ts](src/services/discovery.service.ts) | Discovers decorated methods via reflection                 |
-| [src/services/session.manager.ts](src/services/session.manager.ts)     | Tracks active MCP sessions                                 |
-| [src/transports/](src/transports/)                                     | HTTP transports: `streamable/` (POST), `sse/` (legacy)     |
-| [examples/](examples/)                                                 | Working examples: tools, resources, prompts, guards, mixed |
-
-## Architecture
-
-```
-McpModule.forRoot() → DiscoveryService finds @Resolver classes
-                   → RegistryService wraps handlers + guards
-                   → Registers with SDK McpServer
-                   → Transports expose /mcp (streamable) or /sse endpoints
-```
-
-### Core Patterns
-
-1. **Resolver classes**: Must use `@Resolver()` decorator (NOT `@Injectable()`)
-2. **Handler signature**: `(params?, extra: RequestHandlerExtra) => Result`
+1. **Resolver classes must use `@Resolver()` decorator**, NOT `@Injectable()`.
+2. **Handler signature**: `(params?, extra: RequestHandlerExtra) => Result`.
 3. **Guard scopes**:
-   - Global (`APP_GUARD`): Standard NestJS `ExecutionContext`
-   - Method (`@UseGuards`): Custom `McpExecutionContext`, supports DI via `ModuleRef`
+   - Global (`APP_GUARD`): standard NestJS `ExecutionContext`.
+   - Method (`@UseGuards`): custom `McpExecutionContext`; supports DI via `ModuleRef`.
 
-### Example Resolver
+Example resolver:
 
 ```typescript
 import { Resolver, Tool, RequestHandlerExtra } from '@nestjs-mcp/server';
@@ -71,51 +54,45 @@ export class MyResolver {
 }
 ```
 
-## Conventions
+## Naming conventions (no-lintable)
 
 | Aspect    | Convention                                                      |
 | --------- | --------------------------------------------------------------- |
 | Files     | `kebab-case.ts`                                                 |
 | Classes   | `PascalCase`                                                    |
 | Methods   | `camelCase`                                                     |
-| MCP names | `snake_case` (`@Tool({ name: 'my_tool' })`)                     |
-| Schemas   | Zod (mandatory for `paramsSchema`/`argsSchema`)                 |
-| Types     | SDK types first, then `interface` for shapes, `type` for unions |
+| MCP names | `snake_case` (e.g. `@Tool({ name: 'my_tool' })`)                |
+| Schemas   | Zod (mandatory for `paramsSchema` / `argsSchema`)               |
+| Types     | SDK types first; then `interface` for shapes, `type` for unions |
 
-## Documentation References
+## When reading the codebase
 
-| Topic        | File                                                               |
-| ------------ | ------------------------------------------------------------------ |
-| Tech stack   | [.handbook/STACK.md](.handbook/STACK.md)                           |
-| Git workflow | [.handbook/GIT_GUIDELINES.md](.handbook/GIT_GUIDELINES.md)         |
-| Versioning   | [.handbook/PACKAGE_VERSIONING.md](.handbook/PACKAGE_VERSIONING.md) |
-| Contributing | [CONTRIBUTING.md](CONTRIBUTING.md)                                 |
+Prefer the `codegraph_*` MCP tools for structural questions (who calls what, blast radius, signatures); use `Grep`/`Read` for literal text. Index is local under `.codegraph/` (gitignored); rebuild with `codegraph init -i` if missing.
 
-## Git Workflow Summary
+## Quality gate after development
 
-- **Branches**: `feature/issue-{id}-{desc}`, `bugfix/issue-{id}-{desc}`, `alpha`, `beta`, `rc` (pre-releases)
-- **Commits**: Conventional (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`)
-- **PRs**: Target `main`
-- **Releases**: GitHub Actions → Release → Run workflow (manual trigger)
-- **Version bumps**: Automatic via semantic-release based on commit types
+After any code change, run this gate to completion before handing off. **Fix everything a phase surfaces before advancing; never skip a phase — skipping is silent breakage.**
 
-| Commit Type | Version Bump |
-|-------------|--------------|
-| `fix:` | PATCH |
-| `feat:` | MINOR |
-| `feat!:` / `BREAKING CHANGE:` | MAJOR |
+1. `pnpm quality:fix` — lint + format
+2. `pnpm typecheck`
+3. `pnpm knip` — no unused files, deps, or exports
+4. `pnpm test`
+5. `pnpm test:e2e`
 
-## Pre-PR Checklist
+Typecheck verifies code correctness, not feature correctness. If the public API changed, verify the examples under `examples/` still run.
 
-```bash
-pnpm quality:check  # lint + format + typecheck
-pnpm test           # all tests pass
-# Verify examples work if API changed
-```
+## When working with git
 
-## Testing
+Read `.handbook/GIT_GUIDELINES.md` before pushing.
 
-- Unit: `src/**/*.spec.ts`
-- E2E: `test/` directory
-- Coverage: 50% statements, 25% branches, 40% functions, 50% lines
-- Single file: `pnpm test -- path/to/file.spec.ts`
+- Branches: `feature/issue-{id}-{desc}`, `bugfix/issue-{id}-{desc}`, plus `alpha`, `beta`, `rc` for pre-releases.
+- Commits: Conventional (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`). Version bumps are automatic via semantic-release.
+- PRs target `main`. Releases run via GitHub Actions workflow_dispatch.
+
+## When updating package version policy
+
+Read `.handbook/PACKAGE_VERSIONING.md` first.
+
+## Testing targets
+
+Coverage thresholds (`package.json` → `jest.coverageThreshold`): 80% statements, 55% branches, 70% functions, 85% lines. Unit specs co-located in `src/`; E2E specs in `test/`.
