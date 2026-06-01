@@ -11,7 +11,7 @@ export const mcpConfig = registerAs('mcpServer', () => ({
   version: '1.0.0',
   logging: {
     enabled: true,
-    level: 'debug' as 'debug' | 'verbose' | 'log' | 'warn' | 'error',
+    level: 'debug',
   },
 }));
 
