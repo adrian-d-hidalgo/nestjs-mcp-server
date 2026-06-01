@@ -64,3 +64,9 @@ yarn.lock
 
 # Claude Code
 .claude/settings.local.json
+
+# Local MCP server credentials (use .mcp.json.example as template)
+.mcp.json
+
+# CodeGraph index (local, regenerated via codegraph init -i)
+.codegraph/

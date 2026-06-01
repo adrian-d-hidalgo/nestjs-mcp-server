@@ -1,0 +1,15 @@
+{
+  "$schema": "./node_modules/knip/schema.json",
+  "entry": [
+    "src/index.ts",
+    "examples/*/main.ts",
+    "src/**/*.spec.ts",
+    "test/**/*.e2e-spec.ts"
+  ],
+  "project": ["src/**/*.ts", "examples/**/*.ts", "test/**/*.ts"],
+  "ignore": ["examples/**"],
+  "ignoreDependencies": ["express", "@commitlint/types", "@semantic-release/github"],
+  "jest": {
+    "config": ["package.json", "test/jest-e2e.json"]
+  }
+}
