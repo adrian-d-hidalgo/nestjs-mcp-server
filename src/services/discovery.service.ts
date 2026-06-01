@@ -104,7 +104,7 @@ export class DiscoveryService {
 
         result.push({
           method: methodName,
-          metadata: metadata as T,
+          metadata: metadata,
           handler,
           instance,
         });

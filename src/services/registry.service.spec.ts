@@ -1335,9 +1335,7 @@ describe('RegistryService', () => {
       it('should return guard instance if already instantiated', async () => {
         const guardInstance = { canActivate: jest.fn().mockReturnValue(true) };
 
-        const result = await registryService['resolveGuard'](
-          guardInstance as any,
-        );
+        const result = await registryService['resolveGuard'](guardInstance);
 
         expect(result).toBe(guardInstance);
       });
