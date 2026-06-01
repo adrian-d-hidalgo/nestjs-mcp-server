@@ -1,0 +1,7 @@
+# pnpm 11 requires explicit approval for dependency build scripts
+# (supply-chain hardening). These three are trusted core dependencies that
+# compile native bindings / generate metadata on install.
+allowBuilds:
+  '@nestjs/core': true
+  '@swc/core': true
+  unrs-resolver: true
