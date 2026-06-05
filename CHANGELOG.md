@@ -1,3 +1,5 @@
+## [1.0.1](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v1.0.0...v1.0.1) (2026-06-05)
+
 # [1.0.0](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v0.4.0...v1.0.0) (2026-02-17)
 
 
