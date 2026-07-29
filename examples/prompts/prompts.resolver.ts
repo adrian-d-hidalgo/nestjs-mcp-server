@@ -122,10 +122,7 @@ export class PromptsResolver {
   }): GetPromptResult {
     // Parse inputs
     const parsedCategory = category as
-      | 'electronics'
-      | 'clothing'
-      | 'home'
-      | 'beauty';
+      'electronics' | 'clothing' | 'home' | 'beauty';
     const parsedBudget = parseFloat(budget);
     const parsedPreferences = preferences
       ? preferences.split(',').map((p) => p.trim())
