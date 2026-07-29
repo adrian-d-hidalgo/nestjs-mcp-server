@@ -302,6 +302,64 @@ describe('SseService', () => {
     });
   });
 
+  describe('cleanupInactiveSessions', () => {
+    it('should close the transport and drop each inactive session', () => {
+      const sessionId = 'inactive-session';
+      const close = jest.fn().mockResolvedValue(undefined);
+
+      sessionManager.setSession(sessionId, {
+        transport: { close, sessionId } as unknown as SSEServerTransport,
+        request: {} as Request,
+      });
+
+      jest
+        .spyOn(sessionManager, 'getInactiveSessions')
+        .mockReturnValue([sessionId]);
+      jest.spyOn(logger, 'debug').mockImplementation(() => {});
+
+      service['cleanupInactiveSessions']();
+
+      expect(close).toHaveBeenCalled();
+      expect(sessionManager.getSession(sessionId)).toBeUndefined();
+    });
+
+    it('should still drop the session when closing the transport throws', () => {
+      const sessionId = 'broken-session';
+      const close = jest.fn(() => {
+        throw new Error('close failed');
+      });
+
+      sessionManager.setSession(sessionId, {
+        transport: { close, sessionId } as unknown as SSEServerTransport,
+        request: {} as Request,
+      });
+
+      jest
+        .spyOn(sessionManager, 'getInactiveSessions')
+        .mockReturnValue([sessionId]);
+      jest.spyOn(logger, 'debug').mockImplementation(() => {});
+      const errorSpy = jest.spyOn(logger, 'error').mockImplementation(() => {});
+
+      service['cleanupInactiveSessions']();
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        `Error closing transport for session ${sessionId}`,
+        'close failed',
+        'SSE',
+      );
+      expect(sessionManager.getSession(sessionId)).toBeUndefined();
+    });
+
+    it('should do nothing when no session is inactive', () => {
+      jest.spyOn(sessionManager, 'getInactiveSessions').mockReturnValue([]);
+      const debugSpy = jest.spyOn(logger, 'debug').mockImplementation(() => {});
+
+      service['cleanupInactiveSessions']();
+
+      expect(debugSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('onModuleInit', () => {
     it('should log initialization', () => {
       const logSpy = jest.spyOn(logger, 'log').mockImplementation(() => {});
