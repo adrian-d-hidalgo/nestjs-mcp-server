@@ -197,7 +197,9 @@ describe('RegistryService', () => {
       });
 
       // Mock runGuards to resolve successfully
-      jest.spyOn(service as any, 'runGuards').mockResolvedValue(undefined);
+      const runGuardsSpy = jest
+        .spyOn(service as any, 'runGuards')
+        .mockResolvedValue(undefined);
 
       const result = await service['wrappedHandler'](instance, handler, [
         extra,
@@ -211,7 +213,7 @@ describe('RegistryService', () => {
           body: { key: 'value' },
         }),
       );
-      expect(service['runGuards']).toHaveBeenCalled();
+      expect(runGuardsSpy).toHaveBeenCalled();
     });
 
     it('runGuards should resolve if no guards', async () => {

@@ -1,7 +1,6 @@
 {
   "$schema": "./node_modules/knip/schema.json",
   "entry": [
-    "src/index.ts",
     "examples/*/main.ts",
     "src/**/*.spec.ts",
     "test/**/*.e2e-spec.ts"

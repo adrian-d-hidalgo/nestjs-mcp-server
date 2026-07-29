@@ -145,8 +145,7 @@ export class RegistryService {
 
     const classGuards: (CanActivate | { new (): CanActivate })[] =
       (Reflect.getMetadata(MCP_GUARDS, classConstructor) as (
-        | CanActivate
-        | { new (): CanActivate }
+        CanActivate | { new (): CanActivate }
       )[]) || [];
 
     // Retrieve method-level guards
@@ -160,8 +159,7 @@ export class RegistryService {
     const methodGuards: (CanActivate | { new (): CanActivate })[] =
       (methodKey &&
         (Reflect.getMetadata(MCP_GUARDS, methodKey) as (
-          | CanActivate
-          | { new (): CanActivate }
+          CanActivate | { new (): CanActivate }
         )[])) ||
       [];
 
