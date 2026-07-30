@@ -102,9 +102,22 @@ export class SseService implements OnModuleInit {
     }
   }
 
-  private createServer(): McpServer {
+  /**
+   * Builds the `McpServer` for one client connection.
+   *
+   * The request is threaded into registration so `enabled` gates can be
+   * evaluated against this connection's context. `sessionId` is deliberately
+   * not part of that context: it exists here but not under streamable HTTP.
+   *
+   * Awaits registration: the returned server's capability set is final, so the
+   * caller may connect it to its transport immediately.
+   */
+  private async createServer(req: Request): Promise<McpServer> {
     const server = new McpServer(this.options.serverInfo, this.options.options);
-    this.registry.registerAll(server);
+    await this.registry.registerAll(server, {
+      request: req,
+      authInfo: req.auth,
+    });
     return server;
   }
 
@@ -157,7 +170,7 @@ export class SseService implements OnModuleInit {
     });
 
     try {
-      const server = this.createServer();
+      const server = await this.createServer(req);
       await server.connect(transport);
     } catch (error) {
       this.logger.error('Failed to create or connect server', error, 'SSE');

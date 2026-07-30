@@ -2,8 +2,15 @@ import { ToolAnnotations } from '@modelcontextprotocol/sdk/types';
 import { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
 import { SetMetadata } from '@nestjs/common';
 
+import type { McpCapabilityToggle } from '../interfaces/registration-context.interface';
+
 export interface ToolBaseOptions {
   name: string;
+  /**
+   * Whether this tool is available to a connecting client.
+   * Evaluated once per connection; omit for the default (always enabled).
+   */
+  enabled?: McpCapabilityToggle;
 }
 
 export interface ToolWithDescriptionOptions extends ToolBaseOptions {

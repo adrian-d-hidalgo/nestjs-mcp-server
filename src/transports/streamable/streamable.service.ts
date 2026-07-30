@@ -106,9 +106,24 @@ export class StreamableService implements OnModuleInit {
     }
   }
 
-  private createServer(): McpServer {
+  /**
+   * Builds the `McpServer` for one client connection.
+   *
+   * The request is threaded into registration so `enabled` gates can be
+   * evaluated against this connection's context. `sessionId` is deliberately
+   * not part of that context: the transport only assigns it while handling
+   * the `initialize` POST, which happens after this method returns.
+   *
+   * Awaits registration, which runs before `transport.handleRequest` answers
+   * the client's `initialize` — every gate settles before the client is told
+   * what this server offers. Keep gates cheap: they are on the connect path.
+   */
+  private async createServer(req: Request): Promise<McpServer> {
     const server = new McpServer(this.options.serverInfo, this.options.options);
-    this.registry.registerAll(server);
+    await this.registry.registerAll(server, {
+      request: req,
+      authInfo: req.auth,
+    });
     return server;
   }
 
@@ -199,7 +214,7 @@ export class StreamableService implements OnModuleInit {
       };
 
       try {
-        const server = this.createServer();
+        const server = await this.createServer(req);
         await server.connect(transport);
       } catch (error) {
         this.logger.error(

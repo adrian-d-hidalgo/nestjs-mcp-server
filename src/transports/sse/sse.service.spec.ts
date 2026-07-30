@@ -18,6 +18,7 @@ describe('SseService', () => {
   let service: SseService;
   let sessionManager: SessionManager;
   let logger: McpLoggerService;
+  let registry: RegistryService;
 
   const createMockRequest = (
     overrides: Partial<Request> = {},
@@ -78,6 +79,7 @@ describe('SseService', () => {
     service = module.get<SseService>(SseService);
     sessionManager = module.get<SessionManager>(SessionManager);
     logger = module.get<McpLoggerService>(McpLoggerService);
+    registry = module.get<RegistryService>(RegistryService);
   });
 
   it('should be defined', () => {
@@ -248,11 +250,12 @@ describe('SseService', () => {
       };
       const createServerSpy = jest
         .spyOn(service as any, 'createServer')
-        .mockReturnValue(mockServer);
+        .mockResolvedValue(mockServer);
 
       await service.handleSse(req as Request, res as Response);
 
       expect(createServerSpy).toHaveBeenCalled();
+      expect(createServerSpy).toHaveBeenCalledWith(req);
       expect(mockServer.connect).toHaveBeenCalled();
 
       const sessions = Array.from(
@@ -283,7 +286,7 @@ describe('SseService', () => {
       const mockServer = {
         connect: jest.fn().mockResolvedValue(undefined),
       };
-      jest.spyOn(service as any, 'createServer').mockReturnValue(mockServer);
+      jest.spyOn(service as any, 'createServer').mockResolvedValue(mockServer);
 
       await service.handleSse(req as Request, res as unknown as Response);
 
@@ -299,6 +302,68 @@ describe('SseService', () => {
       closeHandler();
 
       expect(sessionManager.getSession(sessionId)).toBeUndefined();
+    });
+  });
+
+  describe('createServer', () => {
+    it('should build a registration context carrying request and authInfo', async () => {
+      const registerAllSpy = jest
+        .spyOn(registry, 'registerAll')
+        .mockResolvedValue(undefined);
+
+      const req = createMockRequest({
+        headers: { 'x-role': 'admin' },
+      }) as Request;
+      req.auth = { token: 'token', clientId: 'client', scopes: ['admin'] };
+
+      await service['createServer'](req);
+
+      expect(registerAllSpy).toHaveBeenCalledWith(expect.anything(), {
+        request: req,
+        authInfo: { token: 'token', clientId: 'client', scopes: ['admin'] },
+      });
+    });
+
+    it('should leave authInfo undefined when no auth middleware ran', async () => {
+      const registerAllSpy = jest
+        .spyOn(registry, 'registerAll')
+        .mockResolvedValue(undefined);
+
+      const req = createMockRequest() as Request;
+
+      await service['createServer'](req);
+
+      expect(registerAllSpy).toHaveBeenCalledWith(expect.anything(), {
+        request: req,
+        authInfo: undefined,
+      });
+    });
+
+    it('should not resolve until registration has completed', async () => {
+      // A missed `await` on registerAll inside createServer is only an eslint
+      // warning, so nothing but this catches it: the server would be connected
+      // to its transport with gates still in flight — fail-open under load.
+      let registrationDone = false;
+      let release!: () => void;
+      const registration = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+
+      jest.spyOn(registry, 'registerAll').mockImplementation(() =>
+        registration.then(() => {
+          registrationDone = true;
+        }),
+      );
+
+      const req = createMockRequest() as Request;
+      const pending = service['createServer'](req);
+
+      expect(registrationDone).toBe(false);
+
+      release();
+      await pending;
+
+      expect(registrationDone).toBe(true);
     });
   });
 

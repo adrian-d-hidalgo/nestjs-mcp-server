@@ -38,6 +38,15 @@ describe('Resource Decorator', () => {
     templateWithMetadataMethod() {
       return { contents: [] };
     }
+
+    @Resource({
+      name: 'disabled_resource',
+      uri: 'resource://test/data',
+      enabled: false,
+    })
+    disabledMethod() {
+      return { contents: [] };
+    }
   }
 
   it('should set metadata for resource with URI', () => {
@@ -88,5 +97,26 @@ describe('Resource Decorator', () => {
       metadata: { version: '1.0' },
       methodName: 'templateWithMetadataMethod',
     });
+  });
+
+  it('should carry the enabled option into metadata', () => {
+    const metadata = reflector.get(
+      MCP_RESOURCE,
+      TestResolver.prototype.disabledMethod,
+    );
+    expect(metadata).toEqual({
+      name: 'disabled_resource',
+      uri: 'resource://test/data',
+      enabled: false,
+      methodName: 'disabledMethod',
+    });
+  });
+
+  it('should not add an enabled key when the option is absent', () => {
+    const metadata = reflector.get(
+      MCP_RESOURCE,
+      TestResolver.prototype.uriMethod,
+    );
+    expect('enabled' in metadata).toBe(false);
   });
 });

@@ -19,6 +19,9 @@ This directory contains ready-to-use example MCP servers demonstrating how to us
 - **guards/**  
   Shows how to implement and use guards in MCP servers to control access to capabilities and resources. Demonstrates different guard patterns and how to apply them to protect specific MCP features.
 
+- **dynamic/**  
+  Shows the `enabled` option, which decides per connection whether a capability is advertised and invocable. Contains a statically disabled tool; `AdminGate`, a gate class with an **injected** `PermissionsService` answering **asynchronously** on the `x-role` request header; a slow gate sharing that same service; and the three fail-closed paths — a gate that throws, a gate whose promise rejects, and a gate class the container cannot resolve. Also gates a prompt and a resource, plus a statically disabled prompt and resource. Connect with `x-role: admin` to see `admin_only_tool`, `admin_only_prompt` and `admin_only_resource` appear in their lists.
+
 - **for-root-async/**  
   Example of asynchronous module configuration of the MCP module using `forRootAsync` and environment variables.
 
