@@ -43,6 +43,12 @@
     - [Tool Annotations](#tool-annotations)
     - [ToolOptions Variants](#tooloptions-variants)
   - [RequestHandlerExtra Argument](#requesthandlerextra-argument)
+- [Dynamic Capabilities](#dynamic-capabilities)
+  - [Static toggle](#static-toggle)
+  - [Predicate toggle](#predicate-toggle)
+  - [What the client sees](#what-the-client-sees)
+  - [Rules you must know before using this](#rules-you-must-know-before-using-this)
+  - [This is not a replacement for guards](#this-is-not-a-replacement-for-guards)
 - [Guards](#guards)
   - [Global-level guards](#global-level-guards)
   - [Resolver-level guards](#resolver-level-guards)
@@ -600,6 +606,146 @@ export class AuthResolver {
 
 - `extra` is always the last parameter in any method decorated with `@Resource`, `@Prompt`, or `@Tool`
 - The `headers` property is an extension added by @nestjs-mcp/server to access HTTP headers directly
+
+---
+
+## Dynamic Capabilities
+
+`@Tool`, `@Prompt` and `@Resource` all accept an optional `enabled` option that decides, **per connection**, whether that capability is advertised and invocable.
+
+```ts
+type McpCapabilityToggle = boolean | Type<McpCapabilityGate>;
+
+interface McpCapabilityGate {
+  isEnabled(context: McpRegistrationContext): boolean | Promise<boolean>;
+}
+
+interface McpRegistrationContext {
+  /** The HTTP request that opened this connection. */
+  request: Request; // express
+  /** Validated token info, if auth middleware populated `req.auth`. */
+  authInfo?: AuthInfo; // @modelcontextprotocol/sdk/server/auth/types
+}
+```
+
+Two forms, one option key. Omitting `enabled` is the default and behaves exactly as it did before the option existed: always registered, always enabled, and it costs the connection nothing.
+
+### Static toggle
+
+For a capability that is simply off. It needs no class, no provider and no `await`.
+
+```ts
+@Tool({
+  name: 'legacy_tool',
+  description: 'Kept for compatibility, not offered to clients',
+  enabled: false,
+})
+legacyTool(): CallToolResult {
+  /* ... */
+}
+```
+
+### Capability gate
+
+For a decision the server has to make. A gate is a **class**, resolved from the Nest container exactly as a guard is — so it can inject services — and its verdict is **awaited**, so it can do real asynchronous work.
+
+```ts
+import { Injectable } from '@nestjs/common';
+import {
+  McpCapabilityGate,
+  McpRegistrationContext,
+  Resolver,
+  Tool,
+} from '@nestjs-mcp/server';
+
+@Injectable()
+export class AdminGate implements McpCapabilityGate {
+  constructor(private readonly permissions: PermissionsService) {}
+
+  // `authInfo` may be undefined — always optional-chain it.
+  async isEnabled(context: McpRegistrationContext): Promise<boolean> {
+    if (context.request.headers['x-role'] === 'admin') return true;
+
+    return this.permissions.isAdmin(context.authInfo?.clientId);
+  }
+}
+
+@Resolver('admin')
+export class AdminResolver {
+  @Tool({
+    name: 'rotate_keys',
+    description: 'Only advertised to admin connections',
+    enabled: AdminGate,
+  })
+  rotateKeys(): CallToolResult {
+    /* ... */
+  }
+}
+```
+
+Register the gate as a provider in the module that owns the resolver:
+
+```ts
+@Module({
+  imports: [McpModule.forRoot({ name: 'admin', version: '1.0.0' })],
+  providers: [PermissionsService, AdminGate, AdminResolver],
+})
+export class AppModule {}
+```
+
+Pass the **class**, never an instance — an instance built at module scope cannot reach the container, which is the whole reason the gate is a class. A gate may also answer synchronously (`isEnabled(): boolean`) when the check is a cheap in-memory one; `boolean | Promise<boolean>` covers both.
+
+Note that `McpRegistrationContext` carries **no `sessionId`**, deliberately. It exists under SSE at registration time but not under streamable HTTP, where the transport assigns it while handling the `initialize` POST — after registration has already run. Exposing it would make the same gate behave differently per transport.
+
+### What the client sees
+
+A disabled capability is **registered and then disabled**, never skipped. It is therefore absent from `tools/list` / `prompts/list` / `resources/list`, and invoking it answers `Tool <name> disabled` rather than `Tool <name> not found` — the two are distinct in the SDK and the first is the correct answer for a capability that exists but is off for you.
+
+### Fail-closed, in five cases
+
+A gate that cannot answer never leaves a capability exposed:
+
+| Case | Result |
+| --- | --- |
+| `isEnabled` throws synchronously | disabled, error logged |
+| `isEnabled` returns a **rejecting** promise | disabled, error logged |
+| the gate class cannot be resolved from the container | disabled, error logged — it is **never** silently built with `new`, because such a gate has `undefined` dependencies and could answer something accidentally truthy |
+| a gate is declared but no registration context exists | disabled, error logged |
+| `disable()` itself throws | the capability **remains enabled**, and the log says so — the one residual fail-open, because there is no other way to disable |
+
+A failing gate never affects the capabilities beside it, and never turns the connection into a 500. Log lines name the capability and the failure only — never the request, its headers, or a token.
+
+### Rules you must know before using this
+
+- **Evaluated once per connection.** A fresh MCP server is built for each client connection and `enabled` is resolved while it is being populated. The resulting capability set is frozen for the life of that connection; changing whatever the gate reads does not affect an already-connected client. A client sees a new decision only by reconnecting.
+- **No `listChanged` notification is emitted.** Every toggle is applied before the server is connected to its transport, where the SDK gates notification dispatch. This library never sends `notifications/tools/list_changed` or its prompt/resource equivalents. Do not expect a connected client to be told that something changed — nothing changes mid-session.
+- **Keep gates cheap — they run before `initialize` is answered.** Under streamable HTTP the server is built and registered *before* the transport answers the client's `initialize`, so every gate settles before the client is served. The library bounds the cost: registration itself stays synchronous, all gates settle in **one concurrency wave** (the added latency is the slowest single gate, not the sum), and each distinct gate class is resolved from the container **once per connection** however many capabilities share it. What it cannot bound is the gate itself. Upstream's guidance applies directly — *"connection pools and caches should be created at module scope to keep the factory cheap and side-effect-free"* — so do your caching in the injected service, at provider scope. There is **no built-in timeout**: a gate that never settles leaves `initialize` unanswered.
+- **A gate with no registration context fails closed.** Both built-in transports always pass a context. If you call `RegistryService.registerAll(server)` yourself with a single argument, any capability declaring a *gate* is disabled and the reason is logged. Static `true` / `false` and capabilities with no `enabled` option are unaffected.
+- **`authInfo` may be `undefined`.** It is only populated when auth middleware (for example the SDK's `requireBearerAuth`) ran before the MCP controller. Write `context.authInfo?.scopes` — a gate that dereferences it unguarded throws, and then fails closed, which silently removes the capability.
+- **Request-scoped gate providers are not supported.** A gate is resolved with `moduleRef.get(..., { strict: false })`, falling back to `moduleRef.create`. Neither handles a request-scoped provider cleanly. Use a singleton gate that reads what it needs from the registration context.
+
+### This is not a replacement for guards
+
+`enabled` is **discovery-level defence-in-depth**, not the authorization mechanism. [Guards](#guards) are: they run on every capability invocation, against that invocation's own context.
+
+The reason is concrete. Under streamable HTTP, the registration context is built from the `initialize` POST and nothing else — every later `tools/call` arrives on a *different* HTTP request whose `req.auth` is never consulted by this option. A permission that can be revoked, expire, or differ between calls within one session must be enforced by a guard on the capability itself.
+
+This is the same line the MCP SDK draws for its own per-request factory: the HTTP layer verifies the bearer token, while per-tool checks live in the handler, because *"the handler is the authoritative source for the executing tool."*
+
+Use `enabled` to decide what a connection should even see; use a guard to decide whether a call is allowed.
+
+### Migrating from `1.x`
+
+Two breaking changes, both narrow:
+
+| # | Break | Before | After |
+| --- | --- | --- | --- |
+| 1 | `RegistryService.registerAll` is async | `registry.registerAll(server);` | `await registry.registerAll(server);` — and the enclosing function becomes `async`. Only affects code calling it **directly**; using `McpModule` normally does not. |
+| 2 | inline predicates removed | `enabled: (ctx) => ctx.request.headers['x-role'] === 'admin'` | a class implementing `McpCapabilityGate`, registered as a provider, passed as `enabled: AdminGate` — which is also what unlocks `async` and dependency injection. |
+
+Everything else is unchanged. A server that declares no `enabled` option anywhere needs no changes at all and pays no runtime cost for this feature.
+
+> A runnable example lives in [`examples/dynamic/`](./examples/dynamic/) — `EXAMPLE=dynamic pnpm start:example`.
 
 ---
 

@@ -18,6 +18,7 @@ describe('StreamableService', () => {
   let service: StreamableService;
   let sessionManager: SessionManager;
   let logger: McpLoggerService;
+  let registry: RegistryService;
 
   const createMockRequest = (
     overrides: Partial<Request> = {},
@@ -78,6 +79,7 @@ describe('StreamableService', () => {
     service = module.get<StreamableService>(StreamableService);
     sessionManager = module.get<SessionManager>(SessionManager);
     logger = module.get<McpLoggerService>(McpLoggerService);
+    registry = module.get<RegistryService>(RegistryService);
   });
 
   it('should be defined', () => {
@@ -151,7 +153,7 @@ describe('StreamableService', () => {
       };
       const createServerSpy = jest
         .spyOn(service as any, 'createServer')
-        .mockReturnValue(mockServer);
+        .mockResolvedValue(mockServer);
 
       const req = createMockRequest({
         headers: {},
@@ -173,7 +175,71 @@ describe('StreamableService', () => {
       ).rejects.toThrow();
 
       expect(createServerSpy).toHaveBeenCalled();
+      expect(createServerSpy).toHaveBeenCalledWith(req);
       expect(res.status).not.toHaveBeenCalledWith(400);
+    });
+  });
+
+  describe('createServer', () => {
+    it('should build a registration context carrying request and authInfo', async () => {
+      const registerAllSpy = jest
+        .spyOn(registry, 'registerAll')
+        .mockResolvedValue(undefined);
+
+      const req = createMockRequest({
+        headers: { 'x-role': 'admin' },
+      }) as Request;
+      req.auth = { token: 'token', clientId: 'client', scopes: ['admin'] };
+
+      await service['createServer'](req);
+
+      expect(registerAllSpy).toHaveBeenCalledWith(expect.anything(), {
+        request: req,
+        authInfo: { token: 'token', clientId: 'client', scopes: ['admin'] },
+      });
+    });
+
+    it('should leave authInfo undefined when no auth middleware ran', async () => {
+      const registerAllSpy = jest
+        .spyOn(registry, 'registerAll')
+        .mockResolvedValue(undefined);
+
+      const req = createMockRequest() as Request;
+
+      await service['createServer'](req);
+
+      expect(registerAllSpy).toHaveBeenCalledWith(expect.anything(), {
+        request: req,
+        authInfo: undefined,
+      });
+    });
+
+    it('should not resolve until registration has completed', async () => {
+      // Streamable is the sharper column: createServer runs before
+      // transport.handleRequest answers `initialize`, so an un-awaited
+      // registration would advertise capabilities whose gates are still
+      // in flight.
+      let registrationDone = false;
+      let release!: () => void;
+      const registration = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+
+      jest.spyOn(registry, 'registerAll').mockImplementation(() =>
+        registration.then(() => {
+          registrationDone = true;
+        }),
+      );
+
+      const req = createMockRequest() as Request;
+      const pending = service['createServer'](req);
+
+      expect(registrationDone).toBe(false);
+
+      release();
+      await pending;
+
+      expect(registrationDone).toBe(true);
     });
   });
 

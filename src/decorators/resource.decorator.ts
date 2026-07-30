@@ -1,7 +1,14 @@
 import { SetMetadata } from '@nestjs/common';
 
+import type { McpCapabilityToggle } from '../interfaces/registration-context.interface';
+
 export interface ResourceBaseOptions {
   name: string;
+  /**
+   * Whether this resource is available to a connecting client.
+   * Evaluated once per connection; omit for the default (always enabled).
+   */
+  enabled?: McpCapabilityToggle;
 }
 
 export interface ResourceUriOptions extends ResourceBaseOptions {

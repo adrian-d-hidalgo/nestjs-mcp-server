@@ -47,6 +47,11 @@ describe('Tool Decorator', () => {
     methodWithAnnotations() {
       return { content: [{ type: 'text', text: 'test' }] };
     }
+
+    @Tool({ name: 'tool_disabled', enabled: false })
+    methodDisabled() {
+      return { content: [{ type: 'text', text: 'test' }] };
+    }
   }
 
   it('should set metadata for simple tool', () => {
@@ -104,5 +109,25 @@ describe('Tool Decorator', () => {
       readOnlyHint: true,
     });
     expect(metadata.methodName).toBe('methodWithAnnotations');
+  });
+
+  it('should carry the enabled option into metadata', () => {
+    const metadata = reflector.get(
+      MCP_TOOL,
+      TestResolver.prototype.methodDisabled,
+    );
+    expect(metadata).toEqual({
+      name: 'tool_disabled',
+      enabled: false,
+      methodName: 'methodDisabled',
+    });
+  });
+
+  it('should not add an enabled key when the option is absent', () => {
+    const metadata = reflector.get(
+      MCP_TOOL,
+      TestResolver.prototype.simpleMethod,
+    );
+    expect('enabled' in metadata).toBe(false);
   });
 });
