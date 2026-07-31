@@ -1,16 +1,12 @@
-import {
-  CallToolResult,
-  GetPromptResult,
-} from '@modelcontextprotocol/sdk/types';
+import { CallToolResult, GetPromptResult } from '@modelcontextprotocol/server';
 import { CanActivate, Injectable } from '@nestjs/common';
 import { z } from 'zod';
 
 import {
+  McpContext,
   McpExecutionContext,
   Prompt,
-  RequestHandlerExtra,
   Resolver,
-  SessionManager,
   Tool,
   UseGuards,
 } from '../../src';
@@ -31,21 +27,33 @@ export class MethodLogGuard implements CanActivate {
   }
 }
 
+/**
+ * Reads the credential off the request the capability was **invoked** on.
+ *
+ * This replaces the `SessionAwareGuard` this example carried before 2.0, which
+ * did `getSessionId()` → `sessionManager.getSession(id)` → `!!session`. Both
+ * halves of that are gone: protocol revision 2026-07-28 retired sessions, and
+ * with them the in-process session store that made this library impossible to
+ * run behind a load balancer.
+ *
+ * The replacement is strictly stronger. In 1.x the request reachable from a
+ * guard was the one that opened the *connection* — the `initialize` POST — so a
+ * credential that expired or changed mid-conversation was never re-examined.
+ * `getRequest()` now returns this call's own request, so revocable and
+ * expiring credentials work as an authorization mechanism should.
+ */
 @Injectable()
-export class SessionAwareGuard implements CanActivate {
-  constructor(private readonly sessionManager: SessionManager) {}
-
+export class AuthHeaderGuard implements CanActivate {
   canActivate(context: any): boolean {
-    const sessionId = (context as McpExecutionContext).getSessionId();
-    const session = this.sessionManager.getSession(sessionId);
+    const request = (context as McpExecutionContext).getRequest();
+    const authorization = request.headers.authorization;
 
     console.log(
-      '[SessionAwareGuard] Session check:',
-      session ? 'valid' : 'invalid',
+      '[AuthHeaderGuard] Authorization on this call:',
+      authorization ? 'present' : 'absent',
     );
 
-    // Allow if session exists
-    return !!session;
+    return Boolean(authorization);
   }
 }
 
@@ -53,7 +61,7 @@ export class SessionAwareGuard implements CanActivate {
 @Resolver('guards')
 export class GuardsResolver {
   @Prompt({ name: 'logPrompt' })
-  logPrompt(_extra: RequestHandlerExtra): GetPromptResult {
+  logPrompt(_ctx: McpContext): GetPromptResult {
     return {
       messages: [
         {
@@ -67,30 +75,28 @@ export class GuardsResolver {
   @UseGuards(MethodLogGuard)
   @Tool({
     name: 'log_tool',
-    paramsSchema: {
+    paramsSchema: z.object({
       prefix: z.string(),
-    },
+    }),
   })
-  logTool(
-    args: { prefix: string },
-    _extra: RequestHandlerExtra,
-  ): CallToolResult {
+  logTool(args: { prefix: string }, _ctx: McpContext): CallToolResult {
     return {
       content: [{ type: 'text', text: `[${args.prefix}] Tool executed` }],
     };
   }
 
-  @UseGuards(SessionAwareGuard)
+  @UseGuards(AuthHeaderGuard)
   @Tool({
-    name: 'session_protected_tool',
-    description: 'A tool protected by a guard that uses SessionManager via DI',
+    name: 'auth_protected_tool',
+    description:
+      'A tool protected by a guard that reads this call’s Authorization header',
   })
-  sessionProtectedTool(extra: RequestHandlerExtra): CallToolResult {
+  authProtectedTool(ctx: McpContext): CallToolResult {
     return {
       content: [
         {
           type: 'text',
-          text: `Session validated! SessionId: ${extra.sessionId}`,
+          text: `Authorized. Method: ${ctx.mcpReq.method}`,
         },
       ],
     };

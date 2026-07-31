@@ -1,4 +1,6 @@
-import type { RequestHandlerExtra } from '../mcp.types';
+import type { Variables } from '@modelcontextprotocol/server';
+
+import type { McpContext } from '../interfaces/handler-context.interface';
 
 /**
  * Arguments for resource URI handlers
@@ -6,7 +8,7 @@ import type { RequestHandlerExtra } from '../mcp.types';
 export interface ResourceUriHandlerArgs {
   readonly type: 'resource:uri';
   readonly uri: URL;
-  readonly extra: RequestHandlerExtra;
+  readonly extra: McpContext;
 }
 
 /**
@@ -15,8 +17,13 @@ export interface ResourceUriHandlerArgs {
 export interface ResourceTemplateHandlerArgs {
   readonly type: 'resource:template';
   readonly uri: URL;
-  readonly variables?: Record<string, string>;
-  readonly extra: RequestHandlerExtra;
+  /**
+   * Interpolated URI-template variables. Typed with the SDK's own `Variables`,
+   * so an exploded variable correctly widens to `string[]` — 1.x declared
+   * `Record<string, string>`, which mistyped those.
+   */
+  readonly variables?: Variables;
+  readonly extra: McpContext;
 }
 
 /**
@@ -25,7 +32,7 @@ export interface ResourceTemplateHandlerArgs {
 export interface PromptHandlerArgs {
   readonly type: 'prompt';
   readonly args?: any;
-  readonly extra: RequestHandlerExtra;
+  readonly extra: McpContext;
 }
 
 /**
@@ -34,7 +41,7 @@ export interface PromptHandlerArgs {
 export interface ToolHandlerArgs {
   readonly type: 'tool';
   readonly params?: any;
-  readonly extra: RequestHandlerExtra;
+  readonly extra: McpContext;
 }
 
 /**

@@ -1,3 +1,4 @@
+import { CacheHint } from '@modelcontextprotocol/server';
 import { SetMetadata } from '@nestjs/common';
 
 import type { McpCapabilityToggle } from '../interfaces/registration-context.interface';
@@ -5,10 +6,19 @@ import type { McpCapabilityToggle } from '../interfaces/registration-context.int
 export interface ResourceBaseOptions {
   name: string;
   /**
-   * Whether this resource is available to a connecting client.
-   * Evaluated once per connection; omit for the default (always enabled).
+   * Whether this resource is available to the client making this request.
+   * Evaluated once per request; omit for the default (always enabled).
    */
   enabled?: McpCapabilityToggle;
+  /**
+   * Cache hint (`ttlMs` / `cacheScope`) attached to this resource's
+   * `resources/read` result, letting a client cache it instead of re-fetching.
+   *
+   * Resource-only by design: `tools/list` and `prompts/list` return one result
+   * for the whole server, so a per-capability hint would have nowhere to go.
+   * Use `server.cacheHints` in the module options for those.
+   */
+  cacheHint?: CacheHint;
 }
 
 export interface ResourceUriOptions extends ResourceBaseOptions {

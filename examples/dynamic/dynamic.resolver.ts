@@ -2,16 +2,10 @@ import {
   CallToolResult,
   GetPromptResult,
   ReadResourceResult,
-} from '@modelcontextprotocol/sdk/types';
+} from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
-import {
-  Prompt,
-  RequestHandlerExtra,
-  Resolver,
-  Resource,
-  Tool,
-} from '../../src';
+import { Prompt, McpContext, Resolver, Resource, Tool } from '../../src';
 import {
   AdminGate,
   BetaGate,
@@ -20,8 +14,8 @@ import {
   UnresolvableGate,
 } from './capability.gates';
 
-const SearchParams = { query: z.string() };
-type SearchParamsType = typeof SearchParams;
+const SearchParams = z.object({ query: z.string() });
+type SearchParamsType = z.infer<typeof SearchParams>;
 
 @Resolver('dynamic')
 export class DynamicResolver {
@@ -34,7 +28,7 @@ export class DynamicResolver {
     name: 'public_tool',
     description: 'Always available, on every connection',
   })
-  publicTool(_extra: RequestHandlerExtra): CallToolResult {
+  publicTool(_ctx: McpContext): CallToolResult {
     return { content: [{ type: 'text', text: 'public_tool' }] };
   }
 
@@ -48,7 +42,7 @@ export class DynamicResolver {
     description: 'Disabled for every connection',
     enabled: false,
   })
-  alwaysOffTool(_extra: RequestHandlerExtra): CallToolResult {
+  alwaysOffTool(_ctx: McpContext): CallToolResult {
     return { content: [{ type: 'text', text: 'always_off_tool' }] };
   }
 
@@ -63,10 +57,7 @@ export class DynamicResolver {
     paramsSchema: SearchParams,
     enabled: AdminGate,
   })
-  adminOnlyTool(
-    params: SearchParamsType,
-    _extra: RequestHandlerExtra,
-  ): CallToolResult {
+  adminOnlyTool(params: SearchParamsType, _ctx: McpContext): CallToolResult {
     return {
       content: [
         { type: 'text', text: `admin_only_tool: ${JSON.stringify(params)}` },
@@ -85,7 +76,7 @@ export class DynamicResolver {
     description: 'Gated on a deliberately slow lookup',
     enabled: BetaGate,
   })
-  betaTool(_extra: RequestHandlerExtra): CallToolResult {
+  betaTool(_ctx: McpContext): CallToolResult {
     return { content: [{ type: 'text', text: 'beta_tool' }] };
   }
 
@@ -98,7 +89,7 @@ export class DynamicResolver {
     description: 'Its gate throws, so it is never available',
     enabled: ThrowingGate,
   })
-  throwingGateTool(_extra: RequestHandlerExtra): CallToolResult {
+  throwingGateTool(_ctx: McpContext): CallToolResult {
     return { content: [{ type: 'text', text: 'throwing_gate_tool' }] };
   }
 
@@ -111,7 +102,7 @@ export class DynamicResolver {
     description: 'Its gate rejects, so it is never available',
     enabled: RejectingGate,
   })
-  rejectingGateTool(_extra: RequestHandlerExtra): CallToolResult {
+  rejectingGateTool(_ctx: McpContext): CallToolResult {
     return { content: [{ type: 'text', text: 'rejecting_gate_tool' }] };
   }
 
@@ -125,7 +116,7 @@ export class DynamicResolver {
     description: 'Its gate cannot be resolved, so it is never available',
     enabled: UnresolvableGate,
   })
-  unresolvableGateTool(_extra: RequestHandlerExtra): CallToolResult {
+  unresolvableGateTool(_ctx: McpContext): CallToolResult {
     return { content: [{ type: 'text', text: 'unresolvable_gate_tool' }] };
   }
 

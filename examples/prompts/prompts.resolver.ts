@@ -1,4 +1,4 @@
-import { GetPromptResult } from '@modelcontextprotocol/sdk/types';
+import { GetPromptResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
 import { Prompt, Resolver } from '../../src';
@@ -32,10 +32,10 @@ export class PromptsResolver {
    */
   @Prompt({
     name: 'personalized_greeting',
-    argsSchema: {
+    argsSchema: z.object({
       name: z.string().min(1),
       timeOfDay: z.enum(['morning', 'afternoon', 'evening', 'night']),
-    },
+    }),
   })
   personalizedGreeting({
     name,
@@ -105,11 +105,11 @@ export class PromptsResolver {
     name: 'product_recommendation',
     description:
       'Recommends products based on user preferences and requirements',
-    argsSchema: {
+    argsSchema: z.object({
       category: z.string(),
       budget: z.string(),
       preferences: z.string().optional(),
-    },
+    }),
   })
   productRecommendation({
     category,

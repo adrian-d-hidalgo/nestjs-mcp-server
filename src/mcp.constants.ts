@@ -12,8 +12,11 @@ export const MCP_SERVER_OPTIONS = Symbol('MCP_SERVER_OPTIONS');
 /** Logging configuration options */
 export const MCP_LOGGING_OPTIONS = Symbol('MCP_LOGGING_OPTIONS');
 
-/** Transport configuration (SSE, Streamable) */
+/** Stateless HTTP endpoint configuration, passed to `createMcpHandler` */
 export const MCP_TRANSPORT_OPTIONS = Symbol('MCP_TRANSPORT_OPTIONS');
 
-/** Session management options */
-export const MCP_SESSION_OPTIONS = Symbol('MCP_SESSION_OPTIONS');
+/**
+ * `AsyncLocalStorage` carrying the Express request across the SDK handler into
+ * the per-request server factory. See `McpHttpService`.
+ */
+export const MCP_REQUEST_SCOPE = Symbol('MCP_REQUEST_SCOPE');

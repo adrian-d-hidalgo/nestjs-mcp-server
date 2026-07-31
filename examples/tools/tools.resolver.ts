@@ -1,10 +1,27 @@
-import { CallToolResult } from '@modelcontextprotocol/sdk/types';
+import { CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
-import { RequestHandlerExtra, Resolver, Tool } from '../../src';
+import { McpContext, Resolver, Tool } from '../../src';
 
-const ParamsSchema = { value: z.string() };
-type ParamsSchemaType = typeof ParamsSchema;
+const ParamsSchema = z.object({ value: z.string() });
+type ParamsSchemaType = z.infer<typeof ParamsSchema>;
+
+/**
+ * Renders the parts of the handler context that are useful to see over the
+ * wire.
+ *
+ * Deliberately not `JSON.stringify(ctx)`: since 2.0 the context carries the
+ * live Express request, which is circular and would throw. Read the fields you
+ * need instead.
+ */
+function describe(ctx: McpContext): string {
+  return JSON.stringify({
+    method: ctx.mcpReq.method,
+    // `undefined` on 2026-07-28 traffic — the spec retired sessions.
+    sessionId: ctx.sessionId ?? null,
+    userAgent: ctx.headers['user-agent'] ?? null,
+  });
+}
 
 @Resolver('tools')
 export class ToolsResolver {
@@ -14,11 +31,11 @@ export class ToolsResolver {
   @Tool({
     name: 'tool_base',
   })
-  toolBase(_extra: RequestHandlerExtra): CallToolResult {
+  toolBase(_ctx: McpContext): CallToolResult {
     return {
       content: [
         { type: 'text', text: 'ToolBaseOptions' },
-        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+        { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
     };
   }
@@ -30,17 +47,17 @@ export class ToolsResolver {
     name: 'tool_with_description',
     description: 'Tool with name and description',
   })
-  toolWithDescription(_extra: RequestHandlerExtra): CallToolResult {
+  toolWithDescription(_ctx: McpContext): CallToolResult {
     return {
       content: [
         { type: 'text', text: 'ToolWithDescriptionOptions' },
-        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+        { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
     };
   }
 
   /**
-   * 3. ToolWithParamsSchemaOptions: name + paramsSchema (ZodRawShape)
+   * 3. ToolWithParamsSchemaOptions: name + paramsSchema (Standard Schema)
    */
   @Tool({
     name: 'tool_with_params_schema',
@@ -48,13 +65,13 @@ export class ToolsResolver {
   })
   toolWithParamsSchema(
     params: ParamsSchemaType,
-    _extra: RequestHandlerExtra,
+    _ctx: McpContext,
   ): CallToolResult {
     return {
       content: [
         { type: 'text', text: 'ToolWithParamsSchemaOptions' },
         { type: 'text', text: `Params: ${JSON.stringify(params)}` },
-        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+        { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
     };
   }
@@ -69,13 +86,13 @@ export class ToolsResolver {
   })
   toolWithParamsSchemaAndDescription(
     params: ParamsSchemaType,
-    _extra: RequestHandlerExtra,
+    _ctx: McpContext,
   ): CallToolResult {
     return {
       content: [
         { type: 'text', text: 'ToolWithParamsSchemaAndDescriptionOptions' },
         { type: 'text', text: `Params: ${JSON.stringify(params)}` },
-        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+        { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
     };
   }
@@ -87,11 +104,11 @@ export class ToolsResolver {
     name: 'tool_with_annotations',
     annotations: { destructiveHint: true },
   })
-  toolWithAnnotations(_extra: RequestHandlerExtra): CallToolResult {
+  toolWithAnnotations(_ctx: McpContext): CallToolResult {
     return {
       content: [
         { type: 'text', text: 'ToolWithAnnotationsOptions' },
-        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+        { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
     };
   }
@@ -104,13 +121,11 @@ export class ToolsResolver {
     description: 'Tool with annotations and description',
     annotations: { destructiveHint: true },
   })
-  toolWithAnnotationsAndDescription(
-    _extra: RequestHandlerExtra,
-  ): CallToolResult {
+  toolWithAnnotationsAndDescription(_ctx: McpContext): CallToolResult {
     return {
       content: [
         { type: 'text', text: 'ToolWithAnnotationsAndDescriptionOptions' },
-        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+        { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
     };
   }
@@ -125,13 +140,13 @@ export class ToolsResolver {
   })
   toolWithParamsSchemaAndAnnotations(
     params: ParamsSchemaType,
-    _extra: RequestHandlerExtra,
+    _ctx: McpContext,
   ): CallToolResult {
     return {
       content: [
         { type: 'text', text: 'ToolWithParamsSchemaAndAnnotationsOptions' },
         { type: 'text', text: `Params: ${JSON.stringify(params)}` },
-        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+        { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
     };
   }
@@ -147,7 +162,7 @@ export class ToolsResolver {
   })
   toolWithParamsSchemaAndAnnotationsAndDescription(
     params: ParamsSchemaType,
-    _extra: RequestHandlerExtra,
+    _ctx: McpContext,
   ): CallToolResult {
     return {
       content: [
@@ -156,7 +171,7 @@ export class ToolsResolver {
           text: 'ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions',
         },
         { type: 'text', text: `Params: ${JSON.stringify(params)}` },
-        { type: 'text', text: `Extra: ${JSON.stringify(_extra)}` },
+        { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
     };
   }

@@ -1,11 +1,6 @@
-import { RequestHandlerExtra } from '@modelcontextprotocol/sdk/shared/protocol';
-import {
-  ReadResourceResult,
-  ServerNotification,
-  ServerRequest,
-} from '@modelcontextprotocol/sdk/types';
+import { ReadResourceResult } from '@modelcontextprotocol/server';
 
-import { Resolver, Resource } from '../../src';
+import { McpContext, Resolver, Resource } from '../../src';
 
 const USER_LIST = [
   {
@@ -30,10 +25,7 @@ export class ResourcesResolver {
     name: 'get_users',
     uri: 'users://list',
   })
-  getSimpleDocument(
-    uri: URL,
-    _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
-  ): ReadResourceResult {
+  getSimpleDocument(uri: URL, _ctx: McpContext): ReadResourceResult {
     return {
       contents: [
         {
@@ -79,7 +71,7 @@ export class ResourcesResolver {
     variables: {
       name: string;
     },
-    _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
+    _ctx: McpContext,
   ): ReadResourceResult {
     return {
       contents: [
@@ -107,7 +99,7 @@ export class ResourcesResolver {
     variables: {
       userId: string;
     },
-    _extra: RequestHandlerExtra<ServerRequest, ServerNotification>,
+    _ctx: McpContext,
   ): ReadResourceResult {
     const user = USER_LIST.find((user) => user.id === variables.userId);
 

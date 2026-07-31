@@ -1,11 +1,5 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import {
-  CallToolResult,
-  ErrorCode,
-  TextContent,
-} from '@modelcontextprotocol/sdk/types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { Server } from 'http';
@@ -14,12 +8,13 @@ import { AddressInfo } from 'net';
 import { AppModule } from '../examples/dynamic/app.module';
 
 /**
- * The gate design on the wire, over both transports.
+ * The gate design on the wire.
  *
- * The capability set is decided once per connection by classes resolved from
- * the Nest container and awaited, so every case here opens its own connection:
- * that is the unit of behaviour under test. Connections are always closed in a
- * `finally` — a leaked SSE stream keeps reconnecting and hangs `app.close()`.
+ * Since 2.0 the capability set is decided **per request** by classes resolved
+ * from the Nest container and awaited — a fresh `McpServer` is built for every
+ * HTTP request, which is what makes the server stateless. Each case still
+ * opens its own connection so the request context under test is unambiguous.
+ * Connections are always closed in a `finally`.
  */
 
 /** The header `examples/dynamic`'s `AdminGate` keys on. */
@@ -80,29 +75,16 @@ describe('Dynamic capabilities (e2e)', () => {
     return { client, notifications, close: () => transport.close() };
   };
 
-  const connectSse: Connect = async (headers) => {
-    const { client, notifications } = newClient();
-    // `requestInit.headers` is merged into the initial `GET /sse` too
-    // (SDK `sse.js` `_commonHeaders`), which is the request registration sees.
-    const transport = new SSEClientTransport(
-      new URL(`${baseUrl}/sse`),
-      headers ? { requestInit: { headers } } : undefined,
-    );
-
-    await client.connect(transport);
-
-    return { client, notifications, close: () => transport.close() };
-  };
-
   const toolNames = async (connection: Connection): Promise<string[]> => {
     const { tools } = await connection.client.listTools();
     return tools.map((tool) => tool.name);
   };
 
-  const transports = [
-    { label: 'Streamable HTTP', connect: connectStreamable },
-    { label: 'SSE', connect: connectSse },
-  ];
+  // One transport. The HTTP+SSE transport was removed in 2.0: it is
+  // structurally sticky-session, which is exactly what issue #121 is about.
+  // 2025-era clients — including the one driving this suite — are served on
+  // the single /mcp endpoint through the SDK's stateless legacy fallback.
+  const transports = [{ label: 'Streamable HTTP', connect: connectStreamable }];
 
   describe.each(transports)('$label', ({ connect }) => {
     it('omits a statically disabled tool from tools/list', async () => {
@@ -220,26 +202,27 @@ describe('Dynamic capabilities (e2e)', () => {
       const connection = await connect();
 
       try {
-        const result = (await connection.client.callTool({
-          name: 'always_off_tool',
-          arguments: {},
-        })) as CallToolResult;
-
         // The whole reason the SPEC chose register-then-disable over
         // skip-registration: the client is told the tool exists but is off.
         //
-        // Shape note, verified against the pinned SDK 1.30.0: the disabled
-        // check throws `McpError(InvalidParams, 'Tool <name> disabled')` at
-        // `mcp.js:106-107`, but the surrounding handler catches it and returns
-        // it as a tool-error result (`mcp.js:135-141`, `createToolError`)
-        // rather than a JSON-RPC error. The distinguishing text is what
-        // matters and it is intact.
-        expect(result.isError).toBe(true);
+        // Shape note: under SDK v1 this surfaced as a tool-error *result*
+        // (`isError: true`) because the handler caught the thrown McpError and
+        // wrapped it. SDK v2 lets it through as a JSON-RPC error, so the call
+        // rejects. The distinguishing text — "disabled", not "not found" — is
+        // what the design turns on, and it is intact.
+        await expect(
+          connection.client.callTool({
+            name: 'always_off_tool',
+            arguments: {},
+          }),
+        ).rejects.toThrow(/Tool always_off_tool disabled/);
 
-        const text = (result.content[0] as TextContent).text;
-        expect(text).toContain('Tool always_off_tool disabled');
-        expect(text).toContain(String(ErrorCode.InvalidParams));
-        expect(text).not.toContain('not found');
+        await expect(
+          connection.client.callTool({
+            name: 'always_off_tool',
+            arguments: {},
+          }),
+        ).rejects.not.toThrow(/not found/);
       } finally {
         await connection.close();
       }

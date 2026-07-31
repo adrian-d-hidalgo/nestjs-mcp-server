@@ -69,7 +69,7 @@ class DynamicResolver {
   @Tool({
     name: 'gated_tool',
     description: 'Only for admins',
-    paramsSchema: { id: z.string() },
+    paramsSchema: z.object({ id: z.string() }),
     enabled: AdminGate,
   })
   gatedTool(): CallToolResult {

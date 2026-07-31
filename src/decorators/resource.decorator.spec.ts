@@ -119,4 +119,24 @@ describe('Resource Decorator', () => {
     );
     expect('enabled' in metadata).toBe(false);
   });
+
+  it('captures a resource cache hint', () => {
+    class TestResolver {
+      @Resource({
+        name: 'cached',
+        uri: 'res://cached',
+        cacheHint: { ttlMs: 1000, cacheScope: 'public' },
+      })
+      cached() {
+        return { contents: [] };
+      }
+    }
+
+    const metadata = Reflect.getMetadata(
+      MCP_RESOURCE,
+      TestResolver.prototype.cached,
+    ) as Record<string, unknown>;
+
+    expect(metadata.cacheHint).toEqual({ ttlMs: 1000, cacheScope: 'public' });
+  });
 });

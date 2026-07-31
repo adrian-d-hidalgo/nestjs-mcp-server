@@ -70,6 +70,12 @@ The stack and tooling are organized by category, with the primary technology for
 
 ## Other
 
-- **@modelcontextprotocol/sdk**: Core dependency for MCP Server compatibility
+- **@modelcontextprotocol/server**: Core dependency — the MCP SDK v2 server package (protocol revision `2026-07-28`)
+- **@modelcontextprotocol/node**: Node/Express bridge (`toNodeHandler`) for mounting the MCP handler
+- **@modelcontextprotocol/sdk** (dev only): the v1 SDK, kept solely so the e2e suite can prove 2025-era clients still work
+- **@modelcontextprotocol/client** (dev only): v2 client, used by the e2e suite
+
+> The MCP SDK split into scoped packages at v2; `@modelcontextprotocol/sdk` is no
+> longer a runtime dependency of this library.
 
 > All tools must be used in the versions specified in the workflows and configuration files to ensure compatibility and reproducibility.

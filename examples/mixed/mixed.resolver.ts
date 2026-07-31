@@ -2,7 +2,7 @@ import {
   CallToolResult,
   GetPromptResult,
   ReadResourceResult,
-} from '@modelcontextprotocol/sdk/types';
+} from '@modelcontextprotocol/server';
 
 import { Prompt, Resolver, Resource, Tool } from '../../src';
 

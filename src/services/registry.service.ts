@@ -3,19 +3,12 @@ import type {
   RegisteredResource,
   RegisteredResourceTemplate,
   RegisteredTool,
-} from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  McpServer,
-  ResourceTemplate,
-} from '@modelcontextprotocol/sdk/server/mcp.js';
+  ServerContext,
+} from '@modelcontextprotocol/server';
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
 import type { CanActivate, Type } from '@nestjs/common';
-import {
-  ForbiddenException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { ModuleRef, Reflector } from '@nestjs/core';
-import { Request } from 'express';
 
 import {
   MCP_GUARDS,
@@ -29,15 +22,17 @@ import {
 } from '../decorators';
 import { McpExecutionContext } from '../interfaces/context.interface';
 import type {
+  AuthenticatedRequest,
+  McpContext,
+} from '../interfaces/handler-context.interface';
+import type {
   McpCapabilityGate,
   McpCapabilityToggle,
   McpRegistrationContext,
 } from '../interfaces/registration-context.interface';
-import { RequestHandlerExtra } from '../mcp.types';
 import type { McpHandlerArgs } from '../types/handler-args.types';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
-import { SessionManager } from './session.manager';
 
 /** The four SDK registration handles, all of which expose `disable()`. */
 type McpCapabilityHandle =
@@ -67,11 +62,27 @@ interface PendingCapabilityGate {
   Gate: Type<McpCapabilityGate>;
 }
 
-/** Memoises `resolveGate` for the life of one `registerAll` call. */
-type GateResolutionCache = Map<
-  Type<McpCapabilityGate>,
-  Promise<McpCapabilityGate | null>
->;
+/**
+ * A gate's answer, plus why it was negative when the gate could not be asked.
+ *
+ * The reason travels with the verdict instead of being logged where it is
+ * produced, so a shared gate can be consulted once while each capability it
+ * disables still gets a log line naming it.
+ */
+interface GateVerdict {
+  enabled: boolean;
+  reason?: string;
+}
+
+/**
+ * Memoises each gate class's verdict for the life of one `registerAll` call.
+ *
+ * Keyed by class, not by capability: the registration context is one object
+ * for the whole call, so ten tools sharing `AdminGate` ask it once rather than
+ * ten times. Never outlives the call — a verdict reused across requests would
+ * defeat the entire point of evaluating per request.
+ */
+type GateVerdictCache = Map<Type<McpCapabilityGate>, Promise<GateVerdict>>;
 
 @Injectable()
 export class RegistryService {
@@ -79,33 +90,36 @@ export class RegistryService {
     private readonly discoveryService: DiscoveryService,
     private readonly logger: McpLoggerService,
     private readonly reflector: Reflector,
-    private readonly sessionManager: SessionManager,
     private readonly moduleRef: ModuleRef,
   ) {}
 
   /**
    * Registers every discovered MCP capability on a freshly built server.
    *
+   * Called once per HTTP request: the SDK's `createMcpHandler` builds a new
+   * `McpServer` from the factory for every request, which is what makes the
+   * server stateless and horizontally scalable.
+   *
    * Resolves only once every capability gate has settled, so the caller may
-   * connect the server to its transport knowing the capability set is final.
+   * hand the server to its transport knowing the capability set is final.
    *
    * Registration itself is synchronous: all SDK calls, and every `disable()`
    * for a static `enabled: false`, happen before the first `await`. Only
    * capabilities gated by a {@link McpCapabilityGate} class are deferred, and
-   * they are settled in a **single** concurrency wave — the added connection
-   * latency is the slowest gate, not the sum of them. A server that declares
-   * no gate performs zero container lookups and zero awaited work.
+   * they are settled in a **single** concurrency wave — the added latency is
+   * the slowest gate, not the sum of them. A server that declares no gate
+   * performs zero container lookups and zero awaited work.
    *
-   * @param server The `McpServer` built for one client connection.
-   * @param context Optional connection context. Every gate is evaluated
-   * against it once, at registration time. Capabilities whose toggle resolves
-   * to `false` are registered and then disabled, so the SDK answers
-   * `<name> disabled` rather than `<name> not found`. A capability declaring a
-   * gate when no context was provided fails closed.
+   * @param server The `McpServer` built for this request.
+   * @param context The request context. Every gate is evaluated against it,
+   * and every handler closure captures it, so a capability invoked later in
+   * this same request sees the request it actually arrived on. Capabilities
+   * whose toggle resolves to `false` are registered and then disabled, so the
+   * SDK answers `<name> disabled` rather than `<name> not found`.
    */
   async registerAll(
     server: McpServer,
-    context?: McpRegistrationContext,
+    context: McpRegistrationContext,
   ): Promise<void> {
     this.logger.log(
       'Starting registration of all MCP capabilities...',
@@ -127,17 +141,17 @@ export class RegistryService {
    * Each evaluation is written so it can never reject, so `Promise.all` never
    * short-circuits: one failing gate can neither abort the wave nor strip the
    * capabilities beside it, and nothing escapes into the transport's
-   * `try/catch` to turn the connection into a 500.
+   * `try/catch` to turn the request into a 500.
    */
   private async settlePendingGates(
     pending: PendingCapabilityGate[],
-    context: McpRegistrationContext | undefined,
+    context: McpRegistrationContext,
   ): Promise<void> {
     if (!pending.length) return;
 
-    // Call-local: one resolution per distinct gate class per connection,
-    // released with the call.
-    const cache: GateResolutionCache = new Map();
+    // Call-local: one verdict per distinct gate class per request, released
+    // with the call.
+    const cache: GateVerdictCache = new Map();
 
     await Promise.all(
       pending.map(async (capability) => {
@@ -211,35 +225,35 @@ export class RegistryService {
           ? {
               type: 'resource:uri',
               uri: args[0],
-              extra: args[1] as RequestHandlerExtra,
+              extra: args[1] as McpContext,
             }
           : {
               type: 'resource:template',
               uri: args[0] as URL,
               variables: args[1] as Record<string, string>,
-              extra: args[2] as RequestHandlerExtra,
+              extra: args[2] as McpContext,
             };
       case 'PROMPT':
         return args.length === 1
           ? {
               type: 'prompt',
-              extra: args[0] as RequestHandlerExtra,
+              extra: args[0] as McpContext,
             }
           : {
               type: 'prompt',
               args: args[0] as undefined,
-              extra: args[1] as RequestHandlerExtra,
+              extra: args[1] as McpContext,
             };
       case 'TOOL':
         return args.length === 1
           ? {
               type: 'tool',
-              extra: args[0] as RequestHandlerExtra,
+              extra: args[0] as McpContext,
             }
           : {
               type: 'tool',
               params: args[0] as undefined,
-              extra: args[1] as RequestHandlerExtra,
+              extra: args[1] as McpContext,
             };
       default:
         throw new Error(`Unknown decorator type for method ${method.name}`);
@@ -270,14 +284,14 @@ export class RegistryService {
    *
    * @param instance The resolver instance
    * @param methodName The method name being invoked
+   * @param mcpContext This invocation's context, carrying the live request
    * @param args The arguments passed to the method
    * @throws Error if any guard denies access
    */
   private runGuards(
     instance: object,
     methodName: string,
-    sessionId: string,
-    request: Request,
+    mcpContext: McpContext,
     args: unknown[],
   ): Promise<void> {
     // Retrieve class-level guards
@@ -314,9 +328,9 @@ export class RegistryService {
       getType: () => 'mcp',
       getClass: () => instance.constructor as Type<any>,
       getHandler: () => methodKey as unknown as (...args: any[]) => any,
-      getSessionId: () => sessionId,
+      getContext: () => mcpContext,
       getArgs: <T = any>() => handlerArgs as T,
-      getRequest: <R = Request>() => request as R,
+      getRequest: <R = AuthenticatedRequest>() => mcpContext.request as R,
     };
 
     return (async () => {
@@ -331,10 +345,26 @@ export class RegistryService {
     })();
   }
 
+  /**
+   * Wraps a resolver method as the callback the SDK will invoke.
+   *
+   * The SDK hands its own `ServerContext` as the final argument. This replaces
+   * it with an {@link McpContext} — the same object plus the Express request
+   * this invocation arrived on, captured from the registration context this
+   * closure was built with.
+   *
+   * That capture is what replaced the 1.x session lookup. Before 2.0 this
+   * method read `extra.sessionId`, rejected the call outright when it was
+   * absent, and recovered the request from a process-local `SessionManager`
+   * map — which is why the library could not run behind a load balancer, and
+   * why the request it recovered was the connection's handshake rather than
+   * the call's own.
+   */
   private async wrappedHandler<TArgs extends unknown[], TResult>(
     instance: object,
     handler: (...args: TArgs) => TResult,
     args: unknown[],
+    context: McpRegistrationContext,
   ) {
     const isResolver = Reflect.hasMetadata(MCP_RESOLVER, instance.constructor);
 
@@ -346,31 +376,17 @@ export class RegistryService {
 
     const methodName = handler.name;
 
-    const { sessionId } = args[args.length - 1] as RequestHandlerExtra;
+    const sdkContext = args[args.length - 1] as ServerContext;
 
-    if (!sessionId) {
-      throw new UnauthorizedException('Session ID is required');
-    }
-
-    const session = this.sessionManager.getSession(sessionId);
-
-    if (!session) {
-      throw new ForbiddenException('Session not found');
-    }
-
-    args[args.length - 1] = {
-      ...(args[args.length - 1] as RequestHandlerExtra),
-      headers: session.request.headers,
-      body: session.request.body as Record<string, string>,
+    const mcpContext: McpContext = {
+      ...sdkContext,
+      request: context.request,
+      headers: context.request.headers,
     };
 
-    await this.runGuards(
-      instance,
-      methodName,
-      sessionId,
-      session.request,
-      args,
-    );
+    args[args.length - 1] = mcpContext;
+
+    await this.runGuards(instance, methodName, mcpContext, args);
 
     return handler(...(args as TArgs));
   }
@@ -410,7 +426,7 @@ export class RegistryService {
   }
 
   /**
-   * Asks a capability's gate whether it is available to this connection.
+   * Asks a capability's gate whether it is available to this request.
    *
    * Fails **closed** on every failure mode, because failing open would silently
    * expose a capability the consumer intended to gate:
@@ -419,67 +435,75 @@ export class RegistryService {
    * 2. `isEnabled` returns a **rejecting** promise — a distinct path, which is
    *    why the `try` wraps the `await` and not merely the call.
    * 3. the gate class cannot be resolved from the container.
-   * 4. a gate is declared and no registration context exists.
    *
    * Never rejects, so the surrounding `Promise.all` can never short-circuit.
    *
    * @param capability The deferred capability and its gate class.
-   * @param context The connection context, absent when `registerAll` was
-   * called with a single argument.
+   * @param context The request context.
    * @param cache Per-call memo, so N capabilities sharing one gate class cost
-   * one container resolution.
+   * one container resolution and one `isEnabled` call between them.
    */
   private async isCapabilityEnabled(
     capability: PendingCapabilityGate,
-    context: McpRegistrationContext | undefined,
-    cache: GateResolutionCache,
+    context: McpRegistrationContext,
+    cache: GateVerdictCache,
   ): Promise<boolean> {
     const { Gate, name, scope } = capability;
 
-    if (!context) {
-      this.logger.error(
-        `Disabling "${name}": its "enabled" gate requires a registration context and none was provided.`,
-        undefined,
-        scope,
-      );
-      return false;
+    let verdict = cache.get(Gate);
+
+    if (!verdict) {
+      verdict = this.evaluateGate(Gate, context);
+      cache.set(Gate, verdict);
     }
 
-    let resolution = cache.get(Gate);
+    const { enabled, reason } = await verdict;
 
-    if (!resolution) {
-      resolution = this.resolveGate(Gate);
-      cache.set(Gate, resolution);
+    // Logged here, per capability, rather than inside `evaluateGate`: the gate
+    // is consulted once and shared, but the consumer needs to know which
+    // capability of theirs vanished, not merely that some gate failed.
+    if (reason) {
+      this.logger.error(`Disabling "${name}": ${reason}`, undefined, scope);
     }
 
-    const gate = await resolution;
+    return enabled;
+  }
+
+  /**
+   * Resolves a gate class and asks it, once per request.
+   *
+   * Shared by every capability declaring the same gate, so the verdict is
+   * computed once and the failure reason is returned rather than logged — the
+   * caller logs it against each affected capability by name.
+   */
+  private async evaluateGate(
+    Gate: Type<McpCapabilityGate>,
+    context: McpRegistrationContext,
+  ): Promise<GateVerdict> {
+    const gate = await this.resolveGate(Gate);
 
     if (!gate) {
-      this.logger.error(
-        `Disabling "${name}": its "enabled" gate ${Gate.name} could not be resolved from the container. Register it as a provider.`,
-        undefined,
-        scope,
-      );
-      return false;
+      return {
+        enabled: false,
+        reason: `its "enabled" gate ${Gate.name} could not be resolved from the container. Register it as a provider.`,
+      };
     }
 
     try {
       // The await is inside the try on purpose: a rejected promise and a
       // synchronous throw are different code paths, and wrapping only the call
       // would catch the second and miss the first.
-      const verdict = await gate.isEnabled(context);
+      const result = await gate.isEnabled(context);
 
       // Strict comparison, not truthiness: anything that is not exactly `true`
       // — including a value a JavaScript caller slipped past the types — is
       // treated as a denial rather than accidentally exposing the capability.
-      return verdict === true;
+      return { enabled: result === true };
     } catch (error) {
-      this.logger.error(
-        `Disabling "${name}": its "enabled" gate ${Gate.name} failed: ${error}`,
-        undefined,
-        scope,
-      );
-      return false;
+      return {
+        enabled: false,
+        reason: `its "enabled" gate ${Gate.name} failed: ${error}`,
+      };
     }
   }
 
@@ -492,8 +516,8 @@ export class RegistryService {
    * failing open, the exact inversion of the consumer's intent. Here the
    * failure gets its own log line that says the capability is still exposed.
    *
-   * @param handle The SDK registration handle returned by `server.tool` /
-   * `server.prompt` / `server.resource`.
+   * @param handle The SDK registration handle returned by `registerTool` /
+   * `registerPrompt` / `registerResource`.
    * @param label Capability label used in the log line, e.g. `Tool`.
    * @param name The capability name.
    * @param scope Logger context — `tools`, `prompts` or `resources`.
@@ -506,13 +530,10 @@ export class RegistryService {
   ): void {
     try {
       handle.disable();
-      this.logger.log(
-        `${label} "${name}" disabled for this connection.`,
-        scope,
-      );
+      this.logger.log(`${label} "${name}" disabled for this request.`, scope);
     } catch (error) {
       this.logger.error(
-        `Failed to disable ${label.toLowerCase()} "${name}": it remains enabled for this connection. ${error}`,
+        `Failed to disable ${label.toLowerCase()} "${name}": it remains enabled for this request. ${error}`,
         undefined,
         scope,
       );
@@ -530,7 +551,7 @@ export class RegistryService {
    */
   private registerResources(
     server: McpServer,
-    context: McpRegistrationContext | undefined,
+    context: McpRegistrationContext,
     pending: PendingCapabilityGate[],
   ): Promise<void> {
     const resourceMethods =
@@ -546,7 +567,7 @@ export class RegistryService {
       );
 
       const wrappedHandler = (...args: unknown[]) =>
-        this.wrappedHandler(instance, handler, args);
+        this.wrappedHandler(instance, handler, args, context);
 
       try {
         // The handle is bound so the toggle can disable it, then released with
@@ -558,36 +579,27 @@ export class RegistryService {
         // no-op at `disable()` time.
         let handle: RegisteredResource | RegisteredResourceTemplate;
 
+        const config = {
+          ...('metadata' in metadata ? metadata.metadata : {}),
+          ...(metadata.cacheHint !== undefined
+            ? { cacheHint: metadata.cacheHint }
+            : {}),
+        };
+
         if ('template' in metadata) {
-          if ('metadata' in metadata) {
-            handle = server.resource(
-              metadata.name,
-              new ResourceTemplate(metadata.template, { list: undefined }),
-              metadata.metadata,
-              wrappedHandler,
-            );
-          } else {
-            handle = server.resource(
-              metadata.name,
-              new ResourceTemplate(metadata.template, { list: undefined }),
-              wrappedHandler,
-            );
-          }
+          handle = server.registerResource(
+            metadata.name,
+            new ResourceTemplate(metadata.template, { list: undefined }),
+            config,
+            wrappedHandler,
+          );
         } else if ('uri' in metadata) {
-          if ('metadata' in metadata) {
-            handle = server.resource(
-              metadata.name,
-              metadata.uri,
-              metadata.metadata,
-              wrappedHandler,
-            );
-          } else {
-            handle = server.resource(
-              metadata.name,
-              metadata.uri,
-              wrappedHandler,
-            );
-          }
+          handle = server.registerResource(
+            metadata.name,
+            metadata.uri,
+            config,
+            wrappedHandler,
+          );
         } else {
           // Unreachable through the typed API: every `ResourceOptions` member
           // declares `uri` or `template`. The `never` assignment is the
@@ -629,7 +641,7 @@ export class RegistryService {
   /** Synchronous by contract — see {@link registerResources}. */
   private registerPrompts(
     server: McpServer,
-    context: McpRegistrationContext | undefined,
+    context: McpRegistrationContext,
     pending: PendingCapabilityGate[],
   ): Promise<void> {
     const promptMethods =
@@ -645,35 +657,27 @@ export class RegistryService {
       );
 
       const wrappedHandler = (...args: unknown[]) =>
-        this.wrappedHandler(instance, handler, args);
+        this.wrappedHandler(instance, handler, args, context);
 
       try {
-        // The handle is bound so the toggle can disable it, then released with
-        // the loop iteration. Retaining handles is out of scope by design.
-        let handle: RegisteredPrompt;
-
-        if ('description' in metadata && 'argsSchema' in metadata) {
-          handle = server.prompt(
-            metadata.name,
-            metadata.description,
-            metadata.argsSchema,
-            wrappedHandler,
-          );
-        } else if ('argsSchema' in metadata) {
-          handle = server.prompt(
-            metadata.name,
-            metadata.argsSchema,
-            wrappedHandler,
-          );
-        } else if ('description' in metadata) {
-          handle = server.prompt(
-            metadata.name,
-            metadata.description,
-            wrappedHandler,
-          );
-        } else {
-          handle = server.prompt(metadata.name, wrappedHandler);
-        }
+        // v2 exposes a single `registerPrompt(name, config, cb)`; the option
+        // permutations that used to select between four positional overloads
+        // are now just optional config fields.
+        const handle: RegisteredPrompt = server.registerPrompt(
+          metadata.name,
+          {
+            ...('description' in metadata
+              ? { description: metadata.description }
+              : {}),
+            ...('argsSchema' in metadata
+              ? { argsSchema: metadata.argsSchema }
+              : {}),
+            ...(metadata.title !== undefined ? { title: metadata.title } : {}),
+            ...(metadata.icons !== undefined ? { icons: metadata.icons } : {}),
+            ...(metadata._meta !== undefined ? { _meta: metadata._meta } : {}),
+          },
+          wrappedHandler,
+        );
 
         this.applyCapabilityToggle(
           metadata.enabled,
@@ -705,7 +709,7 @@ export class RegistryService {
   /** Synchronous by contract — see {@link registerResources}. */
   private registerTools(
     server: McpServer,
-    context: McpRegistrationContext | undefined,
+    context: McpRegistrationContext,
     pending: PendingCapabilityGate[],
   ): Promise<void> {
     const toolMethods =
@@ -717,75 +721,33 @@ export class RegistryService {
       this.logger.log(`Tool "${metadata?.name || 'unnamed'}" found.`, 'tools');
 
       const wrappedHandler = (...args: unknown[]) =>
-        this.wrappedHandler(instance, handler, args);
+        this.wrappedHandler(instance, handler, args, context);
 
       try {
-        // The handle is bound so the toggle can disable it, then released with
-        // the loop iteration. Retaining handles is out of scope by design.
-        let handle: RegisteredTool;
-
-        if (
-          'paramsSchema' in metadata &&
-          'annotations' in metadata &&
-          'description' in metadata
-        ) {
-          // ToolWithParamsSchemaAndAnnotationsAndDescriptionOptions
-          handle = server.tool(
-            metadata.name,
-            metadata.description,
-            metadata.paramsSchema,
-            metadata.annotations,
-            wrappedHandler,
-          );
-        } else if ('paramsSchema' in metadata && 'annotations' in metadata) {
-          // ToolWithParamsSchemaAndAnnotationsOptions
-          handle = server.tool(
-            metadata.name,
-            metadata.paramsSchema,
-            metadata.annotations,
-            wrappedHandler,
-          );
-        } else if ('paramsSchema' in metadata && 'description' in metadata) {
-          // ToolWithParamsSchemaAndDescriptionOptions
-          handle = server.tool(
-            metadata.name,
-            metadata.description,
-            metadata.paramsSchema,
-            wrappedHandler,
-          );
-        } else if ('annotations' in metadata && 'description' in metadata) {
-          // ToolWithAnnotationsAndDescriptionOptions
-          handle = server.tool(
-            metadata.name,
-            metadata.description,
-            metadata.annotations,
-            wrappedHandler,
-          );
-        } else if ('paramsSchema' in metadata) {
-          // ToolWithParamsSchemaOptions
-          handle = server.tool(
-            metadata.name,
-            metadata.paramsSchema,
-            wrappedHandler,
-          );
-        } else if ('annotations' in metadata) {
-          // ToolWithAnnotationsOptions
-          handle = server.tool(
-            metadata.name,
-            metadata.annotations,
-            wrappedHandler,
-          );
-        } else if ('description' in metadata) {
-          // ToolWithDescriptionOptions
-          handle = server.tool(
-            metadata.name,
-            metadata.description,
-            wrappedHandler,
-          );
-        } else {
-          // ToolBaseOptions
-          handle = server.tool(metadata.name, wrappedHandler);
-        }
+        // v2 exposes a single `registerTool(name, config, cb)`. The eight
+        // option permutations that used to select between positional overloads
+        // are now just optional config fields.
+        const handle: RegisteredTool = server.registerTool(
+          metadata.name,
+          {
+            ...('description' in metadata
+              ? { description: metadata.description }
+              : {}),
+            ...('paramsSchema' in metadata
+              ? { inputSchema: metadata.paramsSchema }
+              : {}),
+            ...('annotations' in metadata
+              ? { annotations: metadata.annotations }
+              : {}),
+            ...(metadata.title !== undefined ? { title: metadata.title } : {}),
+            ...(metadata.outputSchema !== undefined
+              ? { outputSchema: metadata.outputSchema }
+              : {}),
+            ...(metadata.icons !== undefined ? { icons: metadata.icons } : {}),
+            ...(metadata._meta !== undefined ? { _meta: metadata._meta } : {}),
+          },
+          wrappedHandler,
+        );
 
         this.applyCapabilityToggle(
           metadata.enabled,

@@ -1,5 +1,4 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types';
 import { INestApplication } from '@nestjs/common';
@@ -217,37 +216,6 @@ describe('AppController (e2e)', () => {
       expect(result.isError).toBe(true);
 
       await transport.close();
-    });
-  });
-
-  describe('SSE Transport', () => {
-    it('should connect, list tools and call tool via SSE', async () => {
-      const client = new Client({
-        name: 'sse-client',
-        version: '1.0.0',
-      });
-
-      const url = new URL(`${baseUrl}/sse`);
-      const sseTransport = new SSEClientTransport(url);
-
-      await client.connect(sseTransport);
-      expect(client).toBeDefined();
-
-      const tools = await client.listTools();
-      expect(tools).toBeDefined();
-      expect(tools.tools).toBeInstanceOf(Array);
-      expect(tools.tools.length).toBeGreaterThan(0);
-
-      const result = (await client.callTool({
-        name: 'tool_base',
-        arguments: {},
-      })) as CallToolResult;
-
-      expect(result).toBeDefined();
-      expect(result.content).toBeInstanceOf(Array);
-      expect((result.content[0] as TextContent).text).toBe('ToolBaseOptions');
-
-      await sseTransport.close();
     });
   });
 });
