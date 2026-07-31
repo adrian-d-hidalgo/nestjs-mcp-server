@@ -1,15 +1,14 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { SSEClientTransport } from '@modelcontextprotocol/sdk/client/sse.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { CallToolResult, TextContent } from '@modelcontextprotocol/sdk/types';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Server } from 'http';
-import { AddressInfo } from 'net';
+import type { Server } from 'http';
+import type { AddressInfo } from 'net';
 
 import { AppModule } from '../examples/tools/app.module';
 
-describe('Multi-Session (e2e)', () => {
+describe('Concurrent clients (e2e)', () => {
   let app: INestApplication;
   let baseUrl: string;
 
@@ -126,48 +125,6 @@ describe('Multi-Session (e2e)', () => {
       for (const transport of transports) {
         await transport.close();
       }
-    });
-  });
-
-  describe('SSE Transport', () => {
-    it('should handle two concurrent SSE sessions without hanging', async () => {
-      const client1 = new Client({
-        name: 'sse-client-1',
-        version: '1.0.0',
-      });
-
-      const sseTransport1 = new SSEClientTransport(new URL(`${baseUrl}/sse`));
-
-      await client1.connect(sseTransport1);
-
-      const client2 = new Client({
-        name: 'sse-client-2',
-        version: '1.0.0',
-      });
-
-      const sseTransport2 = new SSEClientTransport(new URL(`${baseUrl}/sse`));
-      await client2.connect(sseTransport2);
-
-      // Call tool on the FIRST SSE session
-      const result1 = (await client1.callTool({
-        name: 'tool_base',
-        arguments: {},
-      })) as CallToolResult;
-
-      expect(result1).toBeDefined();
-      expect((result1.content[0] as TextContent).text).toBe('ToolBaseOptions');
-
-      // Call tool on the SECOND SSE session
-      const result2 = (await client2.callTool({
-        name: 'tool_base',
-        arguments: {},
-      })) as CallToolResult;
-
-      expect(result2).toBeDefined();
-      expect((result2.content[0] as TextContent).text).toBe('ToolBaseOptions');
-
-      await sseTransport1.close();
-      await sseTransport2.close();
     });
   });
 });

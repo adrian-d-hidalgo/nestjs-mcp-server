@@ -1,15 +1,22 @@
+import { Icon } from '@modelcontextprotocol/server';
 import { SetMetadata } from '@nestjs/common';
 
 import type { McpCapabilityToggle } from '../interfaces/registration-context.interface';
-import { PromptArgsRawShape } from '../mcp.types';
+import type { McpSchema } from '../mcp.types';
 
 export interface PromptBaseOptions {
   name: string;
   /**
-   * Whether this prompt is available to a connecting client.
-   * Evaluated once per connection; omit for the default (always enabled).
+   * Whether this prompt is available to the client making this request.
+   * Evaluated once per request; omit for the default (always enabled).
    */
   enabled?: McpCapabilityToggle;
+  /** Human-readable display name, shown in place of `name` where available. */
+  title?: string;
+  /** Icons a client may render alongside this prompt. */
+  icons?: Icon[];
+  /** Implementation-defined metadata passed through to the client verbatim. */
+  _meta?: Record<string, unknown>;
 }
 
 export interface PromptWithDescriptionOptions extends PromptBaseOptions {
@@ -17,7 +24,7 @@ export interface PromptWithDescriptionOptions extends PromptBaseOptions {
 }
 
 export interface PromptWithArgsSchemaOptions extends PromptBaseOptions {
-  argsSchema: PromptArgsRawShape;
+  argsSchema: McpSchema;
 }
 
 export interface PromptWithDescriptionAndArgsSchemaOptions

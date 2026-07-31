@@ -1,13 +1,13 @@
-import { Implementation } from '@modelcontextprotocol/sdk/types.js';
-import { DynamicModule, Module, Provider, Type } from '@nestjs/common';
+import { Implementation } from '@modelcontextprotocol/server';
+import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { AsyncLocalStorage } from 'async_hooks';
 
 import {
   MCP_LOGGING_OPTIONS,
   MCP_MODULE_OPTIONS,
+  MCP_REQUEST_SCOPE,
   MCP_SERVER_OPTIONS,
-  MCP_SESSION_OPTIONS,
   MCP_TRANSPORT_OPTIONS,
 } from './mcp.constants';
 import {
@@ -15,89 +15,36 @@ import {
   McpLoggingOptions,
   McpModuleAsyncOptions,
   McpModuleOptions,
-  McpModuleTransportOptions,
   ServerOptions,
 } from './mcp.types';
 import { DiscoveryService } from './services/discovery.service';
 import { McpLoggerService } from './services/logger.service';
 import { RegistryService } from './services/registry.service';
-import { SessionManager } from './services/session.manager';
-import { SseController, SseService } from './transports/sse';
-import {
-  StreamableController,
-  StreamableService,
-} from './transports/streamable';
+import { McpController, McpHttpService } from './transports/http';
+
+/**
+ * Providers shared by both configuration paths.
+ *
+ * The request-scope `AsyncLocalStorage` is provided under a dedicated token
+ * rather than the bare `AsyncLocalStorage` class, so it is typed at the
+ * injection site and cannot collide with another module's store.
+ */
+const CORE_PROVIDERS: Provider[] = [
+  RegistryService,
+  DiscoveryService,
+  McpLoggerService,
+  McpHttpService,
+  {
+    provide: MCP_REQUEST_SCOPE,
+    useValue: new AsyncLocalStorage(),
+  },
+];
 
 @Module({
   imports: [DiscoveryModule],
-  providers: [
-    RegistryService,
-    DiscoveryService,
-    {
-      provide: AsyncLocalStorage,
-      useValue: new AsyncLocalStorage(),
-    },
-    McpLoggerService,
-    SessionManager,
-  ],
-  exports: [SessionManager],
+  providers: CORE_PROVIDERS,
 })
 export class McpCoreModule {
-  /**
-   * Helper: Get active transport controllers and providers
-   */
-  private static getActiveTransportControllersAndProviders(
-    transports?: McpModuleTransportOptions,
-  ) {
-    const controllers = new Set<Type<any>>();
-    const providers = new Set<Provider>();
-
-    // Transport configurations
-    const STREAMABLE_TRANSPORT = {
-      controller: StreamableController,
-      service: StreamableService,
-    };
-
-    const SSE_TRANSPORT = {
-      controller: SseController,
-      service: SseService,
-    };
-
-    // Default configuration
-    const defaultTransports: McpModuleTransportOptions = {
-      streamable: { enabled: true },
-      sse: { enabled: true },
-    };
-
-    // Merge default with provided transports
-    const config = {
-      streamable: {
-        ...defaultTransports.streamable,
-        ...(transports?.streamable ?? {}),
-      },
-      sse: {
-        ...defaultTransports.sse,
-        ...(transports?.sse ?? {}),
-      },
-    };
-
-    // Add controllers and providers based on enabled transports
-    if (config.streamable.enabled) {
-      controllers.add(STREAMABLE_TRANSPORT.controller);
-      providers.add(STREAMABLE_TRANSPORT.service);
-    }
-
-    if (config.sse.enabled) {
-      controllers.add(SSE_TRANSPORT.controller);
-      providers.add(SSE_TRANSPORT.service);
-    }
-
-    return {
-      controllers: Array.from(controllers),
-      providers: Array.from(providers),
-    };
-  }
-
   /**
    * Helper to build server info, options, and logging config
    */
@@ -106,10 +53,13 @@ export class McpCoreModule {
       name: options.name,
       version: options.version,
     };
+    // `server` last: it is the escape hatch to the SDK's own `ServerOptions`,
+    // so anything set there wins over the convenience fields above.
     const serverOptions: ServerOptions = {
       instructions: options?.instructions,
       capabilities: options?.capabilities,
       ...(options?.protocolOptions || {}),
+      ...(options?.server || {}),
     };
     const loggingOptions: McpLoggingOptions = {
       enabled: options.logging?.enabled !== false,
@@ -149,17 +99,7 @@ export class McpCoreModule {
       },
       {
         provide: MCP_TRANSPORT_OPTIONS,
-        useFactory: (mcpOptions: McpModuleOptions) => mcpOptions.transports,
-        inject: [MCP_MODULE_OPTIONS],
-      },
-      {
-        provide: MCP_SESSION_OPTIONS,
-        useFactory: (mcpOptions: McpModuleOptions) => ({
-          sessionTimeoutMs: mcpOptions.session?.sessionTimeoutMs ?? 1800000,
-          cleanupIntervalMs: mcpOptions.session?.cleanupIntervalMs ?? 300000,
-          maxConcurrentSessions:
-            mcpOptions.session?.maxConcurrentSessions ?? 1000,
-        }),
+        useFactory: (mcpOptions: McpModuleOptions) => mcpOptions.transport,
         inject: [MCP_MODULE_OPTIONS],
       },
       {
@@ -186,17 +126,14 @@ export class McpCoreModule {
    */
   static forRoot(options: McpModuleOptions): DynamicModule {
     const imports = options.imports || [];
-    const { controllers, providers } =
-      this.getActiveTransportControllersAndProviders(options.transports);
-    const allProviders = [...(options.providers || []), ...providers];
     const { serverInfo, serverOptions, loggingOptions } =
       this.buildServerConfig(options);
     return {
       module: McpCoreModule,
       imports,
-      controllers,
+      controllers: [McpController],
       providers: [
-        ...allProviders,
+        ...(options.providers || []),
         {
           provide: MCP_SERVER_OPTIONS,
           useValue: {
@@ -211,16 +148,7 @@ export class McpCoreModule {
         },
         {
           provide: MCP_TRANSPORT_OPTIONS,
-          useValue: options.transports,
-        },
-        {
-          provide: MCP_SESSION_OPTIONS,
-          useValue: {
-            sessionTimeoutMs: options.session?.sessionTimeoutMs ?? 1800000,
-            cleanupIntervalMs: options.session?.cleanupIntervalMs ?? 300000,
-            maxConcurrentSessions:
-              options.session?.maxConcurrentSessions ?? 1000,
-          },
+          useValue: options.transport,
         },
       ],
       global: true,
@@ -238,31 +166,11 @@ export class McpCoreModule {
     const { imports = [] } = options;
     const asyncProviders = this.createAsyncProviders(options);
 
-    // Register ALL transport controllers/providers by default.
-    // Individual transport services will check their config and no-op if disabled.
-    // This allows async configuration while keeping the implementation simple.
-    const { controllers, providers } =
-      McpCoreModule.getActiveTransportControllersAndProviders({
-        sse: { enabled: true },
-        streamable: { enabled: true },
-      });
-
     return {
       module: McpCoreModule,
       imports,
-      controllers,
-      providers: [
-        ...asyncProviders,
-        ...providers,
-        RegistryService,
-        DiscoveryService,
-        McpLoggerService,
-        SessionManager,
-        {
-          provide: AsyncLocalStorage,
-          useValue: new AsyncLocalStorage(),
-        },
-      ],
+      controllers: [McpController],
+      providers: [...asyncProviders, ...CORE_PROVIDERS],
       global: true,
     };
   }

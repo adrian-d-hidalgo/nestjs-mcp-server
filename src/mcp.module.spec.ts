@@ -5,7 +5,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { McpCoreModule } from './mcp-core.module';
 import { MCP_MODULE_OPTIONS } from './mcp.constants';
 import { McpModule } from './mcp.module';
-import { SessionManager } from './services/session.manager';
+import { McpHttpService } from './transports/http';
 
 describe('McpModule', () => {
   describe('forRoot', () => {
@@ -44,8 +44,8 @@ describe('McpModule', () => {
         ],
       }).compile();
 
-      const sessionManager = testModule.get(SessionManager);
-      expect(sessionManager).toBeDefined();
+      const httpService = testModule.get(McpHttpService);
+      expect(httpService).toBeDefined();
     });
   });
 

@@ -25,7 +25,7 @@ describe('Prompt Decorator', () => {
 
     @Prompt({
       name: 'prompt_with_args',
-      argsSchema: { query: z.string() },
+      argsSchema: z.object({ query: z.string() }),
     })
     methodWithArgs() {
       return { messages: [] };
@@ -34,7 +34,7 @@ describe('Prompt Decorator', () => {
     @Prompt({
       name: 'prompt_complete',
       description: 'Complete prompt',
-      argsSchema: { query: z.string() },
+      argsSchema: z.object({ query: z.string() }),
     })
     methodComplete() {
       return { messages: [] };

@@ -1,35 +1,36 @@
-import { StreamableHTTPServerTransportOptions } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
-import { ZodRawShapeCompat as SdkZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
-import {
-  ProtocolOptions,
-  RequestHandlerExtra as SdkRequestHandlerExtra,
-} from '@modelcontextprotocol/sdk/shared/protocol.js';
-import {
+import type {
+  CreateMcpHandlerOptions,
   Implementation,
-  ServerCapabilities,
-  ServerNotification,
-  ServerRequest,
-} from '@modelcontextprotocol/sdk/types.js';
+  ProtocolOptions,
+  ServerCapabilities as SdkServerCapabilities,
+  ServerOptions as SdkServerOptions,
+  StandardSchemaWithJSON,
+} from '@modelcontextprotocol/server';
 import { Provider, Type } from '@nestjs/common';
 
-// Re-export SDK's ZodRawShapeCompat for Zod v3/v4 compatibility
-export type ZodRawShapeCompat = SdkZodRawShapeCompat;
+// Re-exported, not redeclared, so every type appearing in this package's public
+// signatures is nameable from `@nestjs-mcp/server`. The SDK is our dependency,
+// not the consumer's — under pnpm's strict layout they cannot import it.
+export type ServerCapabilities = SdkServerCapabilities;
+export type ServerOptions = SdkServerOptions;
 
-// Use SDK's ZodRawShapeCompat for Zod v3/v4 compatibility
-export type PromptArgsRawShape = ZodRawShapeCompat;
-
-export type RequestHandlerExtra = SdkRequestHandlerExtra<
-  ServerRequest,
-  ServerNotification
-> & {
-  headers: Record<string, string>;
-};
-
-export type ServerOptions = {
-  instructions?: string;
-  capabilities?: ServerCapabilities;
-  protocolOptions?: ProtocolOptions;
-};
+/**
+ * The schema type accepted by `paramsSchema` / `argsSchema`.
+ *
+ * Any Standard Schema implementation that can emit JSON Schema — Zod v4,
+ * ArkType, Valibot. Replaces the Zod-raw-shape form used before 2.0: the SDK's
+ * `zod-compat` module no longer exists, and its internal `ZodRawShape` is not
+ * exported, so a bare shape object is no longer expressible.
+ *
+ * @example
+ * ```typescript
+ * // before 2.0
+ * paramsSchema: { id: z.string() }
+ * // 2.0
+ * paramsSchema: z.object({ id: z.string() })
+ * ```
+ */
+export type McpSchema = StandardSchemaWithJSON;
 
 export type McpServerOptions = {
   serverInfo: Implementation;
@@ -38,44 +39,41 @@ export type McpServerOptions = {
 };
 
 /**
- * Opciones para configurar el logging del servidor MCP
+ * Options for configuring MCP server logging
  */
 export type McpLoggingOptions = {
   /**
-   * Habilitar o deshabilitar el logging
+   * Enable or disable logging
    * @default true
    */
   enabled?: boolean;
 
   /**
-   * Nivel de detalle del logging
+   * Logging verbosity
    * @default 'verbose'
    */
   level?: 'debug' | 'verbose' | 'log' | 'warn' | 'error';
 };
 
 /**
- * Options for session management and resource control
+ * Options for the stateless MCP HTTP endpoint.
+ *
+ * Passed through to the SDK's `createMcpHandler`. `Omit` rather than `Pick` so
+ * options the SDK adds later arrive without a change here; `onerror` is ours,
+ * wired to the Nest logger so handler failures land beside everything else.
+ *
+ * The option that matters most is `legacy`:
+ *
+ * - `'stateless'` (default) — 2025-era clients are served per request from the
+ *   same factory. `GET` and `DELETE`, which were session operations, answer
+ *   `405`. **Every currently published MCP client SDK speaks this era**, so
+ *   this is the setting that keeps real clients working.
+ * - `'reject'` — modern-only. Rejects 2025-era traffic with the
+ *   unsupported-protocol-version error. Verified to break both
+ *   `@modelcontextprotocol/sdk@1` and `@modelcontextprotocol/client@2`
+ *   clients, so choose it only when you control every caller.
  */
-export type McpSessionOptions = {
-  /**
-   * Maximum time (in milliseconds) a session can remain inactive before being cleaned up
-   * @default 1800000 (30 minutes)
-   */
-  sessionTimeoutMs?: number;
-
-  /**
-   * Interval (in milliseconds) at which the cleanup job runs to remove inactive sessions
-   * @default 300000 (5 minutes)
-   */
-  cleanupIntervalMs?: number;
-
-  /**
-   * Maximum number of concurrent sessions allowed
-   * @default 1000
-   */
-  maxConcurrentSessions?: number;
-};
+export type McpTransportOptions = Omit<CreateMcpHandlerOptions, 'onerror'>;
 
 /**
  * Options for configuring the global MCP server module
@@ -115,31 +113,29 @@ export type McpModuleOptions = {
    */
   logging?: McpLoggingOptions;
   /**
-   * Options for session management and resource control
+   * Options for the stateless MCP HTTP endpoint
    */
-  session?: McpSessionOptions;
+  transport?: McpTransportOptions;
   /**
-   * Options for configuring a feature module with MCP capabilities
+   * The SDK's own `ServerOptions`, passed through verbatim.
+   *
+   * `Omit` rather than `Pick` so options the SDK adds later arrive without a
+   * change here. `instructions` and `capabilities` are omitted because they
+   * already have dedicated fields above; anything set here wins over them.
+   *
+   * This is where the protocol features that are configured server-wide live:
+   *
+   * - `requestState.verify` — validates the opaque state a multi-round-trip
+   *   handler echoes back. **This is what lets an MRTR retry land on a
+   *   different instance safely**: without a verify hook the state is
+   *   client-supplied and tamperable.
+   * - `cacheHints` — `ttlMs` / `cacheScope` for the whole server's cacheable
+   *   methods (`tools/list`, `prompts/list`, `server/discover`, …). Per-resource
+   *   hints go on the `@Resource` decorator instead.
+   * - `inputRequired` — `maxRounds`, `roundTimeoutMs` for MRTR.
+   * - `jsonSchemaValidator` — swap the JSON Schema validation engine.
    */
-  transports?: McpModuleTransportOptions;
-};
-
-export type McpModuleTransportOptions = {
-  streamable?: {
-    enabled: boolean;
-    /**
-     * Streamable transport options. sessionIdGenerator is optional here, even if required in the SDK type.
-     */
-    options?: Omit<
-      StreamableHTTPServerTransportOptions,
-      'onsessioninitialized' | 'sessionIdGenerator'
-    > & {
-      sessionIdGenerator?: () => string | undefined;
-    };
-  };
-  sse?: {
-    enabled: boolean;
-  };
+  server?: Omit<ServerOptions, 'instructions' | 'capabilities'>;
 };
 
 /**

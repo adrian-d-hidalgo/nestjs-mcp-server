@@ -8,7 +8,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { Request } from 'express';
 
 import { McpModule } from '../../src/mcp.module';
-import { GuardsResolver, SessionAwareGuard } from './guards.resolver';
+import { GuardsResolver, AuthHeaderGuard } from './guards.resolver';
 
 @Injectable()
 export class GlobalLogGuard implements CanActivate {
@@ -43,7 +43,7 @@ export class GlobalLogGuard implements CanActivate {
       provide: APP_GUARD,
       useClass: GlobalLogGuard,
     },
-    SessionAwareGuard,
+    AuthHeaderGuard,
     GuardsResolver,
   ],
 })

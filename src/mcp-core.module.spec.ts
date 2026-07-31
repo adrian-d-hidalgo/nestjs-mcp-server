@@ -9,17 +9,12 @@ import { McpCoreModule } from './mcp-core.module';
 import {
   MCP_LOGGING_OPTIONS,
   MCP_MODULE_OPTIONS,
+  MCP_REQUEST_SCOPE,
   MCP_SERVER_OPTIONS,
-  MCP_SESSION_OPTIONS,
   MCP_TRANSPORT_OPTIONS,
 } from './mcp.constants';
 import { McpModuleOptions } from './mcp.types';
-import { SessionManager } from './services/session.manager';
-import { SseController, SseService } from './transports/sse';
-import {
-  StreamableController,
-  StreamableService,
-} from './transports/streamable';
+import { McpController, McpHttpService } from './transports/http';
 
 describe('McpCoreModule', () => {
   describe('forRoot', () => {
@@ -35,7 +30,7 @@ describe('McpCoreModule', () => {
       expect(module.global).toBe(true);
     });
 
-    it('should enable both transports by default', async () => {
+    it('should register the single stateless MCP controller', async () => {
       const options: McpModuleOptions = {
         name: 'test-server',
         version: '1.0.0',
@@ -43,55 +38,28 @@ describe('McpCoreModule', () => {
 
       const module = McpCoreModule.forRoot(options);
 
-      expect(module.controllers).toContain(StreamableController);
-      expect(module.controllers).toContain(SseController);
+      // One endpoint, always. The SSE and streamable transports — and the
+      // per-transport enable/disable toggles they needed — were removed in
+      // 2.0: HTTP+SSE is inherently sticky-session, which is what issue #121
+      // is about. 2025-era clients are served on this same endpoint through
+      // the SDK's stateless legacy fallback.
+      expect(module.controllers).toEqual([McpController]);
     });
 
-    it('should disable streamable transport when configured', async () => {
+    it('should pass transport options through to the handler token', async () => {
       const options: McpModuleOptions = {
         name: 'test-server',
         version: '1.0.0',
-        transports: {
-          streamable: { enabled: false },
-        },
+        transport: { legacy: 'reject' },
       };
 
       const module = McpCoreModule.forRoot(options);
 
-      expect(module.controllers).not.toContain(StreamableController);
-      expect(module.controllers).toContain(SseController);
-    });
+      const transportProvider = module.providers?.find(
+        (p: any) => p.provide === MCP_TRANSPORT_OPTIONS,
+      ) as any;
 
-    it('should disable SSE transport when configured', async () => {
-      const options: McpModuleOptions = {
-        name: 'test-server',
-        version: '1.0.0',
-        transports: {
-          sse: { enabled: false },
-        },
-      };
-
-      const module = McpCoreModule.forRoot(options);
-
-      expect(module.controllers).toContain(StreamableController);
-      expect(module.controllers).not.toContain(SseController);
-    });
-
-    it('should disable all transports when configured', async () => {
-      const options: McpModuleOptions = {
-        name: 'test-server',
-        version: '1.0.0',
-        transports: {
-          streamable: { enabled: false },
-          sse: { enabled: false },
-        },
-      };
-
-      const module = McpCoreModule.forRoot(options);
-
-      expect(module.controllers).not.toContain(StreamableController);
-      expect(module.controllers).not.toContain(SseController);
-      expect(module.controllers).toHaveLength(0);
+      expect(transportProvider.useValue).toEqual({ legacy: 'reject' });
     });
 
     it('should include custom providers', async () => {
@@ -234,7 +202,7 @@ describe('McpCoreModule', () => {
         useFactory: () => ({
           name: 'async-server',
           version: '1.0.0',
-          transports: { sse: { enabled: false } },
+          transport: { legacy: 'reject' as const },
         }),
       });
 
@@ -244,9 +212,21 @@ describe('McpCoreModule', () => {
 
       expect(transportProvider).toBeDefined();
       expect(transportProvider.inject).toContain(MCP_MODULE_OPTIONS);
+
+      // The factory must actually read `transport`, not merely exist.
+      const factory = transportProvider.useFactory as (
+        options: McpModuleOptions,
+      ) => unknown;
+      expect(
+        factory({
+          name: 'async-server',
+          version: '1.0.0',
+          transport: { legacy: 'reject' },
+        }),
+      ).toEqual({ legacy: 'reject' });
     });
 
-    it('should include default controllers for async config', async () => {
+    it('should register the same single controller as forRoot', async () => {
       const moduleDefinition = McpCoreModule.forRootAsync({
         useFactory: () => ({
           name: 'async-server',
@@ -254,9 +234,11 @@ describe('McpCoreModule', () => {
         }),
       });
 
-      // forRootAsync uses default controllers (both enabled)
-      expect(moduleDefinition.controllers).toContain(StreamableController);
-      expect(moduleDefinition.controllers).toContain(SseController);
+      // Both configuration paths now register exactly one controller. In 1.x
+      // they disagreed: forRoot omitted a disabled transport's controller
+      // while forRootAsync always registered both and relied on the services
+      // to no-op, which left GET/DELETE routed even when disabled.
+      expect(moduleDefinition.controllers).toEqual([McpController]);
     });
 
     it('should include all required providers for async config', async () => {
@@ -289,8 +271,8 @@ describe('McpCoreModule', () => {
         ],
       }).compile();
 
-      const sessionManager = testModule.get(SessionManager);
-      expect(sessionManager).toBeDefined();
+      const httpService = testModule.get(McpHttpService);
+      expect(httpService).toBeDefined();
 
       const mcpOptions = testModule.get(MCP_MODULE_OPTIONS);
       expect(mcpOptions.name).toBe('integration-test-server');
@@ -354,37 +336,20 @@ describe('McpCoreModule', () => {
     });
   });
 
-  describe('getActiveTransportControllersAndProviders', () => {
-    it('should return correct services for enabled transports', () => {
-      const options: McpModuleOptions = {
-        name: 'test-server',
-        version: '1.0.0',
-        transports: {
-          streamable: { enabled: true },
-          sse: { enabled: true },
-        },
-      };
+  describe('stateless wiring', () => {
+    it('should provide the HTTP service and the request scope', async () => {
+      const testModule: TestingModule = await Test.createTestingModule({
+        imports: [McpCoreModule.forRoot({ name: 'wiring', version: '1.0.0' })],
+      }).compile();
 
-      const module = McpCoreModule.forRoot(options);
+      expect(testModule.get(McpHttpService)).toBeDefined();
 
-      expect(module.providers).toContainEqual(StreamableService);
-      expect(module.providers).toContainEqual(SseService);
-    });
+      // The AsyncLocalStorage carrying the Express request from the
+      // controller into the per-request server factory. Without it the
+      // factory fails closed, so its presence is load-bearing.
+      expect(testModule.get(MCP_REQUEST_SCOPE)).toBeDefined();
 
-    it('should not include disabled transport services', () => {
-      const options: McpModuleOptions = {
-        name: 'test-server',
-        version: '1.0.0',
-        transports: {
-          streamable: { enabled: false },
-          sse: { enabled: false },
-        },
-      };
-
-      const module = McpCoreModule.forRoot(options);
-
-      expect(module.providers).not.toContainEqual(StreamableService);
-      expect(module.providers).not.toContainEqual(SseService);
+      await testModule.close();
     });
   });
 });

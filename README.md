@@ -42,11 +42,12 @@
   - [Tool Decorator](#tool-decorator)
     - [Tool Annotations](#tool-annotations)
     - [ToolOptions Variants](#tooloptions-variants)
-  - [RequestHandlerExtra Argument](#requesthandlerextra-argument)
+  - [McpContext Argument](#mcpcontext-argument)
 - [Dynamic Capabilities](#dynamic-capabilities)
   - [Static toggle](#static-toggle)
-  - [Predicate toggle](#predicate-toggle)
+  - [Capability gate](#capability-gate)
   - [What the client sees](#what-the-client-sees)
+  - [Fail-closed, in five cases](#fail-closed-in-five-cases)
   - [Rules you must know before using this](#rules-you-must-know-before-using-this)
   - [This is not a replacement for guards](#this-is-not-a-replacement-for-guards)
 - [Guards](#guards)
@@ -56,9 +57,10 @@
   - [Guard Example](#guard-example)
   - [MCP Execution Context](#mcp-execution-context)
   - [Guards with Dependency Injection](#guards-with-dependency-injection)
-- [Session Management](#session-management)
-  - [Session Management Options](#session-management-options)
+- [Statelessness](#statelessness)
 - [Transport Options](#transport-options)
+- [MCP 2026-07-28 features](#mcp-2026-07-28-features)
+- [Migrating from `1.x` to `2.x`](#migrating-from-1x-to-2x)
 - [Inspector Playground](#inspector-playground)
 - [Examples](#examples)
 - [Changelog](#changelog)
@@ -196,7 +198,7 @@ import { McpModule } from '@nestjs-mcp/server';
       version: '1.0.0',
       instructions: 'A server providing utility tools and data.',
       logging: { level: 'log' },
-      transports: { sse: { enabled: false } }, // Disable SSE transport
+      transport: { legacy: 'reject' }, // Modern-era clients only
       // ...other MCP options
     }),
   ],
@@ -405,7 +407,7 @@ Decorate methods within a Resolver class to expose them as MCP Prompts. Accepts 
 
 ```ts
 import { Prompt, Resolver } from '@nestjs-mcp/server';
-import { RequestHandlerExtra } from '@nestjs-mcp/server'; // Import type for extra info
+import { McpContext } from '@nestjs-mcp/server'; // Handler context type
 import { z } from 'zod'; // Example if using Zod schema
 
 // Optional: Define schema if needed
@@ -420,9 +422,9 @@ export class MyPrompts {
   })
   generateSummaryPrompt(
     // params: z.infer<typeof SummaryArgs>, // Arguments based on argsSchema (if defined)
-    extra: RequestHandlerExtra, // Contains sessionId and other metadata
+    ctx: McpContext, // The request this call arrived on
   ) {
-    console.log(`Generating summary for session: ${extra.sessionId}`);
+    console.log(`Generating summary for ${ctx.mcpReq.method}`);
     /* ... return CallPromptResult ... */
     return { content: [{ type: 'text', text: 'Summary generated.' }] };
   }
@@ -435,7 +437,7 @@ Decorate methods within a Resolver class to expose them as MCP Resources. Accept
 
 ```ts
 import { Resource, Resolver } from '@nestjs-mcp/server';
-import { RequestHandlerExtra } from '@nestjs-mcp/server'; // Import type for extra info
+import { McpContext } from '@nestjs-mcp/server'; // Handler context type
 import { URL } from 'url'; // Type for URI resource
 import { z } from 'zod'; // Example if using Zod template
 
@@ -452,10 +454,10 @@ export class MyResources {
   getUserProfile(
     uri: URL, // First argument is the parsed URI
     // metadata: Record<string, any> // Second argument if is defined
-    extra: RequestHandlerExtra, // Contains sessionId and other metadata
+    ctx: McpContext, // The request this call arrived on
   ) {
     const userId = uri.pathname.split('/').pop(); // Example: Extract ID from URI
-    console.log(`Fetching profile for ${userId}, session: ${extra.sessionId}`);
+    console.log(`Fetching profile for ${userId}`);
     /* ... return CallResourceResult ... */
     return { content: [{ type: 'text', text: `Profile data for ${userId}` }] };
   }
@@ -468,11 +470,9 @@ export class MyResources {
   findDocuments(
     uri: URL, // First arg based on simple template type
     variables: Record<string, string>, // Second arg is path params (if any)
-    extra: RequestHandlerExtra, // Contains sessionId and other metadata
+    ctx: McpContext, // The request this call arrived on
   ) {
-    console.log(
-      `Finding documents matching '${query}', session: ${extra.sessionId}`,
-    );
+    console.log(`Finding documents matching '${query}'`);
     /* ... return CallResourceResult ... */
     return { content: [{ type: 'text', text: 'List of documents.' }] };
   }
@@ -485,7 +485,7 @@ Decorate methods within a Resolver class to expose them as MCP Tools. Accepts op
 
 ```ts
 import { Tool, Resolver } from '@nestjs-mcp/server';
-import { RequestHandlerExtra } from '@nestjs-mcp/server';
+import { McpContext } from '@nestjs-mcp/server';
 import { z } from 'zod';
 import { CallToolResult } from '@modelcontextprotocol/sdk/types';
 
@@ -494,13 +494,10 @@ export class UserToolsResolver {
   @Tool({
     name: 'delete_user',
     description: 'Deletes a user by ID',
-    paramsSchema: { userId: z.string() },
+    paramsSchema: z.object({ userId: z.string() }),
     annotations: { destructiveHint: true, readOnlyHint: false },
   })
-  deleteUser(
-    { userId }: { userId: string },
-    extra: RequestHandlerExtra,
-  ): CallToolResult {
+  deleteUser({ userId }: { userId: string }, ctx: McpContext): CallToolResult {
     // ...logic...
     return { content: [{ type: 'text', text: `User ${userId} deleted.` }] };
   }
@@ -523,7 +520,7 @@ The `annotations` field allows you to provide protocol-level hints about the too
 ```ts
 @Tool({
   name: 'reset_password',
-  paramsSchema: { userId: z.string() },
+  paramsSchema: z.object({ userId: z.string() }),
   annotations: { destructiveHint: true, idempotentHint: false }
 })
 resetPassword({ userId }: { userId: string }): CallToolResult {
@@ -545,56 +542,56 @@ resetPassword({ userId }: { userId: string }): CallToolResult {
 - `paramsSchema` and `paramsSchemaOrAnnotations` can be a Zod schema for input validation.
 - `annotations` is an object with protocol-level hints as described above.
 
-### RequestHandlerExtra Argument
+### McpContext Argument
 
-All MCP capability methods (`@Prompt`, `@Resource`, `@Tool`) always receive a `RequestHandlerExtra` object as their last parameter. This object extends the original type from `@modelcontextprotocol/sdk` and provides essential context about the current MCP request.
+All MCP capability methods (`@Prompt`, `@Resource`, `@Tool`) receive an
+`McpContext` object as their last parameter. It extends the SDK's own
+`ServerContext` with the Express request the call arrived on.
 
-**Properties from SDK:**
+> **Renamed in 2.0.** This was `RequestHandlerExtra`, a type the MCP SDK removed
+> in v2. See [Migrating from `1.x` to `2.x`](#migrating-from-1x-to-2x).
 
-- `signal`: An `AbortSignal` used to communicate if the request was cancelled
-- `authInfo`: Optional information about a validated access token
-- `sessionId`: The session ID from the transport, if available
-- `sendNotification`: Function to send a notification related to the current request
-- `sendRequest`: Function to send a request related to the current request
+**Properties from the SDK:**
 
-**Extended Properties:**
+- `mcpReq.id` — the JSON-RPC id of this request
+- `mcpReq.method` — the method being served, e.g. `tools/call`
+- `mcpReq._meta` / `mcpReq.envelope` — request metadata and the 2026-07-28 envelope
+- `http.authInfo` — validated access-token information, when auth middleware ran
+- `sessionId` — **`undefined` on 2026-07-28 traffic.** Protocol revision
+  2026-07-28 retired sessions. It may still be populated for 2025-era clients
+  served through the legacy fallback. Never branch on it for authorization.
 
-- `headers`: HTTP headers from the original request (added by @nestjs-mcp/server)
+**Added by @nestjs-mcp/server:**
+
+- `request` — the live Express request for **this** call
+- `headers` — shorthand for `request.headers`
 
 **Usage Example:**
 
 ```ts
-import { Tool, Resolver, SessionManager } from '@nestjs-mcp/server';
-import { RequestHandlerExtra } from '@nestjs-mcp/server';
-import { CallToolResult } from '@modelcontextprotocol/sdk/types';
+import { McpContext, Resolver, Tool } from '@nestjs-mcp/server';
+import { CallToolResult } from '@modelcontextprotocol/server';
+import { z } from 'zod';
 
 @Resolver('auth')
 export class AuthResolver {
   @Tool({
     name: 'authenticate_user',
     description: 'Authenticates a user with credentials',
-    // ...other options
+    paramsSchema: z.object({ username: z.string(), password: z.string() }),
   })
   authenticateUser(
     params: { username: string; password: string },
-    extra: RequestHandlerExtra, // Always the last parameter
+    ctx: McpContext, // Always the last parameter
   ): CallToolResult {
-    // Access the session ID
-    console.log(`Request received in session: ${extra.sessionId}`);
+    // Headers of THIS call, not of the connection handshake
+    const authHeader = ctx.headers.authorization;
+    const userAgent = ctx.headers['user-agent'];
+    console.log(`Serving ${ctx.mcpReq.method} for: ${String(userAgent)}`);
 
-    // Access request headers (extended property)
-    const authHeader = extra.headers.authorization;
-    const userAgent = extra.headers['user-agent'];
-    console.log(`Request from: ${userAgent}`);
+    // Anything Nest middleware attached upstream is reachable too
+    console.log(ctx.request.ip);
 
-    // Check if request was cancelled
-    if (extra.signal.aborted) {
-      return {
-        content: [{ type: 'text', text: 'Request was cancelled' }],
-      };
-    }
-
-    // Implement authentication logic
     return {
       content: [{ type: 'text', text: 'Authentication successful' }],
     };
@@ -604,14 +601,21 @@ export class AuthResolver {
 
 **Important Notes:**
 
-- `extra` is always the last parameter in any method decorated with `@Resource`, `@Prompt`, or `@Tool`
-- The `headers` property is an extension added by @nestjs-mcp/server to access HTTP headers directly
+- `ctx` is always the last parameter in any method decorated with `@Resource`,
+  `@Prompt`, or `@Tool`
+- **`headers` changed meaning in 2.0.** Before 2.0 they were the headers of the
+  request that opened the _connection_ — the `initialize` POST — frozen for its
+  lifetime. They are now this call's own headers, so credentials that expire or
+  are revoked mid-conversation are seen correctly. Code that compiled against
+  1.x keeps compiling and starts receiving a different (correct) value.
+- `ctx` is **not JSON-serializable**: `request` is an Express object with
+  circular references, so `JSON.stringify(ctx)` throws. Read the fields you need.
 
 ---
 
 ## Dynamic Capabilities
 
-`@Tool`, `@Prompt` and `@Resource` all accept an optional `enabled` option that decides, **per connection**, whether that capability is advertised and invocable.
+`@Tool`, `@Prompt` and `@Resource` all accept an optional `enabled` option that decides, **per request**, whether that capability is advertised and invocable.
 
 ```ts
 type McpCapabilityToggle = boolean | Type<McpCapabilityGate>;
@@ -621,14 +625,14 @@ interface McpCapabilityGate {
 }
 
 interface McpRegistrationContext {
-  /** The HTTP request that opened this connection. */
+  /** The HTTP request whose capability set is being assembled. */
   request: Request; // express
   /** Validated token info, if auth middleware populated `req.auth`. */
   authInfo?: AuthInfo; // @modelcontextprotocol/sdk/server/auth/types
 }
 ```
 
-Two forms, one option key. Omitting `enabled` is the default and behaves exactly as it did before the option existed: always registered, always enabled, and it costs the connection nothing.
+Two forms, one option key. Omitting `enabled` is the default and behaves exactly as it did before the option existed: always registered, always enabled, and it costs the request nothing.
 
 ### Static toggle
 
@@ -705,22 +709,22 @@ A disabled capability is **registered and then disabled**, never skipped. It is 
 
 A gate that cannot answer never leaves a capability exposed:
 
-| Case | Result |
-| --- | --- |
-| `isEnabled` throws synchronously | disabled, error logged |
-| `isEnabled` returns a **rejecting** promise | disabled, error logged |
-| the gate class cannot be resolved from the container | disabled, error logged — it is **never** silently built with `new`, because such a gate has `undefined` dependencies and could answer something accidentally truthy |
-| a gate is declared but no registration context exists | disabled, error logged |
-| `disable()` itself throws | the capability **remains enabled**, and the log says so — the one residual fail-open, because there is no other way to disable |
+| Case                                                  | Result                                                                                                                                                              |
+| ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `isEnabled` throws synchronously                      | disabled, error logged                                                                                                                                              |
+| `isEnabled` returns a **rejecting** promise           | disabled, error logged                                                                                                                                              |
+| the gate class cannot be resolved from the container  | disabled, error logged — it is **never** silently built with `new`, because such a gate has `undefined` dependencies and could answer something accidentally truthy |
+| a gate is declared but no registration context exists | disabled, error logged                                                                                                                                              |
+| `disable()` itself throws                             | the capability **remains enabled**, and the log says so — the one residual fail-open, because there is no other way to disable                                      |
 
-A failing gate never affects the capabilities beside it, and never turns the connection into a 500. Log lines name the capability and the failure only — never the request, its headers, or a token.
+A failing gate never affects the capabilities beside it, and never turns the request into a 500. Log lines name the capability and the failure only — never the request, its headers, or a token.
 
 ### Rules you must know before using this
 
-- **Evaluated once per connection.** A fresh MCP server is built for each client connection and `enabled` is resolved while it is being populated. The resulting capability set is frozen for the life of that connection; changing whatever the gate reads does not affect an already-connected client. A client sees a new decision only by reconnecting.
+- **Evaluated once per request.** A fresh MCP server is built for every HTTP request — that is what makes the server stateless — and `enabled` is resolved while it is being populated. Changing whatever the gate reads takes effect on the client's very next call; no reconnect is needed. (Before 2.0 the verdict was frozen for the life of a connection.)
 - **No `listChanged` notification is emitted.** Every toggle is applied before the server is connected to its transport, where the SDK gates notification dispatch. This library never sends `notifications/tools/list_changed` or its prompt/resource equivalents. Do not expect a connected client to be told that something changed — nothing changes mid-session.
-- **Keep gates cheap — they run before `initialize` is answered.** Under streamable HTTP the server is built and registered *before* the transport answers the client's `initialize`, so every gate settles before the client is served. The library bounds the cost: registration itself stays synchronous, all gates settle in **one concurrency wave** (the added latency is the slowest single gate, not the sum), and each distinct gate class is resolved from the container **once per connection** however many capabilities share it. What it cannot bound is the gate itself. Upstream's guidance applies directly — *"connection pools and caches should be created at module scope to keep the factory cheap and side-effect-free"* — so do your caching in the injected service, at provider scope. There is **no built-in timeout**: a gate that never settles leaves `initialize` unanswered.
-- **A gate with no registration context fails closed.** Both built-in transports always pass a context. If you call `RegistryService.registerAll(server)` yourself with a single argument, any capability declaring a *gate* is disabled and the reason is logged. Static `true` / `false` and capabilities with no `enabled` option are unaffected.
+- **Keep gates cheap — they are on the request path.** Every `tools/list` and every `tools/call` settles every gate before the client is served, so a gate that queries a database is a per-request database query. This is the most important behavioural change in 2.0 for anyone already using the option. The library bounds what it can: registration stays synchronous, all gates settle in **one concurrency wave** (the added latency is the slowest single gate, not the sum), and each distinct gate class is both resolved from the container and _asked_ **once per request** however many capabilities share it. What it cannot bound is the gate itself — do your caching in the injected service, at provider scope. There is **no built-in timeout**: a gate that never settles leaves the request unanswered.
+- **A gate with no registration context fails closed.** Both built-in transports always pass a context. If you call `RegistryService.registerAll(server)` yourself with a single argument, any capability declaring a _gate_ is disabled and the reason is logged. Static `true` / `false` and capabilities with no `enabled` option are unaffected.
 - **`authInfo` may be `undefined`.** It is only populated when auth middleware (for example the SDK's `requireBearerAuth`) ran before the MCP controller. Write `context.authInfo?.scopes` — a gate that dereferences it unguarded throws, and then fails closed, which silently removes the capability.
 - **Request-scoped gate providers are not supported.** A gate is resolved with `moduleRef.get(..., { strict: false })`, falling back to `moduleRef.create`. Neither handles a request-scoped provider cleanly. Use a singleton gate that reads what it needs from the registration context.
 
@@ -728,22 +732,24 @@ A failing gate never affects the capabilities beside it, and never turns the con
 
 `enabled` is **discovery-level defence-in-depth**, not the authorization mechanism. [Guards](#guards) are: they run on every capability invocation, against that invocation's own context.
 
-The reason is concrete. Under streamable HTTP, the registration context is built from the `initialize` POST and nothing else — every later `tools/call` arrives on a *different* HTTP request whose `req.auth` is never consulted by this option. A permission that can be revoked, expire, or differ between calls within one session must be enforced by a guard on the capability itself.
+The reason changed in 2.0, and the conclusion survives it. Before 2.0 the argument was mechanical: the registration context was built from the `initialize` POST and nothing else, so later calls were never re-examined. That is no longer true — a gate now sees each call's own request and `req.auth`. What remains is the difference in _kind_: a gate omits a capability from a listing, while a guard refuses an invocation. Omission is not refusal. A client that already knows a tool's name can call it without ever reading the list, and only a guard stops that.
 
-This is the same line the MCP SDK draws for its own per-request factory: the HTTP layer verifies the bearer token, while per-tool checks live in the handler, because *"the handler is the authoritative source for the executing tool."*
+This is the same line the MCP SDK draws for its own per-request factory: the HTTP layer verifies the bearer token, while per-tool checks live in the handler, because _"the handler is the authoritative source for the executing tool."_
 
-Use `enabled` to decide what a connection should even see; use a guard to decide whether a call is allowed.
+Use `enabled` to decide what a caller should even see; use a guard to decide whether a call is allowed. Both now see the same request, so a predicate can be factored between them — but hiding a capability is not enforcement: a client that already knows the tool name can still call it, and only a guard stops that.
 
-### Migrating from `1.x`
+### If you call `RegistryService` directly
 
-Two breaking changes, both narrow:
+`RegistryService.registerAll` is `async` and its second argument — the
+registration context — is **required**:
 
-| # | Break | Before | After |
-| --- | --- | --- | --- |
-| 1 | `RegistryService.registerAll` is async | `registry.registerAll(server);` | `await registry.registerAll(server);` — and the enclosing function becomes `async`. Only affects code calling it **directly**; using `McpModule` normally does not. |
-| 2 | inline predicates removed | `enabled: (ctx) => ctx.request.headers['x-role'] === 'admin'` | a class implementing `McpCapabilityGate`, registered as a provider, passed as `enabled: AdminGate` — which is also what unlocks `async` and dependency injection. |
+```ts
+await registry.registerAll(server, { request, era: 'modern' });
+```
 
-Everything else is unchanged. A server that declares no `enabled` option anywhere needs no changes at all and pays no runtime cost for this feature.
+Only code that drives the registry itself is affected; using `McpModule`
+normally is not. See [Migrating from `1.x` to `2.x`](#migrating-from-1x-to-2x)
+for the full 2.0 change list.
 
 > A runnable example lives in [`examples/dynamic/`](./examples/dynamic/) — `EXAMPLE=dynamic pnpm start:example`.
 
@@ -755,7 +761,7 @@ Apply one or more guards to a Resolver, to individual methods, or globally. Guar
 
 ### Global-level guards
 
-This approach uses the standard NestJS global guard system (`APP_GUARD`). A global guard will protect **all** NestJS routes, including the MCP transport endpoints (like `/mcp` or `/sse`). Use this for broad authentication or checks that apply before any MCP-specific logic runs.
+This approach uses the standard NestJS global guard system (`APP_GUARD`). A global guard will protect **all** NestJS routes, including the MCP endpoint (`/mcp`). Use this for broad authentication or checks that apply before any MCP-specific logic runs.
 
 ```ts
 // src/guards/global-auth.guard.ts
@@ -845,23 +851,19 @@ A guard for Resolver or Method-level protection:
 ```ts
 // src/guards/my-mcp.guard.ts
 import { CanActivate, Injectable } from '@nestjs/common';
-import { McpExecutionContext, SessionManager } from '@nestjs-mcp/server';
+import { McpExecutionContext } from '@nestjs-mcp/server';
 
 @Injectable()
 export class MyMcpGuard implements CanActivate {
-  constructor(private readonly sessionManager: SessionManager) {}
-
   canActivate(context: McpExecutionContext): boolean {
-    const sessionId = context.getSessionId();
-    if (!sessionId) return false;
+    const request = context.getRequest();
+    const userAgent = request.headers['user-agent'];
 
     const handlerArgs = context.getArgs();
 
-    const session = this.sessionManager.getSession(sessionId);
-    const request = session?.request;
-    const userAgent = request?.headers['user-agent'];
-
-    console.log(`Guard activated for session ${sessionId} from ${userAgent}`);
+    console.log(
+      `Guard activated for ${context.getContext().mcpReq.method} from ${String(userAgent)}`,
+    );
     console.log('Handler args:', handlerArgs);
 
     return true;
@@ -871,80 +873,71 @@ export class MyMcpGuard implements CanActivate {
 
 ### MCP Execution Context
 
-When implementing **Resolver-level** or **Method-level** guards using `@UseGuards()` from this library, your `canActivate` method receives an `McpExecutionContext` instance. This context provides access to MCP-specific information:
+When implementing **Resolver-level** or **Method-level** guards using
+`@UseGuards()` from this library, your `canActivate` method receives an
+`McpExecutionContext`. It provides access to MCP-specific information:
 
 ```typescript
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
-import { McpExecutionContext, SessionManager } from '@nestjs-mcp/server';
-import { Request } from 'express';
+import { CanActivate, Injectable } from '@nestjs/common';
+import { McpExecutionContext } from '@nestjs-mcp/server';
 
 @Injectable()
 export class McpAuthGuard implements CanActivate {
-  constructor(private readonly sessionManager: SessionManager) {}
-
   canActivate(context: McpExecutionContext): boolean {
-    const sessionId = context.getSessionId();
-    if (!sessionId) {
-      console.error('Guard Error: MCP Session ID not found in context.');
-      return false;
-    }
-
-    const handlerArgs = context.getArgs<any>();
-    console.log('MCP Handler Arguments:', handlerArgs);
-
-    const session = this.sessionManager.getSession(sessionId);
-    if (!session) {
-      console.error(`Guard Error: Session not found for ID: ${sessionId}`);
-      return false;
-    }
-    const request = session.request as Request;
+    // The request this capability was INVOKED on — not the connection
+    // handshake, as it was before 2.0.
+    const request = context.getRequest();
 
     const authHeader = request.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    if (!authHeader?.startsWith('Bearer ')) {
       console.log('Guard Denied: Missing or invalid Bearer token.');
       return false;
     }
-    const token = authHeader.split(' ')[1];
-    const isValidToken = token === 'VALID_TOKEN';
 
-    if (isValidToken) {
-      console.log(`Guard Passed for session ${sessionId} with token.`);
-      return true;
-    } else {
-      console.log(`Guard Denied: Invalid token for session ${sessionId}.`);
-      return false;
-    }
+    const token = authHeader.split(' ')[1];
+    return token === 'VALID_TOKEN';
   }
 }
 ```
 
 **Key points for `McpExecutionContext`:**
 
-- `getSessionId()`: Retrieves the unique ID for the current MCP session. **Crucial** for relating the guard check to the session state stored by `SessionManager`.
-- Arguments (`handlerArgs`): Provides the arguments passed specifically to the MCP handler method (`@Tool`, `@Prompt`, `@Resource`) being invoked. The structure of these arguments depends on the capability type and its definition (e.g., `params` for tools, `query`/`params` for resources). You access these via `context.getArgs()`, but be mindful of the actual structure based on the capability.
-- Request Data: Use the `SessionManager` injected into your guard to fetch the session details (including the original `Request`) based on the `sessionId` obtained from the context.
-- `switchToHttp().getResponse()` / `switchToHttp().getNext()`: These will throw errors as the Response object is not directly available or relevant in this context.
-
-Use `SessionManager` injected into your guard to fetch the session details (including the original `Request`) based on the `sessionId` obtained from the context.
+- `getRequest()` — the Express request this capability was invoked on. Since 2.0
+  it is the call's own request, so expiring or revoked credentials are seen
+  correctly. In 1.x it was the connection handshake, frozen for the connection's
+  lifetime.
+- `getContext()` — the full `McpContext`: `mcpReq` (id, method, `_meta`,
+  envelope) and `http.authInfo`.
+- `getArgs()` — the arguments passed to the MCP handler being invoked. Their
+  shape depends on the capability type; narrow on the `type` discriminator.
+- `getClass()` / `getHandler()` — the resolver class and method.
+- `getSessionId()` was **removed in 2.0**. Protocol revision 2026-07-28 retired
+  sessions, so there is no id to return and no store to look one up in.
+- This is not Nest's `ExecutionContext`: there is no `switchToHttp()`. Use
+  `getRequest()` directly.
 
 ### Guards with Dependency Injection
 
-Guards can inject NestJS providers like `SessionManager`. Use `@Injectable()` and register the guard as a provider:
+Guards can inject NestJS providers. Use `@Injectable()` and register the guard
+as a provider:
 
 ```typescript
 @Injectable()
 export class AuthGuard implements CanActivate {
-  constructor(private readonly sessionManager: SessionManager) {}
+  constructor(private readonly tokens: TokenService) {}
 
-  canActivate(context: McpExecutionContext): boolean {
-    const session = this.sessionManager.getSession(context.getSessionId());
-    return !!session?.request.headers.authorization;
+  async canActivate(context: McpExecutionContext): Promise<boolean> {
+    const header = context.getRequest().headers.authorization;
+    if (!header) return false;
+
+    // Revocation works now: this is the token sent with THIS call.
+    return this.tokens.isValid(header.replace('Bearer ', ''));
   }
 }
 
 @Module({
   imports: [McpModule.forRoot({ name: 'my-server', version: '1.0.0' })],
-  providers: [AuthGuard, MyResolver],
+  providers: [AuthGuard, TokenService, MyResolver],
 })
 export class AppModule {}
 ```
@@ -953,216 +946,365 @@ export class AppModule {}
 
 ---
 
-## Session Management
+## Statelessness
 
-This library includes a `SessionManager` service responsible for tracking active MCP sessions. Each incoming MCP connection establishes a session, identified by a unique `sessionId`. The `SessionManager` typically stores the associated initial `Request` object for each session.
+Since 2.0 this library holds **no state between requests**. There is no session
+store, no session id, and no sticky-routing requirement.
 
-**Why is it important?**
+The SDK's `createMcpHandler` builds a fresh `McpServer` for **every HTTP
+request** from a factory this library supplies. That factory runs
+`RegistryService.registerAll` against the request being served, so every
+capability handler and every guard closes over that request. Nothing survives
+the response.
 
-- **Accessing Request Data:** Since MCP operations (tool calls, prompt executions) might happen independently of the initial HTTP connection (especially with streaming transports like SSE), the `SessionManager` provides a way to retrieve the original `Request` context associated with a specific `sessionId`. This is essential for guards or capability methods (within Resolvers) that need access to request headers, parameters, or other connection-specific details from the original request.
-- **State Management:** While currently focused on storing the request, the `SessionManager` could be extended to store additional session-specific state if needed by your application.
+**What this buys you**
 
-**Usage Example (in a Resolver):**
+- Run any number of instances behind a plain round-robin load balancer. No
+  sticky sessions, no shared session store, no session affinity at the gateway.
+- Instances can restart or autoscale mid-conversation without breaking clients.
+- Deploy to serverless and edge runtimes that cannot hold a connection open.
 
-Resolvers might need access to the original request, for example, to get user information or API keys passed in headers during the initial connection.
+This is the resolution of
+[#121](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/121), and it
+is verified end to end by `test/stateless-load-balancing.e2e-spec.ts`: two
+independently constructed Nest applications behind a strict round-robin proxy,
+driven by one MCP client, with an assertion that no `Mcp-Session-Id` ever
+crosses the wire.
 
-```typescript
-import { Tool, Resolver, SessionManager } from '@nestjs-mcp/server';
-import { RequestHandlerExtra } from '@nestjs-mcp/server'; // Provides sessionId
-import { Request } from 'express';
-import { CallToolResult } from '@modelcontextprotocol/sdk/types';
-import { z } from 'zod';
+**Reaching request data**
 
-const UserToolParams = z.object({
-  user_id: z.string().optional(),
-});
+Everything the old `SessionManager` lookup existed to recover is now handed to
+you directly, and it describes the _current_ call rather than the connection
+handshake:
 
-@Resolver('user_tools') // No @Injectable() needed
-export class UserToolsResolver {
-  // Inject SessionManager
-  constructor(private readonly sessionManager: SessionManager) {}
+```ts
+// In a capability handler
+handler(params: Params, ctx: McpContext) {
+  ctx.headers.authorization; // this call's credential
+  ctx.request.ip;            // the live Express request
+}
 
-  @Tool({
-    name: 'get_user_agent',
-    description:
-      'Gets the user agent from the original request for the session.',
-    paramSchema: UserToolParams,
-  })
-  getUserAgent(
-    params: z.infer<typeof UserToolParams>,
-    extra: RequestHandlerExtra, // Get extra info, including sessionId
-  ): CallToolResult {
-    const sessionId = extra.sessionId;
-    if (!sessionId) {
-      return {
-        content: [{ type: 'text', text: 'Error: Session ID missing.' }],
-      };
-    }
-
-    // Use sessionId to get the session from the manager
-    const session = this.sessionManager.getSession(sessionId);
-    if (!session) {
-      return {
-        content: [
-          {
-            type: 'text',
-            text: `Error: Session not found for ID: ${sessionId}`,
-          },
-        ],
-      };
-    }
-
-    // Access the original request stored in the session
-    const request = session.request as Request;
-    const userAgent = request.headers['user-agent'] || 'Unknown';
-
-    return {
-      content: [
-        { type: 'text', text: `Session ${sessionId} User Agent: ${userAgent}` },
-      ],
-    };
-  }
+// In a guard
+canActivate(context: McpExecutionContext) {
+  context.getRequest().headers.authorization;
 }
 ```
-
-In this example:
-
-1. The `@Tool` method receives `extra: RequestHandlerExtra`, which contains the `sessionId`.
-2. The `SessionManager` is injected into the `UserToolsResolver`.
-3. The `sessionId` is used with `sessionManager.getSession()` to retrieve the session data.
-4. The original `request` object is accessed from the retrieved session data.
-
-The `SessionManager` is automatically registered as a provider when you use `McpModule.forRoot` or `McpModule.forRootAsync` and can be injected like any other NestJS provider.
 
 ---
 
 ## Transport Options
 
-The MCP server can communicate over different transport mechanisms. This library includes built-in support for:
+The library exposes **one** MCP endpoint: `ALL /mcp`.
 
-1.  **Streamable (`/mcp` endpoint):** A common transport using standard HTTP POST requests and responses. Suitable for most request/response interactions. Enabled by default.
-2.  **SSE (Server-Sent Events) (`/sse` endpoint):** A transport mechanism allowing the server to push updates to the client over a single HTTP connection. Useful for streaming responses or long-running operations. **Note:** This is considered a legacy transport but remains supported for compatibility. Enabled by default.
+> **Changed in 2.0.** 1.x served `POST/GET/DELETE /mcp` plus `GET /sse` and
+> `POST /messages`, with per-transport `enabled` toggles. The HTTP+SSE transport
+> was removed: it is structurally sticky-session — a long-lived `GET /sse` must
+> be paired with `POST /messages` on the same instance — which is exactly the
+> problem statelessness solves. `GET` and `DELETE` on `/mcp` were the 2025-era
+> session operations and now answer `405`.
 
-You can configure which transports are enabled globally using the `transports` option in `McpModule.forRoot` or `McpModule.forRootAsync`.
+**Backward compatibility.** 2025-era clients are still served, on the same
+endpoint, through the SDK's stateless legacy fallback. Every currently published
+MCP client SDK — including `@modelcontextprotocol/sdk@1` and
+`@modelcontextprotocol/client@2` — speaks that era, and both are covered by the
+e2e suite.
 
-**Configuration:**
+Options are passed straight through to the SDK's `createMcpHandler`:
 
-```typescript
-import { Module } from '@nestjs/common';
-import { McpModule } from '@nestjs-mcp/server';
+```ts
+McpModule.forRoot({
+  name: 'my-server',
+  version: '1.0.0',
+  transport: {
+    // 'stateless' (default) — serve 2025-era clients per request.
+    // 'reject'              — modern-only; refuses 2025-era traffic.
+    legacy: 'stateless',
 
-@Module({
-  imports: [
-    McpModule.forRoot({
-      name: 'My Server',
-      version: '1.0.0',
-      transports: {
-        streamable: { enabled: true }, // Keep streamable enabled (default)
-        sse: { enabled: false }, // Disable legacy SSE transport
-      },
-    }),
-  ],
-})
-export class AppModule {}
+    // 'auto' (default) — JSON, upgrading to SSE if the handler streams
+    // 'json'           — never stream (drops mid-call notifications)
+    // 'sse'            — always stream
+    responseMode: 'auto',
+
+    // SSE keepalive interval; 0 disables. Default 15000.
+    keepAliveMs: 15000,
+  },
+});
 ```
 
-**Default Configuration:**
+| Option             | Purpose                                                                                                |
+| ------------------ | ------------------------------------------------------------------------------------------------------ |
+| `legacy`           | How 2025-era traffic is handled. Default `'stateless'`.                                                |
+| `responseMode`     | Response shaping for modern exchanges. Default `'auto'`.                                               |
+| `keepAliveMs`      | SSE comment-frame keepalive. Default `15000`.                                                          |
+| `maxSubscriptions` | Cap on open `subscriptions/listen` streams. Default `1024`.                                            |
+| `bus`              | Change-event bus for `subscriptions/listen`. Swap for Redis to fan out notifications across instances. |
 
-If the `transports` option is omitted, both `streamable` (`/mcp`) and `sse` (`/sse`) are enabled by default.
+Server-wide protocol options live under `server`, passed verbatim to the SDK:
 
-```typescript
-import { Module } from '@nestjs/common';
-import { McpModule } from '@nestjs-mcp/server';
+| `server.*`            | Purpose                                                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `requestState.verify` | Validates the state an MRTR retry echoes — see [Resuming on a different instance](#resuming-on-a-different-instance)                  |
+| `cacheHints`          | `ttlMs` / `cacheScope` for the server's cacheable methods (`tools/list`, `server/discover`, …). Per-resource hints go on `@Resource`. |
+| `inputRequired`       | `maxRounds`, `roundTimeoutMs` for MRTR                                                                                                |
+| `jsonSchemaValidator` | Swap the JSON Schema validation engine                                                                                                |
 
-@Module({
-  imports: [
-    McpModule.forRoot({
-      name: 'My Server',
-      version: '1.0.0',
-      // Both streamable and sse will be enabled
-    }),
-  ],
-})
-export class AppModule {}
-```
-
-Disabling unused transports can slightly reduce the application's surface area and resource usage.
+> ⚠️ `legacy: 'reject'` refuses every client SDK published today, since none of
+> them speak the 2026-07-28 era yet. Choose it only when you control every
+> caller and they issue raw requests.
 
 ---
 
-## Session Management Options
+## MCP 2026-07-28 features
 
-Configure session timeouts, cleanup intervals, and resource limits to optimize your server for production workloads.
+### Multi Round-Trip Requests (MRTR)
 
-**Configuration:**
+The 2026-07-28 spec replaced server-initiated `elicitation/create` and
+`sampling/createMessage` — which required a held-open bidirectional stream, and
+therefore a session — with a retry handshake. A handler that needs input returns
+`inputRequired(...)`; the client re-sends the same call with the answers
+attached, and the handler completes.
 
-```typescript
-import { Module } from '@nestjs/common';
-import { McpModule } from '@nestjs-mcp/server';
+```ts
+import {
+  acceptedContent,
+  CallToolResult,
+  inputRequired,
+  InputRequiredResult,
+  McpContext,
+  Resolver,
+  Tool,
+} from '@nestjs-mcp/server';
 
-@Module({
-  imports: [
-    McpModule.forRoot({
-      name: 'My Server',
-      version: '1.0.0',
-      session: {
-        sessionTimeoutMs: 1800000, // 30 minutes (default)
-        cleanupIntervalMs: 300000, // 5 minutes (default)
-        maxConcurrentSessions: 1000, // Max sessions (default)
-      },
-    }),
-  ],
-})
-export class AppModule {}
-```
+@Resolver('ops')
+export class OpsResolver {
+  @Tool({ name: 'deploy', paramsSchema: z.object({ env: z.string() }) })
+  deploy(
+    params: { env: string },
+    ctx: McpContext,
+  ): CallToolResult | InputRequiredResult {
+    const answer = acceptedContent<{ confirm: boolean }>(
+      ctx.mcpReq.inputResponses,
+      'confirm',
+    );
 
-**Configuration Options:**
-
-| Option                    | Type     | Default               | Description                                          |
-| ------------------------- | -------- | --------------------- | ---------------------------------------------------- |
-| `sessionTimeoutMs`        | `number` | `1800000` (30 min)    | Maximum inactivity time before session cleanup      |
-| `cleanupIntervalMs`       | `number` | `300000` (5 min)      | Frequency of cleanup job execution                   |
-| `maxConcurrentSessions`   | `number` | `1000`                | Maximum concurrent sessions allowed                  |
-
-**How It Works:**
-
-- **Activity Tracking**: Each session's `lastActivity` timestamp updates on every request
-- **Cleanup Job**: Runs every `cleanupIntervalMs` to close and remove inactive sessions
-- **Session Limit**: New connections are rejected (503) when `maxConcurrentSessions` is reached
-
-**Production Recommendations:**
-
-- **High-traffic servers**: Increase `maxConcurrentSessions` (2000-5000) and decrease `cleanupIntervalMs` (2-3 min)
-- **Low-memory environments**: Decrease `maxConcurrentSessions` (100-500) and `sessionTimeoutMs` (10-15 min)
-- **Long-running workflows**: Increase `sessionTimeoutMs` (60-90 min)
-
-**Example with Environment Variables:**
-
-```typescript
-import { Module } from '@nestjs/common';
-import { ConfigModule, ConfigService } from '@nestjs/config';
-import { McpModule } from '@nestjs-mcp/server';
-
-@Module({
-  imports: [
-    ConfigModule.forRoot(),
-    McpModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        name: 'My Server',
-        version: '1.0.0',
-        session: {
-          sessionTimeoutMs: config.get('MCP_SESSION_TIMEOUT', 1800000),
-          cleanupIntervalMs: config.get('MCP_CLEANUP_INTERVAL', 300000),
-          maxConcurrentSessions: config.get('MCP_MAX_SESSIONS', 1000),
+    if (!answer) {
+      return inputRequired({
+        inputRequests: {
+          confirm: inputRequired.elicit({
+            message: `Deploy to ${params.env}?`,
+            requestedSchema: {
+              type: 'object',
+              properties: { confirm: { type: 'boolean' } },
+              required: ['confirm'],
+            },
+          }),
         },
-      }),
-    }),
-  ],
-})
-export class AppModule {}
+      });
+    }
+
+    return { content: [{ type: 'text', text: `deployed to ${params.env}` }] };
+  }
+}
 ```
+
+#### Resuming on a different instance
+
+The handler above re-derives everything from its arguments, so any instance can
+serve the retry. When the round trip must carry state, seal it into
+`requestState` — it round-trips through the client, so it is
+**attacker-controlled input** and the SDK applies no integrity protection by
+default.
+
+```ts
+import { createRequestStateCodec } from '@nestjs-mcp/server';
+
+// The HMAC key must be identical on every instance that might receive the
+// echoed value. That shared key is what lets the retry land on another pod.
+const codec = createRequestStateCodec<{ item: string }>({
+  key: process.env.MCP_STATE_KEY!, // ≥ 32 bytes
+});
+
+McpModule.forRoot({
+  name: 'shop',
+  version: '1.0.0',
+  server: { requestState: { verify: (...a) => codec.verify(...a) } },
+});
+```
+
+```ts
+// in the handler
+return inputRequired({
+  inputRequests: { confirm: inputRequired.elicit({/* … */}) },
+  requestState: await codec.mint({ item: params.item }),
+});
+
+// on the retry, decoded and verified by whichever instance served it
+const state = ctx.mcpReq.requestState<{ item: string }>();
+```
+
+Without the `verify` hook the echoed state is accepted unverified. With it, a
+tampered value is rejected — both cases are covered in
+`test/mcp-features.e2e-spec.ts`.
+
+> The client must **declare** `elicitation: { form: {} }` in its capabilities on
+> every request, or the server refuses to ask (`-32021`).
+
+`ctx.mcpReq.elicitInput` and `ctx.mcpReq.requestSampling` still exist but are
+deprecated and **throw** on a 2026-07-28 request. MRTR is the only path.
+
+### Structured output and display metadata
+
+```ts
+@Tool({
+  name: 'measure',
+  title: 'Measure Something',              // display name
+  paramsSchema: z.object({ subject: z.string() }),
+  outputSchema: z.object({ subject: z.string(), value: z.number() }),
+  icons: [{ src: 'https://example.com/icon.png', mimeType: 'image/png' }],
+  _meta: { 'com.example/category': 'diagnostics' },
+})
+measure(params: { subject: string }): CallToolResult {
+  return {
+    content: [{ type: 'text', text: `measured ${params.subject}` }],
+    structuredContent: { subject: params.subject, value: 42 },
+  };
+}
+```
+
+`title`, `icons` and `_meta` are also available on `@Prompt`.
+
+### Resource cache hints
+
+```ts
+@Resource({
+  name: 'catalog',
+  uri: 'catalog://items',
+  cacheHint: { ttlMs: 60_000, cacheScope: 'public' },
+})
+```
+
+`ttlMs` and `cacheScope` ride on the `resources/read` result so clients can
+cache instead of re-fetching. Resource-only by design: `tools/list` and
+`prompts/list` return one result for the whole server, so a per-capability hint
+would have nowhere to go — use `server.cacheHints` for those.
+
+### Emitting `list_changed`
+
+Inject `McpHttpService` and publish onto its notifier. This is the first release
+in which the library can emit change notifications at all.
+
+```ts
+@Injectable()
+export class PermissionsService {
+  constructor(private readonly mcp: McpHttpService) {}
+
+  onRoleChanged(): void {
+    this.mcp.notify.toolsChanged();
+  }
+}
+```
+
+Notifications reach clients holding a `subscriptions/listen` stream. In a
+multi-instance deployment, supply `transport.bus` backed by Redis pub/sub so a
+change on one instance fans out to subscribers on the others.
+
+---
+
+## Migrating from `1.x` to `2.x`
+
+2.0 adopts MCP specification **2026-07-28**, which retires sessions, and moves
+to the MCP SDK's v2 package family. Existing MCP **clients keep working** — they
+are served through the SDK's stateless legacy fallback — but the server-side API
+changed.
+
+### Install
+
+```bash
+# 1.x
+pnpm add @nestjs-mcp/server @modelcontextprotocol/sdk
+
+# 2.x — the SDK split into scoped packages; the server package is what you import types from
+pnpm add @nestjs-mcp/server @modelcontextprotocol/server
+```
+
+### The breaking changes
+
+| 1.x                                  | 2.x                                         | Why                                                                                       |
+| ------------------------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `RequestHandlerExtra`                | `McpContext`                                | The SDK removed the type. `ctx.request` is now the live Express request.                  |
+| `extra.sessionId`                    | _(gone)_                                    | 2026-07-28 retired sessions. `ctx.sessionId` exists but is `undefined` on modern traffic. |
+| `extra.headers`                      | `ctx.headers`                               | **Meaning changed** — see below.                                                          |
+| `extra.body` (undocumented)          | `ctx.request.body`                          | Now declared, and from the invoking request.                                              |
+| `SessionManager`                     | _(gone)_                                    | No session store. Use `ctx.request` or `context.getRequest()`.                            |
+| `McpExecutionContext.getSessionId()` | _(removed)_                                 | Nothing to return. Use `getRequest()` or `getContext()`.                                  |
+| `paramsSchema: { a: z.string() }`    | `paramsSchema: z.object({ a: z.string() })` | v2 takes Standard Schema; raw Zod shapes are no longer expressible.                       |
+| `argsSchema: { … }`                  | `argsSchema: z.object({ … })`               | Same.                                                                                     |
+| `transports: { sse, streamable }`    | `transport: { legacy, responseMode, … }`    | One endpoint; options pass through to `createMcpHandler`.                                 |
+| `session: { sessionTimeoutMs, … }`   | _(gone)_                                    | No sessions to time out.                                                                  |
+| `GET /sse` + `POST /messages`        | _(removed)_                                 | HTTP+SSE is structurally sticky-session.                                                  |
+| `GET` / `DELETE /mcp`                | `405`                                       | These were session operations.                                                            |
+| `McpModule.forFeature()`             | still present                               | Unchanged (still a no-op).                                                                |
+
+### The silent one — read this
+
+`extra.headers` compiled in 1.x and compiles in 2.x, but returns something
+different.
+
+In 1.x it was the headers of the request that opened the **connection** — the
+`initialize` POST, or the `GET /sse` handshake — recovered from the session
+store and frozen for the connection's lifetime. In 2.x it is the headers of the
+**call being served**.
+
+This is a bug fix, and it is the point of the release: an `Authorization` header
+that expires or is revoked mid-conversation is now seen. But if you relied on
+connection-scoped values, they no longer persist across calls. Mint an explicit
+handle from a tool and have the model pass it back as an argument instead.
+
+### Handler signature
+
+```diff
+- import { RequestHandlerExtra, Resolver, Tool } from '@nestjs-mcp/server';
+- import { CallToolResult } from '@modelcontextprotocol/sdk/types';
++ import { McpContext, Resolver, Tool } from '@nestjs-mcp/server';
++ import { CallToolResult } from '@modelcontextprotocol/server';
+
+  @Resolver('example')
+  export class ExampleResolver {
+    @Tool({
+      name: 'my_tool',
+-     paramsSchema: { id: z.string() },
++     paramsSchema: z.object({ id: z.string() }),
+    })
+-   myTool(params: { id: string }, extra: RequestHandlerExtra): CallToolResult {
+-     const auth = extra.headers.authorization;
++   myTool(params: { id: string }, ctx: McpContext): CallToolResult {
++     const auth = ctx.headers.authorization;
+      return { content: [{ type: 'text', text: params.id }] };
+    }
+  }
+```
+
+### Guards
+
+```diff
+  @Injectable()
+  export class AuthGuard implements CanActivate {
+-   constructor(private readonly sessionManager: SessionManager) {}
+-
+    canActivate(context: McpExecutionContext): boolean {
+-     const session = this.sessionManager.getSession(context.getSessionId());
+-     return !!session?.request.headers.authorization;
++     return !!context.getRequest().headers.authorization;
+    }
+  }
+```
+
+### Client compatibility
+
+No client change is required. `legacy: 'stateless'` is the default and serves
+2025-era clients on the same `/mcp` endpoint. Set `transport.legacy = 'reject'`
+only if you control every caller — no published client SDK speaks the
+2026-07-28 era yet.
 
 ---
 

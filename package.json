@@ -2,7 +2,7 @@
   "name": "@nestjs-mcp/server",
   "version": "1.0.1",
   "description": "Modular library for building scalable MCP servers with NestJS, providing decorators and integration patterns as a wrapper for the official MCP TypeScript SDK.",
-  "author": "Adrián Darío Hidalgo Flores",
+  "author": "Adri\u00e1n Dar\u00edo Hidalgo Flores",
   "license": "MIT",
   "packageManager": "pnpm@11.17.0",
   "engines": {
@@ -47,7 +47,7 @@
     "build": "nest build",
     "prepare": "is-ci || husky",
     "start:example": "npx -y ts-node-dev --respawn examples/$EXAMPLE/main.ts",
-    "start:inspector": "npx -y @modelcontextprotocol/inspector",
+    "start:inspector": "npx -y @modelcontextprotocol/inspector@2",
     "lint:check": "eslint \"{src,test,examples}/**/*.ts\"",
     "lint:fix": "eslint \"{src,test,examples}/**/*.ts\" --fix",
     "format:check": "prettier --check \"{src,test,examples}/**/*.ts\"",
@@ -70,7 +70,8 @@
     "rxjs": "^7.8.2"
   },
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -78,6 +79,8 @@
     "@commitlint/config-conventional": "^21.2.0",
     "@commitlint/types": "^21.2.0",
     "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/client": "^2.0.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@nestjs/cli": "^11.0.24",
     "@nestjs/config": "^4.0.4",
     "@nestjs/schematics": "^11.1.0",

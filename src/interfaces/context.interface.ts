@@ -1,7 +1,10 @@
 import type { Type } from '@nestjs/common';
-import type { Request } from 'express';
 
 import type { McpHandlerArgs } from '../types/handler-args.types';
+import type {
+  AuthenticatedRequest,
+  McpContext,
+} from './handler-context.interface';
 
 /**
  * Execution context for MCP operations.
@@ -30,10 +33,16 @@ export interface McpExecutionContext {
   getClass(): Type<any>;
 
   /**
-   * Returns the current MCP session ID.
-   * Each client connection maintains a unique session identifier.
+   * Returns the full MCP context for this invocation — the SDK's `mcpReq`
+   * (request id, method, `_meta`, the 2026-07-28 envelope), `http.authInfo`,
+   * and the Express request.
+   *
+   * Replaces `getSessionId()`, which was removed in 2.0: protocol revision
+   * 2026-07-28 retired sessions, so there is no identifier to return and no
+   * session store to look one up in. A guard that needs the caller's identity
+   * should read {@link getRequest} or `getContext().http?.authInfo`.
    */
-  getSessionId(): string;
+  getContext(): McpContext;
 
   /**
    * Returns the arguments passed to the handler.
@@ -55,7 +64,12 @@ export interface McpExecutionContext {
    * Returns the underlying HTTP request object.
    * Provides direct access to Express request without requiring switchToHttp().
    *
+   * Since 2.0 this is the request the capability was **invoked** on. In 1.x it
+   * was the request that opened the connection — the `initialize` POST or the
+   * `GET /sse` handshake — frozen for the connection's life. Guards reading an
+   * `Authorization` header now see the value sent with this call.
+   *
    * @template R - The request type (defaults to Express Request)
    */
-  getRequest<R = Request>(): R;
+  getRequest<R = AuthenticatedRequest>(): R;
 }

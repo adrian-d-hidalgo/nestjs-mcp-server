@@ -1,16 +1,29 @@
-import { ToolAnnotations } from '@modelcontextprotocol/sdk/types';
-import { ZodRawShapeCompat } from '@modelcontextprotocol/sdk/server/zod-compat.js';
+import { Icon, ToolAnnotations } from '@modelcontextprotocol/server';
 import { SetMetadata } from '@nestjs/common';
 
 import type { McpCapabilityToggle } from '../interfaces/registration-context.interface';
+import type { McpSchema } from '../mcp.types';
 
 export interface ToolBaseOptions {
   name: string;
   /**
-   * Whether this tool is available to a connecting client.
-   * Evaluated once per connection; omit for the default (always enabled).
+   * Whether this tool is available to the client making this request.
+   * Evaluated once per request; omit for the default (always enabled).
    */
   enabled?: McpCapabilityToggle;
+  /** Human-readable display name, shown in place of `name` where available. */
+  title?: string;
+  /**
+   * Schema for the tool's structured output.
+   *
+   * When present the SDK advertises it on `tools/list` and validates the
+   * handler's `structuredContent` against it.
+   */
+  outputSchema?: McpSchema;
+  /** Icons a client may render alongside this tool. */
+  icons?: Icon[];
+  /** Implementation-defined metadata passed through to the client verbatim. */
+  _meta?: Record<string, unknown>;
 }
 
 export interface ToolWithDescriptionOptions extends ToolBaseOptions {
@@ -18,7 +31,7 @@ export interface ToolWithDescriptionOptions extends ToolBaseOptions {
 }
 
 export interface ToolWithParamsSchemaOptions extends ToolBaseOptions {
-  paramsSchema: ZodRawShapeCompat;
+  paramsSchema: McpSchema;
 }
 
 export interface ToolWithParamsSchemaAndDescriptionOptions extends ToolWithParamsSchemaOptions {
@@ -34,7 +47,7 @@ export interface ToolWithAnnotationsAndDescriptionOptions extends ToolWithAnnota
 }
 
 export interface ToolWithParamsSchemaAndAnnotationsOptions extends ToolBaseOptions {
-  paramsSchema: ZodRawShapeCompat;
+  paramsSchema: McpSchema;
   annotations: ToolAnnotations;
 }
 

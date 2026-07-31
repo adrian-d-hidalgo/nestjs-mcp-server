@@ -25,7 +25,7 @@ describe('Tool Decorator', () => {
 
     @Tool({
       name: 'tool_with_params',
-      paramsSchema: { id: z.string() },
+      paramsSchema: z.object({ id: z.string() }),
     })
     methodWithParams() {
       return { content: [{ type: 'text', text: 'test' }] };
@@ -34,7 +34,7 @@ describe('Tool Decorator', () => {
     @Tool({
       name: 'tool_complete',
       description: 'Complete tool',
-      paramsSchema: { id: z.string() },
+      paramsSchema: z.object({ id: z.string() }),
     })
     methodComplete() {
       return { content: [{ type: 'text', text: 'test' }] };
@@ -129,5 +129,34 @@ describe('Tool Decorator', () => {
       TestResolver.prototype.simpleMethod,
     );
     expect('enabled' in metadata).toBe(false);
+  });
+
+  it('captures the 2026-07-28 display and output metadata', () => {
+    const OutputSchema = z.object({ value: z.number() });
+
+    class TestResolver {
+      @Tool({
+        name: 'rich_tool',
+        title: 'Rich Tool',
+        description: 'Has every option',
+        paramsSchema: z.object({ id: z.string() }),
+        outputSchema: OutputSchema,
+        icons: [{ src: 'https://example.com/i.png', mimeType: 'image/png' }],
+        _meta: { 'com.example/team': 'platform' },
+      })
+      richTool() {
+        return { content: [{ type: 'text', text: 'test' }] };
+      }
+    }
+
+    const metadata = Reflect.getMetadata(
+      MCP_TOOL,
+      TestResolver.prototype.richTool,
+    ) as Record<string, unknown>;
+
+    expect(metadata.title).toBe('Rich Tool');
+    expect(metadata.outputSchema).toBe(OutputSchema);
+    expect(metadata.icons).toHaveLength(1);
+    expect(metadata._meta).toEqual({ 'com.example/team': 'platform' });
   });
 });

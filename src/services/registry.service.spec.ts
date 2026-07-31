@@ -1,16 +1,9 @@
 /* eslint-disable @typescript-eslint/no-unsafe-argument */
-import {
-  McpServer,
-  ResourceTemplate,
-} from '@modelcontextprotocol/sdk/server/mcp.js';
-import {
-  CanActivate,
-  ForbiddenException,
-  UnauthorizedException,
-} from '@nestjs/common';
+/* eslint-disable @typescript-eslint/no-unsafe-assignment */
+import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
+import { CanActivate } from '@nestjs/common';
 import { DiscoveryModule, ModuleRef, Reflector } from '@nestjs/core';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Request } from 'express';
 
 import {
   MCP_GUARDS,
@@ -19,6 +12,7 @@ import {
   MCP_RESOURCE,
   MCP_TOOL,
 } from '../decorators';
+import type { McpContext } from '../interfaces/handler-context.interface';
 import type {
   McpCapabilityGate,
   McpRegistrationContext,
@@ -26,13 +20,32 @@ import type {
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 import { RegistryService } from './registry.service';
-import { SessionManager } from './session.manager';
 
 // Definimos interfaces para los objetos de método mock
 interface MockMethod {
   metadata: Record<string, unknown>;
   instance: Record<string, unknown>;
   handler: jest.Mock;
+}
+
+/**
+ * A registration context for one request.
+ *
+ * Since 2.0 `registerAll` runs per HTTP request and this context is required —
+ * it carries the request that every handler closure and every guard will see.
+ */
+function requestContext(
+  headers: Record<string, string> = {},
+): McpRegistrationContext {
+  return {
+    request: { headers, body: {} },
+    era: 'modern',
+  } as unknown as McpRegistrationContext;
+}
+
+/** The SDK `ServerContext` shape the transport passes as the last argument. */
+function sdkContext(method = 'tools/call'): unknown {
+  return { mcpReq: { id: 1, method } };
 }
 
 describe('RegistryService', () => {
@@ -46,7 +59,6 @@ describe('RegistryService', () => {
           RegistryService,
           DiscoveryService,
           McpLoggerService,
-          SessionManager,
           Reflector,
         ],
       }).compile();
@@ -60,9 +72,9 @@ describe('RegistryService', () => {
 
     it('should call registerResources, registerPrompts, registerTools in registerAll', async () => {
       const server = {
-        resource: jest.fn(),
-        prompt: jest.fn(),
-        tool: jest.fn(),
+        registerResource: jest.fn(),
+        registerPrompt: jest.fn(),
+        registerTool: jest.fn(),
       } as unknown as McpServer;
 
       const spyRes = jest
@@ -77,22 +89,20 @@ describe('RegistryService', () => {
         .spyOn(service as any, 'registerTools')
         .mockResolvedValue(undefined);
 
-      await service.registerAll(server);
+      const context = requestContext();
 
-      expect(spyRes).toHaveBeenCalledWith(server, undefined, expect.any(Array));
-      expect(spyPro).toHaveBeenCalledWith(server, undefined, expect.any(Array));
-      expect(spyTool).toHaveBeenCalledWith(
-        server,
-        undefined,
-        expect.any(Array),
-      );
+      await service.registerAll(server, context);
+
+      expect(spyRes).toHaveBeenCalledWith(server, context, expect.any(Array));
+      expect(spyPro).toHaveBeenCalledWith(server, context, expect.any(Array));
+      expect(spyTool).toHaveBeenCalledWith(server, context, expect.any(Array));
     });
 
     it('should forward the registration context to every register method', async () => {
       const server = {
-        resource: jest.fn(),
-        prompt: jest.fn(),
-        tool: jest.fn(),
+        registerResource: jest.fn(),
+        registerPrompt: jest.fn(),
+        registerTool: jest.fn(),
       } as unknown as McpServer;
 
       const context = {
@@ -118,11 +128,11 @@ describe('RegistryService', () => {
       expect(spyTool).toHaveBeenCalledWith(server, context, expect.any(Array));
     });
 
-    it('should still accept a single argument and return a promise', async () => {
+    it('should require a registration context and return a promise', async () => {
       const server = {
-        resource: jest.fn(),
-        prompt: jest.fn(),
-        tool: jest.fn(),
+        registerResource: jest.fn(),
+        registerPrompt: jest.fn(),
+        registerTool: jest.fn(),
       } as unknown as McpServer;
 
       jest
@@ -133,11 +143,15 @@ describe('RegistryService', () => {
         .mockResolvedValue(undefined);
       jest.spyOn(service as any, 'registerTools').mockResolvedValue(undefined);
 
-      // This assertion was written at the old shape (`const result: void = …`)
-      // to prove the change was MINOR. It is kept, updated, as the proof that
-      // it is now MAJOR: `registerAll` returns a promise that must be awaited,
-      // and a consumer who ignores it holds an incomplete registration.
-      const result: Promise<void> = service.registerAll(server);
+      // Two shape changes are pinned here, both MAJOR. `registerAll` returns a
+      // promise that must be awaited — a consumer who ignores it holds an
+      // incomplete registration — and the context is now required, because
+      // under the stateless model there is always exactly one request being
+      // served and every gate and guard is evaluated against it.
+      const result: Promise<void> = service.registerAll(
+        server,
+        requestContext(),
+      );
 
       expect(result).toBeInstanceOf(Promise);
       await expect(result).resolves.toBeUndefined();
@@ -152,12 +166,11 @@ describe('RegistryService', () => {
       has: jest.Mock;
       hasMetadata: jest.Mock;
     };
-    let mockSession: {
-      getSession: jest.Mock;
-      setSession: jest.Mock;
-      deleteSession: jest.Mock;
+    let mockServer: {
+      registerResource: jest.Mock;
+      registerPrompt: jest.Mock;
+      registerTool: jest.Mock;
     };
-    let mockServer: { resource: jest.Mock; prompt: jest.Mock; tool: jest.Mock };
 
     beforeEach(() => {
       mockDiscovery = {
@@ -173,15 +186,10 @@ describe('RegistryService', () => {
         has: jest.fn(),
         hasMetadata: jest.fn(),
       };
-      mockSession = {
-        getSession: jest.fn(),
-        setSession: jest.fn(),
-        deleteSession: jest.fn(),
-      };
       mockServer = {
-        resource: jest.fn(),
-        prompt: jest.fn(),
-        tool: jest.fn(),
+        registerResource: jest.fn(),
+        registerPrompt: jest.fn(),
+        registerTool: jest.fn(),
       };
       const mockModuleRef = {
         get: jest.fn().mockImplementation(() => {
@@ -195,7 +203,6 @@ describe('RegistryService', () => {
         mockDiscovery as unknown as DiscoveryService,
         mockLogger as unknown as McpLoggerService,
         mockReflector as unknown as Reflector,
-        mockSession as unknown as SessionManager,
         mockModuleRef as unknown as ModuleRef,
       );
     });
@@ -212,90 +219,115 @@ describe('RegistryService', () => {
       jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(false);
 
       await expect(
-        service['wrappedHandler'](instance, handler, [{}]),
+        service['wrappedHandler'](
+          instance,
+          handler,
+          [sdkContext()],
+          requestContext(),
+        ),
       ).rejects.toThrow(/must be decorated with @Resolver/);
     });
 
-    it('should throw UnauthorizedException if sessionId is missing', async () => {
-      const handler = jest.fn();
-      const instance = { constructor: { name: 'TestResolver' } };
-
-      // Mock Reflect.hasMetadata to return true for MCP_RESOLVER
-      jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(true);
-
-      await expect(
-        service['wrappedHandler'](instance, handler, [{}]),
-      ).rejects.toThrow(UnauthorizedException);
-    });
-
-    it('should throw ForbiddenException if session not found', async () => {
-      const handler = jest.fn();
-      const instance = { constructor: { name: 'TestResolver' } };
-
-      // Mock Reflect.hasMetadata to return true for MCP_RESOLVER
-      jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(true);
-
-      mockSession.getSession.mockReturnValue(undefined);
-
-      await expect(
-        service['wrappedHandler'](instance, handler, [
-          { sessionId: 'notfound' },
-        ]),
-      ).rejects.toThrow(ForbiddenException);
-    });
-
-    it('should successfully execute the handler when everything is valid', async () => {
+    /**
+     * Before 2.0 this method demanded `extra.sessionId`, threw
+     * `UnauthorizedException` without one and `ForbiddenException` when the
+     * in-process `SessionManager` had no entry for it. Under the 2026-07-28
+     * stateless model there is no session id on any request, so those two
+     * branches would have rejected *every* call — they are gone, and these
+     * tests replace them.
+     */
+    it('should invoke the handler with no session id present', async () => {
       const handler = jest
         .fn<string, [Record<string, unknown>]>()
         .mockReturnValue('success');
       const instance = { constructor: { name: 'TestResolver' } };
-      const sessionId = 'valid-session';
-      const extra = { sessionId };
 
-      // Mock Reflect.hasMetadata to return true for MCP_RESOLVER
       jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(true);
+      jest.spyOn(service as any, 'runGuards').mockResolvedValue(undefined);
 
-      mockSession.getSession.mockReturnValue({
-        request: { headers: { 'x-test': 'value' }, body: { key: 'value' } },
-      });
+      const result = await service['wrappedHandler'](
+        instance,
+        handler,
+        [sdkContext()],
+        requestContext({ 'x-test': 'value' }),
+      );
 
-      // Mock runGuards to resolve successfully
+      expect(result).toBe('success');
+    });
+
+    it('should hand the handler this request’s own headers', async () => {
+      const handler = jest
+        .fn<string, [Record<string, unknown>]>()
+        .mockReturnValue('success');
+      const instance = { constructor: { name: 'TestResolver' } };
+
+      jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(true);
       const runGuardsSpy = jest
         .spyOn(service as any, 'runGuards')
         .mockResolvedValue(undefined);
 
-      const result = await service['wrappedHandler'](instance, handler, [
-        extra,
-      ] as unknown[]);
+      await service['wrappedHandler'](
+        instance,
+        handler,
+        [sdkContext()],
+        requestContext({ 'x-test': 'value' }),
+      );
 
-      expect(result).toBe('success');
+      // The context carries the live request, not a connect-time snapshot.
+      // In 1.x these headers came from the `initialize` POST stored in the
+      // session map and were frozen for the connection's life.
       expect(handler).toHaveBeenCalledWith(
         expect.objectContaining({
-          sessionId,
           headers: { 'x-test': 'value' },
-          body: { key: 'value' },
+          request: expect.objectContaining({
+            headers: { 'x-test': 'value' },
+          }),
         }),
       );
       expect(runGuardsSpy).toHaveBeenCalled();
     });
 
+    it('should preserve the SDK context fields it was given', async () => {
+      const handler = jest
+        .fn<string, [Record<string, unknown>]>()
+        .mockReturnValue('success');
+      const instance = { constructor: { name: 'TestResolver' } };
+
+      jest.spyOn(Reflect, 'hasMetadata').mockReturnValue(true);
+      jest.spyOn(service as any, 'runGuards').mockResolvedValue(undefined);
+
+      await service['wrappedHandler'](
+        instance,
+        handler,
+        [sdkContext('prompts/get')],
+        requestContext(),
+      );
+
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({
+          mcpReq: expect.objectContaining({ method: 'prompts/get' }),
+        }),
+      );
+    });
+
     it('runGuards should resolve if no guards', async () => {
       const instance = { constructor: () => {} };
       const methodName = 'someMethod';
-      const sessionId = 'abc';
-      const request = {} as Request;
       const args: unknown[] = [];
 
       await expect(
-        service['runGuards'](instance, methodName, sessionId, request, args),
+        service['runGuards'](
+          instance,
+          methodName,
+          sdkContext() as McpContext,
+          args,
+        ),
       ).resolves.toBeUndefined();
     });
 
     it('runGuards should throw if guard denies access', async () => {
       const instance = { constructor: () => {} };
       const methodName = 'someMethod';
-      const sessionId = 'abc';
-      const request = {} as Request;
       const args: unknown[] = [];
       const guard = { canActivate: jest.fn().mockResolvedValue(false) };
 
@@ -304,14 +336,17 @@ describe('RegistryService', () => {
 
       // Mock the private methods that are called inside runGuards
       jest.spyOn(service as any, 'getDecoratorType').mockReturnValue('TOOL');
-      jest.spyOn(service as any, 'getHandlerArgs').mockReturnValue({
-        sessionId,
-        headers: {},
-        body: {},
-      });
+      jest
+        .spyOn(service as any, 'getHandlerArgs')
+        .mockReturnValue({ type: 'tool' });
 
       await expect(
-        service['runGuards'](instance, methodName, sessionId, request, args),
+        service['runGuards'](
+          instance,
+          methodName,
+          sdkContext() as McpContext,
+          args,
+        ),
       ).rejects.toThrow(/Access denied by guard/);
     });
 
@@ -342,7 +377,7 @@ describe('RegistryService', () => {
 
         await service['registerResources'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
@@ -350,9 +385,10 @@ describe('RegistryService', () => {
           expect.stringContaining('test-uri-resource'),
           'resources',
         );
-        expect(mockServer.resource).toHaveBeenCalledWith(
+        expect(mockServer.registerResource).toHaveBeenCalledWith(
           'test-uri-resource',
           'https://example.com',
+          {},
           expect.any(Function),
         );
       });
@@ -374,11 +410,11 @@ describe('RegistryService', () => {
 
         await service['registerResources'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.resource).toHaveBeenCalledWith(
+        expect(mockServer.registerResource).toHaveBeenCalledWith(
           'test-uri-resource-with-meta',
           'https://example.com',
           { key: 'value' },
@@ -402,13 +438,14 @@ describe('RegistryService', () => {
 
         await service['registerResources'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.resource).toHaveBeenCalledWith(
+        expect(mockServer.registerResource).toHaveBeenCalledWith(
           'test-template-resource',
           expect.any(ResourceTemplate),
+          {},
           expect.any(Function),
         );
       });
@@ -430,11 +467,11 @@ describe('RegistryService', () => {
 
         await service['registerResources'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.resource).toHaveBeenCalledWith(
+        expect(mockServer.registerResource).toHaveBeenCalledWith(
           'test-template-resource-with-meta',
           expect.any(ResourceTemplate),
           { key: 'value' },
@@ -456,13 +493,13 @@ describe('RegistryService', () => {
         // Make the resource registration throw an error
         const testError = new Error('Test error');
         testError.stack = 'Test stack trace';
-        mockServer.resource.mockImplementation(() => {
+        mockServer.registerResource.mockImplementation(() => {
           throw testError;
         });
 
         await service['registerResources'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
@@ -475,6 +512,125 @@ describe('RegistryService', () => {
           expect.stringContaining('Test stack trace'),
           undefined,
           'resources',
+        );
+      });
+    });
+
+    describe('2026-07-28 config passthrough', () => {
+      it('forwards title, outputSchema, icons and _meta to registerTool', async () => {
+        const outputSchema = { '~standard': {} };
+        const icons = [{ src: 'https://example.com/i.png' }];
+
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          {
+            metadata: {
+              name: 'rich_tool',
+              title: 'Rich Tool',
+              outputSchema,
+              icons,
+              _meta: { 'com.example/team': 'platform' },
+            },
+            instance: { constructor: { name: 'R' } },
+            handler: jest.fn(),
+          },
+        ]);
+
+        await service['registerTools'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
+          'rich_tool',
+          {
+            title: 'Rich Tool',
+            outputSchema,
+            icons,
+            _meta: { 'com.example/team': 'platform' },
+          },
+          expect.any(Function),
+        );
+      });
+
+      it('omits absent optional fields rather than sending undefined', async () => {
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          {
+            metadata: { name: 'bare_tool' },
+            instance: { constructor: { name: 'R' } },
+            handler: jest.fn(),
+          },
+        ]);
+
+        await service['registerTools'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+
+        // An explicit `title: undefined` would override the SDK's own default
+        // handling, so absent fields must not appear in the config at all.
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
+          'bare_tool',
+          {},
+          expect.any(Function),
+        );
+      });
+
+      it('forwards title, icons and _meta to registerPrompt', async () => {
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          {
+            metadata: {
+              name: 'rich_prompt',
+              title: 'Rich Prompt',
+              _meta: { 'com.example/k': 'v' },
+            },
+            instance: { constructor: { name: 'R' } },
+            handler: jest.fn(),
+          },
+        ]);
+
+        await service['registerPrompts'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+
+        expect(mockServer.registerPrompt).toHaveBeenCalledWith(
+          'rich_prompt',
+          { title: 'Rich Prompt', _meta: { 'com.example/k': 'v' } },
+          expect.any(Function),
+        );
+      });
+
+      it('merges a resource cacheHint into the registration config', async () => {
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          {
+            metadata: {
+              name: 'cached',
+              uri: 'res://cached',
+              metadata: { mimeType: 'application/json' },
+              cacheHint: { ttlMs: 1000, cacheScope: 'public' },
+            },
+            instance: { constructor: { name: 'R' } },
+            handler: jest.fn(),
+          },
+        ]);
+
+        await service['registerResources'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+
+        expect(mockServer.registerResource).toHaveBeenCalledWith(
+          'cached',
+          'res://cached',
+          {
+            mimeType: 'application/json',
+            cacheHint: { ttlMs: 1000, cacheScope: 'public' },
+          },
+          expect.any(Function),
         );
       });
     });
@@ -506,7 +662,7 @@ describe('RegistryService', () => {
 
         await service['registerPrompts'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
@@ -514,8 +670,9 @@ describe('RegistryService', () => {
           expect.stringContaining('test-prompt'),
           'prompts',
         );
-        expect(mockServer.prompt).toHaveBeenCalledWith(
+        expect(mockServer.registerPrompt).toHaveBeenCalledWith(
           'test-prompt',
+          {},
           expect.any(Function),
         );
       });
@@ -536,13 +693,13 @@ describe('RegistryService', () => {
 
         await service['registerPrompts'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.prompt).toHaveBeenCalledWith(
+        expect(mockServer.registerPrompt).toHaveBeenCalledWith(
           'test-prompt-with-description',
-          'A test prompt',
+          { description: 'A test prompt' },
           expect.any(Function),
         );
       });
@@ -563,13 +720,13 @@ describe('RegistryService', () => {
 
         await service['registerPrompts'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.prompt).toHaveBeenCalledWith(
+        expect(mockServer.registerPrompt).toHaveBeenCalledWith(
           'test-prompt-with-args',
-          { arg1: 'schema' },
+          { argsSchema: { arg1: 'schema' } },
           expect.any(Function),
         );
       });
@@ -591,14 +748,13 @@ describe('RegistryService', () => {
 
         await service['registerPrompts'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.prompt).toHaveBeenCalledWith(
+        expect(mockServer.registerPrompt).toHaveBeenCalledWith(
           'test-prompt-with-description-and-args',
-          'A test prompt',
-          { arg1: 'schema' },
+          { description: 'A test prompt', argsSchema: { arg1: 'schema' } },
           expect.any(Function),
         );
       });
@@ -617,13 +773,13 @@ describe('RegistryService', () => {
         // Make the prompt registration throw an error
         const testError = new Error('Test error');
         testError.stack = 'Test stack trace';
-        mockServer.prompt.mockImplementation(() => {
+        mockServer.registerPrompt.mockImplementation(() => {
           throw testError;
         });
 
         await service['registerPrompts'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
@@ -667,7 +823,7 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
@@ -675,8 +831,9 @@ describe('RegistryService', () => {
           expect.stringContaining('test-tool'),
           'tools',
         );
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'test-tool',
+          {},
           expect.any(Function),
         );
       });
@@ -697,13 +854,13 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'test-tool-with-description',
-          'A test tool',
+          { description: 'A test tool' },
           expect.any(Function),
         );
       });
@@ -724,13 +881,13 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'test-tool-with-params',
-          { param1: 'schema' },
+          { inputSchema: { param1: 'schema' } },
           expect.any(Function),
         );
       });
@@ -751,13 +908,13 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'test-tool-with-annotations',
-          { destructiveHint: true },
+          { annotations: { destructiveHint: true } },
           expect.any(Function),
         );
       });
@@ -779,14 +936,13 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'test-tool-with-params-and-description',
-          'A test tool',
-          { param1: 'schema' },
+          { description: 'A test tool', inputSchema: { param1: 'schema' } },
           expect.any(Function),
         );
       });
@@ -808,14 +964,16 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'test-tool-with-annotations-and-description',
-          'A test tool',
-          { destructiveHint: true },
+          {
+            description: 'A test tool',
+            annotations: { destructiveHint: true },
+          },
           expect.any(Function),
         );
       });
@@ -837,14 +995,16 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'test-tool-with-params-and-annotations',
-          { param1: 'schema' },
-          { destructiveHint: true },
+          {
+            inputSchema: { param1: 'schema' },
+            annotations: { destructiveHint: true },
+          },
           expect.any(Function),
         );
       });
@@ -867,15 +1027,17 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'test-tool-with-params-annotations-description',
-          'A test tool',
-          { param1: 'schema' },
-          { destructiveHint: true },
+          {
+            description: 'A test tool',
+            inputSchema: { param1: 'schema' },
+            annotations: { destructiveHint: true },
+          },
           expect.any(Function),
         );
       });
@@ -894,13 +1056,13 @@ describe('RegistryService', () => {
         // Make the tool registration throw an error
         const testError = new Error('Test error');
         testError.stack = 'Test stack trace';
-        mockServer.tool.mockImplementation(() => {
+        mockServer.registerTool.mockImplementation(() => {
           throw testError;
         });
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
@@ -951,14 +1113,13 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'string-tool',
-          'Tool with string schema',
-          schema,
+          { description: 'Tool with string schema', inputSchema: schema },
           expect.any(Function),
         );
       });
@@ -988,14 +1149,13 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'complex-tool',
-          'Tool with complex schema',
-          schema,
+          { description: 'Tool with complex schema', inputSchema: schema },
           expect.any(Function),
         );
       });
@@ -1023,14 +1183,13 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'enum-tool',
-          'Tool with enum schema',
-          schema,
+          { description: 'Tool with enum schema', inputSchema: schema },
           expect.any(Function),
         );
       });
@@ -1065,14 +1224,13 @@ describe('RegistryService', () => {
 
         await service['registerTools'](
           mockServer as unknown as McpServer,
-          undefined,
+          requestContext(),
           [],
         );
 
-        expect(mockServer.tool).toHaveBeenCalledWith(
+        expect(mockServer.registerTool).toHaveBeenCalledWith(
           'nested-tool',
-          'Tool with nested schema',
-          schema,
+          { description: 'Tool with nested schema', inputSchema: schema },
           expect.any(Function),
         );
       });
@@ -1081,8 +1239,35 @@ describe('RegistryService', () => {
 
   describe('guard dependency injection', () => {
     /**
+     * A stand-in for the injected collaborator a real guard would use. Before
+     * 2.0 these tests injected `SessionManager`, which no longer exists; the
+     * regression they protect is unrelated to it and still matters — see
+     * below.
+     */
+    class TokenStore {
+      isRevoked(_token: string): boolean {
+        return false;
+      }
+    }
+
+    const buildRegistry = (mockModuleRef: {
+      get: jest.Mock;
+      create: jest.Mock;
+    }) =>
+      new RegistryService(
+        { getAllMethodsWithMetadata: jest.fn() } as unknown as DiscoveryService,
+        {
+          log: jest.fn(),
+          error: jest.fn(),
+          debug: jest.fn(),
+        } as unknown as McpLoggerService,
+        new Reflector(),
+        mockModuleRef as unknown as ModuleRef,
+      );
+
+    /**
      * This test verifies that guards can receive dependencies via NestJS DI.
-     * Issue #70: SessionManager injection in guards was not working because
+     * Issue #70: dependency injection into guards was not working because
      * guards were instantiated with `new Guard()` instead of using ModuleRef.
      */
     it('should use ModuleRef.get to resolve guards from DI container', async () => {
@@ -1093,15 +1278,6 @@ describe('RegistryService', () => {
         }
       }
 
-      const mockSessionManager = new SessionManager();
-      const mockDiscoveryService = { getAllMethodsWithMetadata: jest.fn() };
-      const mockLoggerService = {
-        log: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-      };
-      const mockReflector = new Reflector();
-
       // Pre-instantiated guard (simulating what DI would return)
       const resolvedGuardInstance = new TestGuard();
 
@@ -1111,16 +1287,7 @@ describe('RegistryService', () => {
         create: jest.fn(),
       };
 
-      const registryService = new RegistryService(
-        mockDiscoveryService as unknown as DiscoveryService,
-        mockLoggerService as unknown as McpLoggerService,
-        mockReflector,
-        mockSessionManager,
-        mockModuleRef as unknown as ModuleRef,
-      );
-
-      const sessionId = 'test-session';
-      const mockRequest = { headers: {}, body: {} } as unknown as Request;
+      const registryService = buildRegistry(mockModuleRef);
 
       // Create resolver with guard attached
       class TestResolver {
@@ -1136,19 +1303,16 @@ describe('RegistryService', () => {
       Reflect.defineMetadata(MCP_GUARDS, [TestGuard], TestResolver);
 
       // Mock getHandlerArgs to avoid Reflector dependency
-      jest.spyOn(registryService as any, 'getHandlerArgs').mockReturnValue({
-        sessionId,
-        headers: {},
-        body: {},
-      });
+      jest
+        .spyOn(registryService as any, 'getHandlerArgs')
+        .mockReturnValue({ type: 'tool' });
 
       // Run guards
       await registryService['runGuards'](
         resolverInstance,
         'testMethod',
-        sessionId,
-        mockRequest,
-        [{ sessionId }],
+        sdkContext() as McpContext,
+        [sdkContext()],
       );
 
       // Verify ModuleRef.get was called with the guard class
@@ -1157,36 +1321,27 @@ describe('RegistryService', () => {
       });
     });
 
-    it('should inject SessionManager into guards when registered as providers', async () => {
-      // Guard that verifies SessionManager was injected
-      class SessionAwareGuard implements CanActivate {
-        public sessionManagerInjected = false;
+    it('should inject collaborators into guards when registered as providers', async () => {
+      // Guard that verifies its dependency was injected
+      class TokenGuard implements CanActivate {
+        public dependencyInjected = false;
 
-        constructor(private sessionManager: SessionManager) {
-          this.sessionManagerInjected = sessionManager !== undefined;
+        constructor(private tokens: TokenStore) {
+          this.dependencyInjected = tokens !== undefined;
         }
 
         canActivate(_context: any): boolean {
-          if (!this.sessionManager) {
-            throw new Error('SessionManager was not injected!');
+          if (!this.tokens) {
+            throw new Error('TokenStore was not injected!');
           }
           // Just verify injection worked, always allow
           return true;
         }
       }
 
-      const mockSessionManager = new SessionManager();
-      const mockDiscoveryService = { getAllMethodsWithMetadata: jest.fn() };
-      const mockLoggerService = {
-        log: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-      };
-      const mockReflector = new Reflector();
-
-      // Pre-instantiated guard WITH SessionManager injected
-      const injectedGuard = new SessionAwareGuard(mockSessionManager);
-      expect(injectedGuard.sessionManagerInjected).toBe(true);
+      // Pre-instantiated guard WITH its dependency injected
+      const injectedGuard = new TokenGuard(new TokenStore());
+      expect(injectedGuard.dependencyInjected).toBe(true);
 
       // ModuleRef returns the pre-injected guard
       const mockModuleRef = {
@@ -1194,16 +1349,7 @@ describe('RegistryService', () => {
         create: jest.fn(),
       };
 
-      const registryService = new RegistryService(
-        mockDiscoveryService as unknown as DiscoveryService,
-        mockLoggerService as unknown as McpLoggerService,
-        mockReflector,
-        mockSessionManager,
-        mockModuleRef as unknown as ModuleRef,
-      );
-
-      const sessionId = 'test-session';
-      const mockRequest = { headers: {}, body: {} } as unknown as Request;
+      const registryService = buildRegistry(mockModuleRef);
 
       class TestResolver {
         testMethod(): string {
@@ -1213,22 +1359,19 @@ describe('RegistryService', () => {
 
       const resolverInstance = new TestResolver();
       Reflect.defineMetadata(MCP_RESOLVER, { name: 'test' }, TestResolver);
-      Reflect.defineMetadata(MCP_GUARDS, [SessionAwareGuard], TestResolver);
+      Reflect.defineMetadata(MCP_GUARDS, [TokenGuard], TestResolver);
 
-      jest.spyOn(registryService as any, 'getHandlerArgs').mockReturnValue({
-        sessionId,
-        headers: {},
-        body: {},
-      });
+      jest
+        .spyOn(registryService as any, 'getHandlerArgs')
+        .mockReturnValue({ type: 'tool' });
 
-      // Should NOT throw - the guard should have SessionManager injected
+      // Should NOT throw - the guard should have its dependency injected
       await expect(
         registryService['runGuards'](
           resolverInstance,
           'testMethod',
-          sessionId,
-          mockRequest,
-          [{ sessionId }],
+          sdkContext() as McpContext,
+          [sdkContext()],
         ),
       ).resolves.toBeUndefined();
 
@@ -1242,16 +1385,6 @@ describe('RegistryService', () => {
         }
       }
 
-      const mockSessionManager = new SessionManager();
-      const mockDiscoveryService = {
-        getAllMethodsWithMetadata: jest.fn(),
-      };
-      const mockLoggerService = {
-        log: jest.fn(),
-        error: jest.fn(),
-        debug: jest.fn(),
-      };
-      const mockReflector = new Reflector();
       const mockModuleRef = {
         get: jest.fn().mockImplementation(() => {
           throw new Error('Not found in DI');
@@ -1260,23 +1393,7 @@ describe('RegistryService', () => {
           throw new Error('Cannot create');
         }),
       };
-      const registryService = new RegistryService(
-        mockDiscoveryService as unknown as DiscoveryService,
-        mockLoggerService as unknown as McpLoggerService,
-        mockReflector,
-        mockSessionManager,
-        mockModuleRef as unknown as ModuleRef,
-      );
-
-      const sessionId = 'test-session-simple-guard';
-      const mockRequest = { headers: {}, body: {} } as unknown as Request;
-      type SessionTransport2 = Parameters<
-        typeof mockSessionManager.setSession
-      >[1]['transport'];
-      mockSessionManager.setSession(sessionId, {
-        transport: {} as unknown as SessionTransport2,
-        request: mockRequest,
-      });
+      const registryService = buildRegistry(mockModuleRef);
 
       class TestResolver {
         testMethod(this: void): string {
@@ -1292,24 +1409,19 @@ describe('RegistryService', () => {
       Reflect.defineMetadata(MCP_TOOL, { name: 'test_tool' }, testMethodRef);
 
       // Mock getHandlerArgs to return valid handler args
-      jest.spyOn(registryService as any, 'getHandlerArgs').mockReturnValue({
-        sessionId,
-        headers: {},
-        body: {},
-      });
+      jest
+        .spyOn(registryService as any, 'getHandlerArgs')
+        .mockReturnValue({ type: 'tool' });
 
       // Should work via fallback to direct instantiation
       await expect(
         registryService['runGuards'](
           resolverInstance,
           'testMethod',
-          sessionId,
-          mockRequest,
-          [{ sessionId }],
+          sdkContext() as McpContext,
+          [sdkContext()],
         ),
       ).resolves.toBeUndefined();
-
-      mockSessionManager.deleteSession(sessionId);
     });
   });
 
@@ -1317,7 +1429,6 @@ describe('RegistryService', () => {
     let mockDiscovery: { getAllMethodsWithMetadata: jest.Mock };
     let mockLogger: { log: jest.Mock; error: jest.Mock; debug: jest.Mock };
     let mockReflector: Reflector;
-    let mockSession: SessionManager;
     let mockModuleRef: { get: jest.Mock; create: jest.Mock };
     let registryService: RegistryService;
 
@@ -1325,7 +1436,6 @@ describe('RegistryService', () => {
       mockDiscovery = { getAllMethodsWithMetadata: jest.fn() };
       mockLogger = { log: jest.fn(), error: jest.fn(), debug: jest.fn() };
       mockReflector = new Reflector();
-      mockSession = new SessionManager();
       mockModuleRef = {
         get: jest.fn().mockImplementation(() => {
           throw new Error('Not found');
@@ -1339,7 +1449,6 @@ describe('RegistryService', () => {
         mockDiscovery as unknown as DiscoveryService,
         mockLogger as unknown as McpLoggerService,
         mockReflector,
-        mockSession,
         mockModuleRef as unknown as ModuleRef,
       );
     });
@@ -1599,7 +1708,6 @@ describe('RegistryService', () => {
         discovery as unknown as DiscoveryService,
         logger as unknown as McpLoggerService,
         new Reflector(),
-        new SessionManager(),
         moduleRef as unknown as ModuleRef,
       );
 
@@ -1610,7 +1718,11 @@ describe('RegistryService', () => {
       const tool = jest.fn();
       const prompt = jest.fn();
       const resource = jest.fn();
-      const server = { resource, prompt, tool };
+      const server = {
+        registerResource: resource,
+        registerPrompt: prompt,
+        registerTool: tool,
+      };
 
       return {
         service,
@@ -1723,7 +1835,7 @@ describe('RegistryService', () => {
       expect(handle.disable).toHaveBeenCalledTimes(1);
     });
 
-    it('resolves each distinct gate class exactly once per connection', async () => {
+    it('asks each distinct gate class exactly once per request', async () => {
       const isEnabled = jest.fn().mockResolvedValue(true);
       class SharedGate implements McpCapabilityGate {
         isEnabled(): Promise<boolean> {
@@ -1745,8 +1857,15 @@ describe('RegistryService', () => {
 
       await harness.service.registerAll(harness.server, context);
 
+      // Before 2.0 this was one container resolution but N `isEnabled` calls,
+      // which was affordable when gates ran once per connection. They now run
+      // once per HTTP request, so the verdict is memoised per gate class for
+      // the life of the call: three tools sharing a gate ask it once between
+      // them. Safe because the registration context is a single object for
+      // the whole call — and deliberately never cached beyond it, since a
+      // verdict reused across requests would defeat the point.
       expect(harness.moduleRef.get).toHaveBeenCalledTimes(1);
-      expect(isEnabled).toHaveBeenCalledTimes(3);
+      expect(isEnabled).toHaveBeenCalledTimes(1);
     });
 
     it('evaluates gates in one concurrent wave, not N serial round-trips', async () => {
@@ -1768,15 +1887,26 @@ describe('RegistryService', () => {
         }
       }
 
+      // Three *distinct* classes, not three capabilities sharing one: the
+      // per-request verdict memo would collapse a shared gate to a single
+      // call, and this test is about the wave being concurrent across gates.
+      class BarrierGateA extends BarrierGate {}
+      class BarrierGateB extends BarrierGate {}
+      class BarrierGateC extends BarrierGate {}
+
       const harness = buildHarness(
         {
           tools: [
-            discovered({ name: 'tool_a', enabled: BarrierGate }),
-            discovered({ name: 'tool_b', enabled: BarrierGate }),
-            discovered({ name: 'tool_c', enabled: BarrierGate }),
+            discovered({ name: 'tool_a', enabled: BarrierGateA }),
+            discovered({ name: 'tool_b', enabled: BarrierGateB }),
+            discovered({ name: 'tool_c', enabled: BarrierGateC }),
           ],
         },
-        [[BarrierGate, new BarrierGate()]],
+        [
+          [BarrierGateA, new BarrierGateA()],
+          [BarrierGateB, new BarrierGateB()],
+          [BarrierGateC, new BarrierGateC()],
+        ],
       );
       harness.tool.mockReturnValue(createHandle());
 
@@ -1911,32 +2041,11 @@ describe('RegistryService', () => {
         );
       });
 
-      it('case 4: a gate declared with no registration context disables it', async () => {
-        class AnyGate implements McpCapabilityGate {
-          isEnabled(): boolean {
-            return true;
-          }
-        }
-
-        const handle = createHandle();
-        const harness = buildHarness(
-          {
-            tools: [discovered({ name: 'contextless_tool', enabled: AnyGate })],
-          },
-          [[AnyGate, new AnyGate()]],
-        );
-        harness.tool.mockReturnValue(handle);
-
-        await harness.service.registerAll(harness.server);
-
-        expect(handle.disable).toHaveBeenCalledTimes(1);
-        expect(harness.moduleRef.get).not.toHaveBeenCalled();
-        expect(harness.logger.error).toHaveBeenCalledWith(
-          expect.stringContaining('contextless_tool'),
-          undefined,
-          'tools',
-        );
-      });
+      // The former "case 4" covered a gate declared when `registerAll` was
+      // called without a registration context. That branch is gone in 2.0:
+      // the context is a required parameter, because the stateless model
+      // always has exactly one request in hand when the server is built. The
+      // scenario is now a compile error rather than a runtime fail-closed.
 
       it('case 5: a failing disable() leaves the capability enabled and says so', async () => {
         const handle = createHandle();
@@ -1997,6 +2106,7 @@ describe('RegistryService', () => {
         // "Tool off_tool disabled", not "Tool off_tool not found".
         expect(harness.tool).toHaveBeenCalledWith(
           'off_tool',
+          {},
           expect.any(Function),
         );
         expect(handle.disable).toHaveBeenCalledTimes(1);
@@ -2144,7 +2254,7 @@ describe('RegistryService', () => {
         [
           'a URI resource without metadata',
           { uri: 'https://example.com' },
-          ['off_resource', 'https://example.com'],
+          ['off_resource', 'https://example.com', {}],
         ],
         [
           'a URI resource with metadata',
@@ -2154,7 +2264,7 @@ describe('RegistryService', () => {
         [
           'a template resource without metadata',
           { template: 'resource://test/{id}' },
-          ['off_resource', expect.any(ResourceTemplate)],
+          ['off_resource', expect.any(ResourceTemplate), {}],
         ],
         [
           'a template resource with metadata',
