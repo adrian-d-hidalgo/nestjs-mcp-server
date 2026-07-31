@@ -32,7 +32,7 @@ MAJOR.MINOR.PATCH[-PRERELEASE]
 - **MAJOR**: Incompatible API changes
 - **MINOR**: Backwards-compatible functionality
 - **PATCH**: Backwards-compatible bug fixes
-- **PRERELEASE**: Optional, for alpha/beta/rc versions
+- **PRERELEASE**: Optional, for pre-release versions (`-next.N`)
 
 ## Version Bump Rules
 
@@ -60,18 +60,20 @@ Result: 0.4.0 → 0.5.0 (MINOR wins)
 
 ## Pre-release Identifiers
 
-Pre-release versions are denoted by a hyphen and a label after the patch number:
+Pre-release versions are denoted by a hyphen and a label after the patch number. This project
+uses a single pre-release identifier, `next`:
 
-- `-alpha.N`: Early preview, unstable, not feature-complete
-- `-beta.N`: Feature-complete, but may contain known issues
-- `-rc.N`: Release candidate, stable unless critical bugs are found
+- `-next.N`: Preview of the upcoming version. `N` increments on every push to the `next` branch.
 
 **Examples:**
 
-- `1.2.0-alpha.1`
-- `1.2.0-beta.2`
-- `1.2.0-rc.1`
+- `1.2.0-next.1`
+- `1.2.0-next.2`
 - `1.2.0` (final release)
+
+> The identifier is derived from the **branch name**, not chosen per release. `next` is a branch
+> declared in `.releaserc.js`; the version suffix and the npm dist-tag are both generated from it.
+> Adding a second identifier would mean adding a second branch.
 
 ## Release Flow
 
@@ -93,17 +95,20 @@ Pre-release versions are denoted by a hyphen and a label after the patch number:
 
 For early testing before a stable release:
 
-1. **Create branch**: `git checkout -b beta` (or `alpha`, `rc`)
-2. **Push**: `git push origin beta`
+1. **Create branch**: `git checkout -b next` from an up-to-date `main`
+2. **Push**: `git push origin next`
 3. **Automatic publish**: Each push triggers a pre-release
-   - First push: `0.5.0-beta.1`
-   - Second push: `0.5.0-beta.2`
+   - First push: `0.5.0-next.1`
+   - Second push: `0.5.0-next.2`
    - etc.
-4. **Promote to stable**: Merge to `main` and trigger release workflow
+4. **Promote to stable**: open a PR from `next` to `main`, merge it with a merge commit (not a
+   squash), then trigger the Release workflow
+5. **Clean up**: delete `next`; recreate it from `main` when the next pre-release is needed
 
-**Typical progression:**
+**Typical progression** — `next` and `main` below are *branches*; the versions in parentheses are
+what each publishes:
 ```
-main → alpha (0.5.0-alpha.1, alpha.2) → beta (0.5.0-beta.1) → rc (0.5.0-rc.1) → main (0.5.0)
+main (0.4.0) → next branch (0.5.0-next.1, 0.5.0-next.2, …) → main (0.5.0)
 ```
 
 ## Automation with semantic-release
@@ -129,16 +134,19 @@ npm tags are assigned automatically based on the release type:
 | Branch | npm Tag | Example Installation |
 |--------|---------|---------------------|
 | `main` | `latest` | `npm install @nestjs-mcp/server` |
-| `alpha` | `alpha` | `npm install @nestjs-mcp/server@alpha` |
-| `beta` | `beta` | `npm install @nestjs-mcp/server@beta` |
-| `rc` | `rc` | `npm install @nestjs-mcp/server@rc` |
+| `next` | `next` | `npm install @nestjs-mcp/server@next` |
+
+The npm tag always matches the branch name — `@semantic-release/npm` derives it from the branch's
+channel, so there is no way to publish a given branch under a different tag without renaming the
+branch in `.releaserc.js`.
 
 ## Best Practices
 
 1. **Use conventional commits**: Version bumps depend on commit message format
 2. **Breaking changes**: Always use `feat!:` or include `BREAKING CHANGE:` in footer
 3. **Test before release**: Run `--dry-run` option in the release workflow to preview
-4. **Pre-release for risky changes**: Use alpha/beta branches for significant changes
+4. **Pre-release for risky changes**: Ship significant or breaking changes through the `next`
+   branch first, so consumers can install them from `@next` before they reach `@latest`
 5. **Document breaking changes**: The CHANGELOG will include them automatically
 
 ---

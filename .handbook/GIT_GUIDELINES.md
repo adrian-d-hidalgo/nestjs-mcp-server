@@ -29,14 +29,12 @@ This document outlines our Git workflow, branch naming conventions, and commit m
 
 We follow a trunk-based development workflow with the following branches:
 
-| Branch Type   | Created From | PR Target | Purpose                              |
-| ------------- | ------------ | --------- | ------------------------------------ |
-| `main`        | -            | -         | Stable production code               |
-| `feature/*`   | `main`       | `main`    | New features and enhancements        |
-| `bugfix/*`    | `main`       | `main`    | Bug fixes                            |
-| `alpha`       | `main`       | `main`    | Early preview pre-releases (optional)|
-| `beta`        | `main`       | `main`    | Feature-complete pre-releases (optional)|
-| `rc`          | `main`       | `main`    | Release candidates (optional)        |
+| Branch Type   | Created From | PR Target | Purpose                                        |
+| ------------- | ------------ | --------- | ---------------------------------------------- |
+| `main`        | -            | -         | Stable production code, published to `@latest` |
+| `feature/*`   | `main`       | `main`    | New features and enhancements                  |
+| `bugfix/*`    | `main`       | `main`    | Bug fixes                                      |
+| `next`        | `main`       | `main`    | Pre-releases, published to `@next` (optional)  |
 
 ## Workflow Diagram
 
@@ -52,26 +50,24 @@ gitGraph
    checkout main
    merge bugfix/issue-2
    commit id: "Release v1.0.0" tag: "v1.0.0"
-   branch beta
+   branch next
    commit id: "feat: new feature"
-   commit id: "v1.1.0-beta.1" tag: "v1.1.0-beta.1"
+   commit id: "v1.1.0-next.1" tag: "v1.1.0-next.1"
    checkout main
-   merge beta tag: "v1.1.0"
+   merge next tag: "v1.1.0"
 ```
 
 **Key points:**
 - All development branches are created from `main`
 - All branches create PRs to `main`
-- Releases are triggered manually via GitHub Actions workflow dispatch
-- Pre-release branches (`alpha`, `beta`, `rc`) are optional and temporary
+- Stable releases are triggered manually via GitHub Actions workflow dispatch
+- The `next` branch is optional; it exists only when a pre-release is in flight
 
 ## Branch Naming Conventions
 
 - `feature/issue-{id}-{short-description}`: For new features
 - `bugfix/issue-{id}-{short-description}`: For bug fixes
-- `alpha`: For early preview pre-releases
-- `beta`: For feature-complete pre-releases
-- `rc`: For release candidates
+- `next`: The pre-release branch (exact name — it is declared in `.releaserc.js`)
 
 Examples:
 
@@ -160,7 +156,7 @@ If conflicts arise when merging:
 
 - Only `main` branch accepts pull requests
 - The `main` branch **must be protected** against direct push and force push. Only merges via pull request are allowed.
-- All other branches (e.g., `feature/*`, `bugfix/*`, `alpha`, `beta`, `rc`) can receive updates via direct push.
+- All other branches (e.g., `feature/*`, `bugfix/*`, `next`) can receive updates via direct push.
 - The `github-actions[bot]` must be allowed to push to `main` for semantic-release to update package.json and CHANGELOG.
 
 ## Revert and Rebase Policy
@@ -177,7 +173,16 @@ All releases are automated via **semantic-release**:
 - npm publishing is handled automatically
 - GitHub Releases are created automatically
 
-To trigger a release, go to **GitHub Actions → Release → Run workflow**.
+There are exactly two ways a release runs:
+
+| Trigger | Branch | Result |
+| ------- | ------ | ------ |
+| **GitHub Actions → Release → Run workflow** (manual) | `main` | Stable version on `@latest` |
+| Any push (automatic) | `next` | Pre-release on `@next` |
+
+Stable releases are deliberately manual so that several merged PRs can be batched into one
+version. The manual run accepts a `dry_run` input that reports the version it *would* publish
+without publishing anything — use it before any major.
 
 ## Release Process
 
@@ -196,44 +201,69 @@ To trigger a release, go to **GitHub Actions → Release → Run workflow**.
 
 ### Pre-releases
 
-For early testing before a stable release:
+Use a pre-release when consumers should be able to install and test a change — typically a
+breaking major — before it reaches `@latest`.
 
-1. Create a pre-release branch from `main`:
+> **The pre-release channel is a branch, not a tag.** `next` is a **branch name**, declared
+> under `branches` in `.releaserc.js`. The git tag (`v2.0.0-next.1`) and the npm dist-tag
+> (`@next`) are **outputs** semantic-release creates when it runs on that branch. You never
+> create them by hand: pushing a tag yourself publishes nothing, because the Release workflow
+> triggers on branches, not tags. One branch maps to exactly one dist-tag — that binding is
+> why the channel is expressed as a branch in the first place.
+
+1. Create the pre-release branch from `main`:
+
    ```bash
-   git checkout main
-   git checkout -b beta  # or alpha, or rc
-   git push origin beta
+   git checkout main && git pull
+   git checkout -b next
+   git push origin next
    ```
 
-2. Push commits to the pre-release branch:
-   - Each push automatically publishes a pre-release
-   - Example: `0.5.0-beta.1`, `0.5.0-beta.2`, etc.
+   From this moment `main` is frozen — see [Version Freeze](#version-freeze). Anything merged to
+   `main` before step 4 ends up in the stable release without ever having been previewed.
 
-3. Typical progression:
-   ```
-   main → alpha (0.5.0-alpha.1) → beta (0.5.0-beta.1) → rc (0.5.0-rc.1) → main (0.5.0)
-   ```
+2. Push commits to `next`. Every push triggers the Release workflow automatically
+   (`on.push.branches` in `.github/workflows/release.yml`), and semantic-release then:
+   - tags the commit `v2.0.0-next.1`
+   - publishes it to npm under the `@next` dist-tag, installable with
+     `npm install @nestjs-mcp/server@next`
+   - produces `v2.0.0-next.2` on the next push, and so on
 
-4. When ready, merge the pre-release branch to `main` and trigger a release:
-   ```bash
-   git checkout main
-   git merge beta
-   git push origin main
-   # Go to GitHub Actions → Release → Run workflow
-   ```
+3. Promote to stable by opening a **pull request from `next` to `main`**. `main` is protected,
+   so a direct push is rejected — see
+   [Branch Protection and Pull Request Rules](#branch-protection-and-pull-request-rules).
+   Merge it with a **merge commit, not a squash**, so the original `feat:` / `fix:` subjects
+   reach `main` intact; a squash collapses them into one subject that must then carry the
+   version-bump marker itself.
 
-5. Delete the pre-release branch after the stable release.
+4. Cut the stable version: **GitHub Actions → Release → Run workflow** on `main`.
+
+5. Delete `next`. It is recreated from `main` the next time a pre-release is needed. Leaving it
+   configured in `.releaserc.js` while the branch does not exist is harmless — semantic-release
+   only requires that the branch it is *currently running on* be configured.
 
 ### Version Freeze
 
-When you need to isolate a release while development continues:
+**While a pre-release is in flight, `main` is frozen.** The stable release is computed from
+everything on `main`, so anything merged during the cycle ships in that release whether or not it
+was ever previewed. Freezing is what makes the preview representative of what gets published.
 
-1. Create an `rc` branch from `main`
-2. Continue development on `main` for the next version
-3. Only merge stabilization fixes to `rc`
-4. Each push to `rc` publishes a release candidate
-5. When stable, merge `rc` to `main` and trigger final release
-6. Delete the `rc` branch
+1. Cut `next` from `main`. Whatever is on `main` at that moment is what the release will contain.
+2. **Stop merging to `main`.** Pull requests can still be opened, reviewed and approved — they
+   simply wait. This is the entire mechanism; no CI check enforces it.
+3. Send stabilization fixes to `next`, never to `main`. Each push publishes a new `@next`
+   pre-release, so the fixes get previewed too.
+4. Promote: PR from `next` to `main`, merged with a merge commit. This is what brings the fixes
+   back to `main`.
+5. Cut the stable version: **GitHub Actions → Release → Run workflow** on `main`.
+6. Delete `next`. The freeze is over — merge whatever was waiting.
+
+The window runs from step 1 to step 5; keeping it short is what makes the freeze cheap.
+
+If the freeze is broken, the release silently includes unpreviewed code. `dry_run` will not catch
+it — it reports the version that would be published, not where each commit came from. Should
+freezing ever become too costly, the alternative is a dedicated release branch so that `main` can
+keep moving; that is a larger restructuring than this document describes.
 
 ## SemVer Versioning
 
@@ -246,9 +276,8 @@ We follow Semantic Versioning (SemVer) for our releases:
 
 Pre-release versions:
 
-- `-alpha.N`: Early preview, unstable
-- `-beta.N`: Feature-complete, may have bugs
-- `-rc.N`: Release candidate, stable unless critical bugs found
+- `-next.N`: Preview of the upcoming version, published from the `next` branch to the `@next`
+  npm dist-tag. `N` increments on every push to that branch.
 
 Examples:
 
@@ -256,4 +285,4 @@ Examples:
 - `1.1.0`: New feature added
 - `1.1.1`: Bug fix
 - `2.0.0`: Breaking changes
-- `2.0.0-beta.1`: Beta pre-release for 2.0.0
+- `2.0.0-next.1`: Pre-release preview of 2.0.0

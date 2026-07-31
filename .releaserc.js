@@ -4,10 +4,11 @@
  */
 module.exports = {
   branches: [
+    // Stable channel: released manually via the Release workflow -> npm `latest`.
     'main',
-    { name: 'alpha', prerelease: true },
-    { name: 'beta', prerelease: true },
-    { name: 'rc', prerelease: true },
+    // Pre-release channel: every push publishes X.Y.Z-next.N -> npm `next`.
+    // The channel name is derived from the branch name, so one branch == one dist-tag.
+    { name: 'next', prerelease: true },
   ],
   plugins: [
     [

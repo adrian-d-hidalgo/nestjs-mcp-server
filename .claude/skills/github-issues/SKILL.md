@@ -118,7 +118,7 @@ propose creating it to the user and wait, or leave it off.
 | `priority: high` | See Priority | manually |
 | `priority: medium` | See Priority | manually |
 | `priority: low` | See Priority | manually |
-| `released on @rc` | Shipped in a pre-release | semantic-release automation — **never set by hand** |
+| `released on @next` | Shipped in a pre-release | semantic-release automation — **never set by hand** |
 | `high-priority` | **Legacy.** Superseded by `priority: high`. | — do not apply to new issues |
 
 **Rules:**
@@ -127,7 +127,9 @@ propose creating it to the user and wait, or leave it off.
 - `triage` means "a maintainer has not assessed this yet". When *you* author the issue after a
   diagnosis or a specification, it is already assessed — **omit `triage`** and state why in the
   proposal. When you file an inbound report on someone's behalf, keep it.
-- Never set `released on @rc`. It belongs to the release automation (`.releaserc.js`).
+- Never set `released on @next`. It belongs to the release automation (`.releaserc.js`), which
+  derives the label name from the pre-release channel. A legacy `released on @rc` label still
+  exists from the retired three-channel model; do not apply it either.
 - **This table is not exhaustive** — it lists what has been observed, and the repository has more
   labels than any single query returns. Before applying a label that is not here, confirm it with
   `get_label`; before concluding a label does *not* exist, confirm that too. `priority: low` was
@@ -584,7 +586,7 @@ is:open label:triage
 - [ ] Body follows the mode's template, with the form's section headers, in the form's order.
 - [ ] Reporter-only fields dropped, not answered with invented values (ReporterOnlyFields).
 - [ ] Every `file:line` came from a `codegraph_*` or `Read` call run **this session**.
-- [ ] Labels: exactly one type label; every label confirmed to exist; no `released on @rc`; no invented `debt`/`priority: low`.
+- [ ] Labels: exactly one type label; every label confirmed to exist; no `released on @next`; no invented `debt`/`priority: low`.
 - [ ] Duplicate check ran, open **and** closed, with no unaddressed match.
 - [ ] The full title + body + label list was shown to the user and they authorized **this** batch.
 </PreCreateChecklist>
@@ -680,7 +682,7 @@ forever. A debt item without a checkable condition is the status quo.
   <Pitfall>Updating an issue body at all. Nothing in this pipeline does; if you are reaching for it, re-read what stage you are in.</Pitfall>
   <Pitfall>Running `/security-review` from `/specification`. There is no diff yet; it reviews unrelated uncommitted work and reports irrelevant findings (ConsultAxes → SecurityAxisByStage).</Pitfall>
   <Pitfall>Inventing a label. `debt`, `priority: low`, `wontfix`, `good first issue` — confirm with `get_label` or leave it off; creating one is a repository mutation.</Pitfall>
-  <Pitfall>Setting `released on @rc` by hand — it belongs to semantic-release.</Pitfall>
+  <Pitfall>Setting `released on @next` by hand — it belongs to semantic-release.</Pitfall>
   <Pitfall>Answering reporter-only form fields (Prerequisites, Code of Conduct, Package Version) with invented values on a maintainer-authored issue.</Pitfall>
   <Pitfall>Putting a time estimate in `Estimated Effort` — `CLAUDE.md` prohibits estimates outright. State scope.</Pitfall>
   <Pitfall>Creating an issue without diagnosis ("investigate X" / "TBD"). Diagnose first.</Pitfall>
