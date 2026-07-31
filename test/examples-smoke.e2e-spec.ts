@@ -1,7 +1,7 @@
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Server } from 'http';
-import { AddressInfo } from 'net';
+import type { Server } from 'http';
+import type { AddressInfo } from 'net';
 
 /**
  * Every example boots and serves.

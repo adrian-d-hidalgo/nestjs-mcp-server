@@ -2,8 +2,8 @@ import { Client } from '@modelcontextprotocol/client';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/client';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
-import { Server } from 'http';
-import { AddressInfo } from 'net';
+import type { Server } from 'http';
+import type { AddressInfo } from 'net';
 
 import { AppModule } from '../examples/tools/app.module';
 
