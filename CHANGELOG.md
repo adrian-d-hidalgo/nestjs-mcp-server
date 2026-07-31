@@ -1,3 +1,23 @@
+# [2.0.0-next.1](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v1.0.1...v2.0.0-next.1) (2026-07-31)
+
+
+* feat!: add dynamic capabilities resolved per connection ([#122](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/122)) ([01313f8](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/01313f8947bc987f41f281ba5d10603b114f337d)), closes [#30](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/30)
+* feat!: serve MCP statelessly on spec 2026-07-28 ([#123](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/123)) ([6195c75](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/6195c75e1c6fbfb57d94d73715fb45e6d1ddcaba)), closes [#121](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/121)
+
+
+### BREAKING CHANGES
+
+* sessions are gone; SessionManager and HTTP+SSE are removed.
+
+- RequestHandlerExtra -> McpContext
+- McpExecutionContext.getSessionId() removed; read getRequest() instead
+- paramsSchema/argsSchema take a Standard Schema, not a raw Zod shape
+- transports and session module options -> transport
+- GET /sse and POST /messages are gone; GET and DELETE /mcp answer 405
+- ctx.headers is now this call's headers, not the initialize POST's
+* RegistryService.registerAll now returns Promise<void> and must be awaited.
+Callers that ignore it continue while registration is still in flight.
+
 ## [1.0.1](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v1.0.0...v1.0.1) (2026-06-05)
 
 # [1.0.0](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v0.4.0...v1.0.0) (2026-02-17)
