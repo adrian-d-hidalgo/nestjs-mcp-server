@@ -7,7 +7,7 @@
 - **No autonomous git or destructive ops.** Never run `git commit`, `git push`, `git reset --hard`, `git rebase`, or publish without the user typing the exact command. "Finish the task" is not authorization.
 - **No time estimates.** Describe scope instead ("touches 3 resolvers", "requires an SDK type change").
 - **Honesty about coverage.** Any claim without evidence is labeled `[Unverified]` or `[Inference]`. Compiling is not executing; types verify code, not behavior. A fix grounded in `[Inference]` is not done — get the evidence or say you couldn't and stop.
-- **Always check SDK types before defining new ones.** This library wraps `@modelcontextprotocol/sdk`. Reuse SDK types (`CallToolResult`, `RequestHandlerExtra`, etc.) from `@modelcontextprotocol/sdk/types`.
+- **Always check SDK types before defining new ones.** This library wraps the MCP SDK v2 packages. Reuse SDK types (`CallToolResult`, `ServerContext`, `ToolAnnotations`, etc.) from `@modelcontextprotocol/server` — re-export, never redeclare.
 - **If in doubt, ask.** A short question costs 30 seconds; a wrong-direction change costs an hour.
 
 ## Commands
@@ -28,16 +28,16 @@
 ## Core patterns (no-lintable)
 
 1. **Resolver classes must use `@Resolver()` decorator**, NOT `@Injectable()`.
-2. **Handler signature**: `(params?, extra: RequestHandlerExtra) => Result`.
+2. **Handler signature**: `(params?, ctx: McpContext) => Result`. `McpContext` extends the SDK's `ServerContext` with the live Express `request` and its `headers`.
 3. **Guard scopes**:
    - Global (`APP_GUARD`): standard NestJS `ExecutionContext`.
-   - Method (`@UseGuards`): custom `McpExecutionContext`; supports DI via `ModuleRef`.
+   - Method (`@UseGuards`): custom `McpExecutionContext`; supports DI via `ModuleRef`. `getRequest()` returns the **invoking** request; there is no `getSessionId()` — the protocol retired sessions in 2.0.
 
 Example resolver:
 
 ```typescript
-import { Resolver, Tool, RequestHandlerExtra } from '@nestjs-mcp/server';
-import { CallToolResult } from '@modelcontextprotocol/sdk/types';
+import { Resolver, Tool, McpContext } from '@nestjs-mcp/server';
+import { CallToolResult } from '@modelcontextprotocol/server';
 import { z } from 'zod';
 
 const Params = z.object({ id: z.string() });
@@ -47,7 +47,7 @@ export class MyResolver {
   @Tool({ name: 'my_tool', description: 'Does X', paramsSchema: Params })
   myTool(
     params: z.infer<typeof Params>,
-    extra: RequestHandlerExtra,
+    ctx: McpContext,
   ): CallToolResult {
     return { content: [{ type: 'text', text: `Result for ${params.id}` }] };
   }
@@ -62,7 +62,7 @@ export class MyResolver {
 | Classes   | `PascalCase`                                                    |
 | Methods   | `camelCase`                                                     |
 | MCP names | `snake_case` (e.g. `@Tool({ name: 'my_tool' })`)                |
-| Schemas   | Zod (mandatory for `paramsSchema` / `argsSchema`)               |
+| Schemas   | Standard Schema for `paramsSchema` / `argsSchema` — e.g. `z.object({…})`, not a raw shape |
 | Types     | SDK types first; then `interface` for shapes, `type` for unions |
 
 ## When reading the codebase

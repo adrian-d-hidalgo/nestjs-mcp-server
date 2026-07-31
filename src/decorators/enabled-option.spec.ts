@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
 /* eslint-disable @typescript-eslint/unbound-method */
-import { CallToolResult } from '@modelcontextprotocol/sdk/types';
+import { CallToolResult } from '@modelcontextprotocol/server';
 import { Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { z } from 'zod';
