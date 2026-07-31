@@ -85,9 +85,9 @@ Typecheck verifies code correctness, not feature correctness. If the public API 
 
 Read `.handbook/GIT_GUIDELINES.md` before pushing.
 
-- Branches: `feature/issue-{id}-{desc}`, `bugfix/issue-{id}-{desc}`, plus `alpha`, `beta`, `rc` for pre-releases.
+- Branches: `feature/issue-{id}-{desc}`, `bugfix/issue-{id}-{desc}`, plus `next` for pre-releases.
 - Commits: Conventional (`feat:`, `fix:`, `docs:`, `refactor:`, `test:`, `chore:`). Version bumps are automatic via semantic-release.
-- PRs target `main`. Releases run via GitHub Actions workflow_dispatch.
+- PRs target `main`. Stable releases run via GitHub Actions workflow_dispatch on `main` (npm `@latest`); every push to `next` auto-publishes a pre-release (npm `@next`).
 
 ## When updating package version policy
 

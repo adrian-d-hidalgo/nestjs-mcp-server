@@ -22,7 +22,8 @@ jobs:
 
           # Validate branch relationships based on workflow rules
           # Allowed: feature/*, bugfix/* → main
-          # Pre-release branches (alpha, beta, rc) are handled by semantic-release
+          # The `next` pre-release branch is published by semantic-release on every push,
+          # and is promoted to main through a pull request like any other branch.
           if [[ "$SOURCE_TYPE" == "feature" ]] || [[ "$SOURCE_TYPE" == "bugfix" ]]; then
             if [[ "$TARGET_BRANCH" != "main" ]]; then
               echo "ERROR: feature and bugfix branches must target the main branch."
@@ -30,10 +31,10 @@ jobs:
             fi
             echo "PR branch validation passed"
 
-          elif [[ "$SOURCE_BRANCH" == "alpha" ]] || [[ "$SOURCE_BRANCH" == "beta" ]] || [[ "$SOURCE_BRANCH" == "rc" ]]; then
-            # Pre-release branches can be merged to main
+          elif [[ "$SOURCE_BRANCH" == "next" ]]; then
+            # The pre-release branch can be promoted to main
             if [[ "$TARGET_BRANCH" != "main" ]]; then
-              echo "ERROR: pre-release branches (alpha, beta, rc) must target the main branch."
+              echo "ERROR: the next branch must target the main branch."
               exit 1
             fi
             echo "PR branch validation passed"
@@ -41,6 +42,6 @@ jobs:
           else
             echo "ERROR: Unknown branch type: $SOURCE_TYPE"
             echo "Allowed branch prefixes: feature/, bugfix/"
-            echo "Allowed pre-release branches: alpha, beta, rc"
+            echo "Allowed pre-release branch: next"
             exit 1
           fi

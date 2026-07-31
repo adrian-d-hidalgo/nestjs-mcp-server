@@ -9,12 +9,10 @@ on:
         type: boolean
         default: false
 
-  # Automatic trigger for pre-releases
+  # Automatic trigger for pre-releases: every push to `next` publishes X.Y.Z-next.N
   push:
     branches:
-      - alpha
-      - beta
-      - rc
+      - next
 
 concurrency:
   group: release-${{ github.ref }}
