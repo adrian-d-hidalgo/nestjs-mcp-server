@@ -313,8 +313,9 @@ export class McpAuthService implements OnModuleInit {
    * - `OAuthError` — the SDK's `bearerAuthChallengeResponse`: `401` +
    *   challenge for `invalid_token`, `403` + challenge for
    *   `insufficient_scope`, `500` for `server_error`, `400` otherwise.
-   * - anything else — `500`, logged by class and message only (never the
-   *   request's headers or token).
+   * - anything else — a generic `500` `server_error`, logged by class and
+   *   message only (never the request's headers or token). The thrown error
+   *   never reaches the response body.
    */
   private errorResponse(error: unknown): Response {
     if (error instanceof McpUnauthorizedError && !error.challenge) {
@@ -339,7 +340,9 @@ export class McpAuthService implements OnModuleInit {
       'auth',
     );
 
-    return bearerAuthChallengeResponse(error);
+    return bearerAuthChallengeResponse(
+      new OAuthError(OAuthErrorCode.ServerError, 'Internal Server Error'),
+    );
   }
 
   /**
