@@ -13,7 +13,7 @@ import {
   Optional,
 } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
-import { Response } from 'express';
+import type { Response } from 'express';
 
 import { McpAuthService } from '../../auth/mcp-auth.service';
 import type { AuthenticatedRequest } from '../../interfaces/handler-context.interface';

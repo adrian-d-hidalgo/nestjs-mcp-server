@@ -1,6 +1,6 @@
 ---
 name: github-issues
-description: "Persisting confirmed bugs and work as GitHub Issues in adrian-d-hidalgo/nestjs-mcp-server: the label taxonomy, the mapping from .github/ISSUE_TEMPLATE forms to maintainer-authored bodies, the certainty bar, duplicate check, linking conventions, the mutation-authorization contract, and the GitHub MCP tool mechanics. Load when creating, updating, commenting on, or tracking a GitHub issue."
+description: 'Persisting confirmed bugs and work as GitHub Issues in adrian-d-hidalgo/nestjs-mcp-server: the label taxonomy, the mapping from .github/ISSUE_TEMPLATE forms to maintainer-authored bodies, the certainty bar, duplicate check, linking conventions, the mutation-authorization contract, and the GitHub MCP tool mechanics. Load when creating, updating, commenting on, or tracking a GitHub issue.'
 ---
 
 <Purpose>
@@ -40,18 +40,18 @@ There is one repository and one published package. There are **no subrepos**, so
 work breakdown into sub-issues and no per-area split: **one issue is one unit of work.** If a
 requirement genuinely carries two independently-shippable deliverables, that is two issues — say
 so and ask; never fan out silently.
-  </Repository>
+</Repository>
 
   <IssueTemplates reason="the forms in .github/ISSUE_TEMPLATE are the source of truth for issue shape — this skill maps onto them, it never re-authors them">
 Five forms exist. Each pins its own title prefix and labels; **do not override them**.
 
-| Form | Mode | Title prefix | Labels the form applies | Use when |
-| --- | --- | --- | --- | --- |
-| `bug_report.yml` | **B** — bug | `[Bug]: ` | `bug`, `triage` | Defect in shipped code (any severity). |
-| `feature_request.yml` | **C** — capability | `[Feature]: ` | `enhancement`, `triage` | A capability the package should have but doesn't yet. |
-| `refactoring.yml` | **R** — refactor | `[Refactor]: ` | `refactor`, `triage` | Internal restructuring with **no public-API change**. |
-| `security.yml` | **S** — security | `[Security]: ` | `security`, `triage` | Non-critical vulnerability. Critical ones go to private disclosure, never here. |
-| `documentation.yml` | **D** — docs | `[Docs]: ` | `documentation`, `triage` | README / API reference / examples / TSDoc gaps. |
+| Form                  | Mode               | Title prefix   | Labels the form applies   | Use when                                                                        |
+| --------------------- | ------------------ | -------------- | ------------------------- | ------------------------------------------------------------------------------- |
+| `bug_report.yml`      | **B** — bug        | `[Bug]: `      | `bug`, `triage`           | Defect in shipped code (any severity).                                          |
+| `feature_request.yml` | **C** — capability | `[Feature]: `  | `enhancement`, `triage`   | A capability the package should have but doesn't yet.                           |
+| `refactoring.yml`     | **R** — refactor   | `[Refactor]: ` | `refactor`, `triage`      | Internal restructuring with **no public-API change**.                           |
+| `security.yml`        | **S** — security   | `[Security]: ` | `security`, `triage`      | Non-critical vulnerability. Critical ones go to private disclosure, never here. |
+| `documentation.yml`   | **D** — docs       | `[Docs]: `     | `documentation`, `triage` | README / API reference / examples / TSDoc gaps.                                 |
 
 **Mode T — technical task** has **no form**. Dependency bumps, toolchain migrations, CI changes
 and release-plumbing work are authored by hand under the `chore` label (that is why issues #119,
@@ -76,6 +76,7 @@ MAJOR. Getting the label slightly wrong is cosmetic; getting the version wrong s
 minor.
 
 Two things to state explicitly in such an issue, because the template will not prompt for them:
+
 - **what a consumer must edit**, with a before/after — the whole point of the MAJOR
 - **whether the symbol was ever intended as API**, or leaked through a blanket `export *`. Those are
   different conversations: retiring a designed export needs a migration path, retiring an accidental
@@ -84,58 +85,60 @@ Two things to state explicitly in such an issue, because the template will not p
   </IssueTemplates>
 
   <ReporterOnlyFields reason="the forms are written for external reporters; a maintainer-authored issue does not answer reporter questions">
+
 These fields exist to qualify an inbound report. When **you** author the issue, they are dropped —
 not answered with invented values, and not answered on the reporter's behalf:
 
-| Field | In a maintainer-authored issue |
-| --- | --- |
-| `Prerequisites` checkboxes | **Dropped.** The duplicate check already ran (see the Duplicate check workflow); say so in `Notes` instead. |
-| `Code of Conduct` / `Responsible Disclosure` checkboxes | **Dropped.** They are a submission gate, not content. |
-| `Contribution` ("I'm willing to submit a PR") | **Dropped.** |
-| `Package Version` / `NestJS Version` | Only when the issue describes behaviour observed at a specific version. Otherwise `current \`main\` @ <short sha>`. |
-| `Environment` / `Environment Details` | Only for a bug actually observed in an environment. `N/A — reproduced from the test suite` is a valid, honest answer. |
-| `Estimated Effort` (refactor form) | **Dropped.** Time estimates are a non-negotiable prohibition in `CLAUDE.md`. State scope instead ("touches 3 decorators", "requires an SDK type change"). |
-| `Impact Level` | Kept — it is the input to the priority label. |
+| Field                                                   | In a maintainer-authored issue                                                                                                                            |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Prerequisites` checkboxes                              | **Dropped.** The duplicate check already ran (see the Duplicate check workflow); say so in `Notes` instead.                                               |
+| `Code of Conduct` / `Responsible Disclosure` checkboxes | **Dropped.** They are a submission gate, not content.                                                                                                     |
+| `Contribution` ("I'm willing to submit a PR")           | **Dropped.**                                                                                                                                              |
+| `Package Version` / `NestJS Version`                    | Only when the issue describes behaviour observed at a specific version. Otherwise `current \`main\` @ <short sha>`.                                       |
+| `Environment` / `Environment Details`                   | Only for a bug actually observed in an environment. `N/A — reproduced from the test suite` is a valid, honest answer.                                     |
+| `Estimated Effort` (refactor form)                      | **Dropped.** Time estimates are a non-negotiable prohibition in `CLAUDE.md`. State scope instead ("touches 3 decorators", "requires an SDK type change"). |
+| `Impact Level`                                          | Kept — it is the input to the priority label.                                                                                                             |
 
 Everything else on the form is real content and is filled per the mode's template.
-  </ReporterOnlyFields>
+</ReporterOnlyFields>
 
   <Labels>
 The labels below **exist today**. Creating a label is a repository mutation — never invent one.
 Before applying any label not on this list, confirm it exists with `get_label`; if it does not,
 propose creating it to the user and wait, or leave it off.
 
-| Label | Meaning | Applied by |
-| --- | --- | --- |
-| `bug` | Defect in shipped code | `bug_report.yml` |
-| `enhancement` | New capability | `feature_request.yml` |
-| `refactor` | Internal restructuring, no API change | `refactoring.yml` |
-| `security` | Vulnerability or hardening | `security.yml` |
-| `documentation` | Docs / examples / TSDoc | `documentation.yml` |
-| `chore` | Technical task — deps, toolchain, CI, release plumbing | **manually (Mode T)** |
-| `devops` | CI/CD and workflow changes | manually, alongside `chore` |
-| `triage` | Not yet assessed by a maintainer | every form |
-| `priority: high` | See Priority | manually |
-| `priority: medium` | See Priority | manually |
-| `priority: low` | See Priority | manually |
-| `released on @next` | Shipped in a pre-release | semantic-release automation — **never set by hand** |
-| `high-priority` | **Legacy.** Superseded by `priority: high`. | — do not apply to new issues |
+| Label               | Meaning                                                | Applied by                                          |
+| ------------------- | ------------------------------------------------------ | --------------------------------------------------- |
+| `bug`               | Defect in shipped code                                 | `bug_report.yml`                                    |
+| `enhancement`       | New capability                                         | `feature_request.yml`                               |
+| `refactor`          | Internal restructuring, no API change                  | `refactoring.yml`                                   |
+| `security`          | Vulnerability or hardening                             | `security.yml`                                      |
+| `documentation`     | Docs / examples / TSDoc                                | `documentation.yml`                                 |
+| `chore`             | Technical task — deps, toolchain, CI, release plumbing | **manually (Mode T)**                               |
+| `devops`            | CI/CD and workflow changes                             | manually, alongside `chore`                         |
+| `triage`            | Not yet assessed by a maintainer                       | every form                                          |
+| `priority: high`    | See Priority                                           | manually                                            |
+| `priority: medium`  | See Priority                                           | manually                                            |
+| `priority: low`     | See Priority                                           | manually                                            |
+| `released on @next` | Shipped in a pre-release                               | semantic-release automation — **never set by hand** |
+| `high-priority`     | **Legacy.** Superseded by `priority: high`.            | — do not apply to new issues                        |
 
 **Rules:**
+
 - A maintainer-authored issue carries **exactly one type label** (`bug` / `enhancement` /
   `refactor` / `security` / `documentation` / `chore`). Two type labels means it is two issues.
-- `triage` means "a maintainer has not assessed this yet". When *you* author the issue after a
+- `triage` means "a maintainer has not assessed this yet". When _you_ author the issue after a
   diagnosis or a specification, it is already assessed — **omit `triage`** and state why in the
   proposal. When you file an inbound report on someone's behalf, keep it.
 - Never set `released on @next`. It belongs to the release automation (`.releaserc.js`), which
   derives the label name from the pre-release channel. A legacy `released on @rc` label still
   exists from the retired three-channel model; do not apply it either.
 - **This table is not exhaustive** — it lists what has been observed, and the repository has more
-  labels than any single query returns. Before applying a label that is not here, confirm it with
-  `get_label`; before concluding a label does *not* exist, confirm that too. `priority: low` was
-  once documented here as non-existent on the strength of a 20-issue sample; issue #30 carries it.
-  A negative claim from a partial listing is not evidence.
-  </Labels>
+labels than any single query returns. Before applying a label that is not here, confirm it with
+`get_label`; before concluding a label does _not_ exist, confirm that too. `priority: low` was
+once documented here as non-existent on the strength of a 20-issue sample; issue #30 carries it.
+A negative claim from a partial listing is not evidence.
+</Labels>
 </CachedFacts>
 
 <Conventions>
@@ -158,12 +161,12 @@ propose creating it to the user and wait, or leave it off.
 <Priority>
 Priority is a label, and only two values are confirmed to exist.
 
-| Label | Trigger |
-| --- | --- |
-| `priority: high` | Breaks a core flow for consumers with no workaround · a security issue rated High · blocks a release. |
-| `priority: medium` | Default for accepted work with a known workaround or limited blast radius. |
-| `priority: low` | Nice-to-have, no consumer impact, blocks no release. |
-| _(none)_ | Unassessed. Absence of a priority label is a valid state — do not invent one to look thorough. |
+| Label              | Trigger                                                                                               |
+| ------------------ | ----------------------------------------------------------------------------------------------------- |
+| `priority: high`   | Breaks a core flow for consumers with no workaround · a security issue rated High · blocks a release. |
+| `priority: medium` | Default for accepted work with a known workaround or limited blast radius.                            |
+| `priority: low`    | Nice-to-have, no consumer impact, blocks no release.                                                  |
+| _(none)_           | Unassessed. Absence of a priority label is a valid state — do not invent one to look thorough.        |
 
 Never bump priority on assumption. Missing impact data → no priority label + a line in `Notes`
 saying what is unknown. Map the forms' `Impact Level` dropdown as: `Critical`/`High` →
@@ -178,10 +181,11 @@ Reproduce, Current Implementation, affected files) must be grounded in evidence:
 `codegraph`/`grep`-verified code path, an observed reproduction, a pasted compiler diagnostic, or
 an explicit reporter quote. If a section can't be filled with evidence, **don't invent it** —
 write the real outcome (`Reproduction blocked`, `Root cause: [Unverified] until X is validated`)
-or don't open the issue yet. This is the same bar `CLAUDE.md` sets: *"Compiling is not executing;
-types verify code, not behavior."*
+or don't open the issue yet. This is the same bar `CLAUDE.md` sets: _"Compiling is not executing;
+types verify code, not behavior."_
 
 Before creating, **all yes**:
+
 - [ ] The problem is real on **current `main`** (the deprecation check from `bug-diagnosis` passed).
 - [ ] Reproduced — by a failing spec, an e2e run, an MCP Inspector session, or a running example —
       **or** evidence sufficient to identify the cause. ("It would make sense that…" does not count.)
@@ -193,17 +197,17 @@ Any `no` / `unknown` → don't create. Either continue diagnosing or ask the use
   <AskTheHuman>
 Common gaps and what to request — be specific:
 
-| Gap | Ask for |
-| --- | --- |
-| Report has no reproduction | The minimal `McpModule.forRoot` config plus the resolver that triggers it |
-| Version unknown | `@nestjs-mcp/server`, `@nestjs/common`, and `@modelcontextprotocol/sdk` versions from their lockfile |
-| Protocol era unclear | Which era they negotiated — `2026-07-28` (stateless, no handshake) or the 2025 legacy fallback |
-| Screenshot or video only | Ask for the text of the error and the surrounding stack frames |
-| Type error reported | The exact `tsc` diagnostic, verbatim, plus their `tsconfig.json` `strict` settings |
+| Gap                        | Ask for                                                                                              |
+| -------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Report has no reproduction | The minimal `McpModule.forRoot` config plus the resolver that triggers it                            |
+| Version unknown            | `@nestjs-mcp/server`, `@nestjs/common`, and `@modelcontextprotocol/sdk` versions from their lockfile |
+| Protocol era unclear       | Which era they negotiated — `2026-07-28` (stateless, no handshake) or the 2025 legacy fallback       |
+| Screenshot or video only   | Ask for the text of the error and the surrounding stack frames                                       |
+| Type error reported        | The exact `tsc` diagnostic, verbatim, plus their `tsconfig.json` `strict` settings                   |
 
 ❌ "Send more info". ✅ "Can you paste the exact `tsc` output and your `paramsSchema` definition
 for the failing tool?" If the user can't provide it, **park** — don't synthesize.
-  </AskTheHuman>
+</AskTheHuman>
 
   <LowCertaintyPlaceholder>
 Only when the user explicitly says "open it as a placeholder anyway":
@@ -212,7 +216,7 @@ Only when the user explicitly says "open it as a placeholder anyway":
 - Add a `## Pending evidence` section listing exactly what is missing.
 
 This is the only acceptable form of low-certainty issue.
-  </LowCertaintyPlaceholder>
+</LowCertaintyPlaceholder>
 </CertaintyBar>
 
 <Authorization>
@@ -227,12 +231,13 @@ never authorizes content the user has not seen.
 
 **An OK is scoped.** "Create the issue" authorizes a single, scoped artifact or batch. It does
 **not** authorize:
+
 - Re-running creation if it failed partway (ask).
 - Creating extra issues you noticed along the way.
 - Commenting on, labelling, or closing other issues.
 - Any `git` operation. Per `CLAUDE.md`, `git commit` / `git push` / `git reset --hard` /
-  `git rebase` / publishing require the user to type the command themselves. "Finish the task" is
-  not authorization.
+`git rebase` / publishing require the user to type the command themselves. "Finish the task" is
+not authorization.
 </Authorization>
 
 <Tools>
@@ -288,7 +293,7 @@ disagree with each other, and that is the entire reason for the split.
 `/specification` has **no GitHub write tool** in its `allowed-tools`, so this is enforced and not
 merely advised.
 
-What the pipeline *does* write to GitHub: **new issues** (`/constitution`, `/debug` — `create`, not
+What the pipeline _does_ write to GitHub: **new issues** (`/constitution`, `/debug` — `create`, not
 `update`) and **comments** (`/debug`, when asking a reporter for missing information). Both are
 additive and neither needs to reconstruct an existing body.
 
@@ -296,8 +301,8 @@ If a decision in a SPEC genuinely needs to reach a contributor — the change is
 is blocked on an unanswered design question — the right move is to **tell the user and let them
 comment**. Publishing from the private workspace is the maintainer's call, never an automatic side
 effect.
-  </NothingInThePipelineUpdatesABody>
-  </BodyUpdateMechanic>
+</NothingInThePipelineUpdatesABody>
+</BodyUpdateMechanic>
 </Tools>
 
 <Patterns>
@@ -318,6 +323,7 @@ exact option names.
 ```
 
 **Rules:**
+
 - `Root cause` requires evidence — a `file:line` from `codegraph`/`Read`, or the compiler
   diagnostic. Never "TBD"; defer creation instead (see CertaintyBar).
 - `Steps to Reproduce` carries a **reproduction outcome state** when you did not reproduce it:
@@ -331,6 +337,7 @@ exact option names.
   </Pattern>
 
   <Pattern name="Mode C — capability">
+
 A capability the package should have but doesn't yet. Form: `feature_request.yml`. Label:
 `enhancement`. Body: `templates/feature.md`.
 
@@ -338,6 +345,7 @@ It is **not** a bug: no `Root cause`, no `Steps to Reproduce`, no stack trace. I
 yourself writing those, it is a bug → Mode B.
 
 **Rules:**
+
 - `Usage Example` is mandatory and is the heart of the issue: the TypeScript a consumer would
   write once the capability exists. It is the API proposal in its most reviewable form — write it
   before the prose, and make it compile-plausible against the real exports in `src/index.ts`.
@@ -349,11 +357,12 @@ yourself writing those, it is a bug → Mode B.
   </Pattern>
 
   <Pattern name="Mode R — refactor">
+
 Internal restructuring that leaves the public API **byte-identical**. Form: `refactoring.yml`.
 Label: `refactor`. Body: `templates/refactor.md`.
 
-The form's own prerequisite says it: *"I have verified this refactoring doesn't change public API
-or break existing functionality."* That is the defining test.
+The form's own prerequisite says it: _"I have verified this refactoring doesn't change public API
+or break existing functionality."_ That is the defining test.
 
 - If the exported surface changes at all → it is **not** Mode R. A widened type is Mode C
   (`feat`); a narrowed or removed one is Mode C with a breaking change (`feat!`).
@@ -365,6 +374,7 @@ or break existing functionality."* That is the defining test.
   </Pattern>
 
   <Pattern name="Mode S — security">
+
 A **non-critical** vulnerability or hardening item. Form: `security.yml`. Label: `security`.
 Body: `templates/security.md`.
 
@@ -381,13 +391,14 @@ and tell the user; do not draft a public issue that hands out a working exploit.
   </Pattern>
 
   <Pattern name="Mode D — documentation">
+
 A gap in README, API reference, TSDoc, or `examples/`. Form: `documentation.yml`. Label:
 `documentation`. No dedicated body template — the form's own sections (`Current Documentation
 State` · `Documentation Proposal` · `Example Code`) are the body.
 
 Ships as a `docs:` commit → **no release** (`.handbook/GIT_GUIDELINES.md`). Say so in `Notes`, so
 nobody waits for a version bump that will not come.
-  </Pattern>
+</Pattern>
 
   <Pattern name="Mode T — technical task (no form exists)">
 Engineering work that is neither a defect nor a consumer-facing capability: dependency bumps,
@@ -406,12 +417,12 @@ config. Label: `chore` (plus `devops` when it lands in `.github/workflows/`). Bo
 
 **Acceptance is technical and verifiable** — `Current state` → `Target state` → a checkable
 `Closure condition`. No root cause (nothing is broken); no usage example (no consumer-facing
-surface). Example closure: *"`pnpm typecheck` passes on TypeScript 6, `pnpm knip` reports no new
-unused exports, and the five-phase gate is green."*
+surface). Example closure: _"`pnpm typecheck` passes on TypeScript 6, `pnpm knip` reports no new
+unused exports, and the five-phase gate is green."_
 
 Code inspection **is** required here: a migration must read the current code to state
 `Current state` accurately.
-  </Pattern>
+</Pattern>
 
   <Pattern name="Mode X — technical debt">
 An accepted, deferred gap. It is a Mode T issue (`chore`) whose `Closure condition` is the point
@@ -419,9 +430,10 @@ of the issue. There is no `debt` label in this repository — do not invent one;
 condition and the `chore` label carry it.
 
 **Justified only when ALL four hold:**
+
 1. **The gap is real today** — a `grep`, a `file:line`, a failing check, or a benchmark proves it.
-2. **It is not a bug.** A bug is *wrong behaviour* for something that should already work. Debt is
-   a *structural gap* — an accepted workaround, an upstream limitation, an incomplete migration.
+2. **It is not a bug.** A bug is _wrong behaviour_ for something that should already work. Debt is
+   a _structural gap_ — an accepted workaround, an upstream limitation, an incomplete migration.
    If a consumer observes a misbehaviour, it is Mode B.
 3. **It is not a capability.** Closed scope with consumer-visible acceptance criteria is Mode C.
 4. **It has a closure condition** — a verifiable trigger (`grep` returns 0, a suppressed
@@ -434,22 +446,22 @@ If any of the four fails, open the right artifact instead.
 Add it **only when you are already editing that file** in the same change. Never open a change
 just to add markers. When the debt closes, **remove the marker** as part of the closing change — a
 marker outliving its issue is its own bug.
-  </Pattern>
+</Pattern>
 
   <Pattern name="Linking issues">
 GitHub has no typed issue links. The conventions that work:
 
-| Relationship | How |
-| --- | --- |
+| Relationship                | How                                                                                             |
+| --------------------------- | ----------------------------------------------------------------------------------------------- |
 | This work closes that issue | `Closes #N` in the **commit footer / PR body** — never in the issue body, where it does nothing |
-| Sequencing | A `Blocked by #N` line under `## Notes`; GitHub renders it as a live cross-reference |
-| Loose relation | `Related: #N` under `## Notes` |
-| Same problem, two issues | Close the weaker one via `issue_write` with `state_reason: "duplicate"` and `duplicate_of: <N>` |
+| Sequencing                  | A `Blocked by #N` line under `## Notes`; GitHub renders it as a live cross-reference            |
+| Loose relation              | `Related: #N` under `## Notes`                                                                  |
+| Same problem, two issues    | Close the weaker one via `issue_write` with `state_reason: "duplicate"` and `duplicate_of: <N>` |
 
 A bare `#N` mention anywhere already creates a back-reference on the target issue — that is the
 mechanism, and it means **mentioning an issue is itself a visible mutation on that issue's
 timeline**. Do not scatter references casually.
-  </Pattern>
+</Pattern>
 
 </Patterns>
 
@@ -457,12 +469,12 @@ timeline**. Do not scatter references casually.
 A piece of work fires a consult axis when its scope matches the trigger. The flow runs the consult
 and **records each non-consult with its reason** — collapsing is not bypassing.
 
-| Axis | Fires when the work involves… | Consult |
-| --- | --- | --- |
+| Axis         | Fires when the work involves…                                                                                                                              | Consult                                                                   |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
 | Architecture | a new pattern, a change to a canonical pattern (`@Resolver`, decorator metadata, transport wiring), a dependency swap, or a change to the exported surface | the `specifier`'s own analysis, recorded in the SPEC's `Consults` section |
-| Security | guards, session handling, transport-level input parsing, anything reading env or the filesystem, dependency advisories | **stage-dependent — see below** |
-| Public API | anything the SPEC's `Public API impact` section is not `_n/a_` for | verify `examples/` still run (`EXAMPLE=<name> pnpm start:example`) |
-| Quality | every diff, without exception | the `code-reviewer` agent |
+| Security     | guards, session handling, transport-level input parsing, anything reading env or the filesystem, dependency advisories                                     | **stage-dependent — see below**                                           |
+| Public API   | anything the SPEC's `Public API impact` section is not `_n/a_` for                                                                                         | verify `examples/` still run (`EXAMPLE=<name> pnpm start:example`)        |
+| Quality      | every diff, without exception                                                                                                                              | the `code-reviewer` agent                                                 |
 
 **Which stage runs which axis:** `/constitution` runs **none** — it is high-level. `/specification`
 runs **Architecture and Security**, recording both in the SPEC's `Consults` section. `/develop`
@@ -471,10 +483,10 @@ runs **Quality always**, plus **Security** and **Public API** when their trigger
   <SecurityAxisByStage reason="the same axis needs two different consults, and using the wrong one produces noise instead of a finding">
 The Security axis fires at two stages, and **the consult is not the same thing at each**:
 
-| Stage | What exists | The consult |
-| --- | --- | --- |
+| Stage            | What exists           | The consult                                                                                                                                                                                                                        |
+| ---------------- | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `/specification` | a design, **no diff** | The `specifier`'s **design-level** analysis, written into the SPEC's `Consults` row: what the proposed shape exposes, whether it is being positioned as an authorization mechanism, what session-lifetime consequences it carries. |
-| `/develop` | an actual diff | The built-in **`/security-review`** skill — **but read its limitation below before trusting the output.** |
+| `/develop`       | an actual diff        | The built-in **`/security-review`** skill — **but read its limitation below before trusting the output.**                                                                                                                          |
 
 **`/security-review` reviews the BRANCH, not your working diff — verified 2026-07-30.** It builds
 its context from the branch's commits plus the uncommitted tree. On a branch that carries unrelated
@@ -498,8 +510,8 @@ git diff --stat                  # how big is the real change?
 time there is none — it would review whatever unrelated changes happen to be uncommitted and report
 findings with nothing to do with the issue. Record the design-level finding instead, and note in the
 SPEC that the diff review is owed at `/develop`. Skipping the tool is correct here; skipping the
-*thinking* is not.
-  </SecurityAxisByStage>
+_thinking_ is not.
+</SecurityAxisByStage>
 </ConsultAxes>
 
 <Workflow name="Issue creation flow" reason="shared spine — every /constitution route applies this, it doesn't re-author it">
@@ -516,12 +528,13 @@ this is everything after.
   <Step n="1">Run the query in Queries. Search **open and closed** — a closed issue for the same problem means either a regression (link it) or that the work already shipped.</Step>
   <Step n="2">Decide one of three actions when a match plausibly covers the same problem — **never silently create a duplicate**:
 
-| Situation | Action |
-| --- | --- |
-| An existing issue already covers it fully, no new information | **Do nothing.** Don't create, don't comment. Report the existing issue to the user. |
-| An existing issue covers it but you have **new evidence** (a fresh reproduction, a newly-identified file, a different transport, a compiler diagnostic) | **Propose a comment** on the existing issue headed `## Additional evidence (YYYY-MM-DD)`. Don't rewrite its body — keep the history visible. |
-| An existing issue covers a related but **distinct** problem (different root cause / different fix path) | **Propose a new issue** with a `Related: #N` line, and explain why it isn't a duplicate. |
-| A **closed** issue covers the same symptom | It is a **regression**. Propose a new issue linking back (`Related: #N — recurrence`), never reopen: the original's scope was fulfilled and verified. |
+| Situation                                                                                                                                               | Action                                                                                                                                                |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| An existing issue already covers it fully, no new information                                                                                           | **Do nothing.** Don't create, don't comment. Report the existing issue to the user.                                                                   |
+| An existing issue covers it but you have **new evidence** (a fresh reproduction, a newly-identified file, a different transport, a compiler diagnostic) | **Propose a comment** on the existing issue headed `## Additional evidence (YYYY-MM-DD)`. Don't rewrite its body — keep the history visible.          |
+| An existing issue covers a related but **distinct** problem (different root cause / different fix path)                                                 | **Propose a new issue** with a `Related: #N` line, and explain why it isn't a duplicate.                                                              |
+| A **closed** issue covers the same symptom                                                                                                              | It is a **regression**. Propose a new issue linking back (`Related: #N — recurrence`), never reopen: the original's scope was fulfilled and verified. |
+
   </Step>
 </Workflow>
 
@@ -575,6 +588,7 @@ is:open label:chore
 ```
 is:open label:triage
 ```
+
 </Queries>
 
 <PreCreateChecklist>
@@ -608,7 +622,7 @@ is:open label:triage
 
 The verbatim compiler message. Any consumer hitting `TS2589` searches that exact string and lands
 here — which is the entire point of a bug title.
-  </Example>
+</Example>
 
   <Example name="Title prescribes a fix before diagnosis" kind="dont">
 
@@ -618,7 +632,7 @@ here — which is the entire point of a bug title.
 
 Names a fix (`simplify the generic`) before the root cause is proven, and drops the searchable
 diagnostic. State the failure; let the diagnosis place the fix.
-  </Example>
+</Example>
 
   <Example name="Root cause grounded in evidence" kind="do">
 
@@ -632,7 +646,7 @@ recursive `ZodRawShape` conditional, so `tsc` exceeds its instantiation depth wh
 ```
 
 Every claim has a source: a `codegraph`-verified `file:line` and a reproduction that fails.
-  </Example>
+</Example>
 
   <Example name="Root cause invented to fill the section" kind="dont">
 
@@ -646,7 +660,7 @@ types are the issue.
 `Probably` / `It would make sense` with no cited file and no reproduction. That is `[Inference]` —
 defer creation, or mark the section `[Unverified]` under the explicit placeholder rule. Never ship
 it as a root cause.
-  </Example>
+</Example>
 
   <Example name="Closure condition is mechanically checkable" kind="do">
 
@@ -658,7 +672,7 @@ unused exports, and `grep -rn "@ts-expect-error" src/` returns the same 0 matche
 ```
 
 Three triggers anyone can run. The issue has an observable done.
-  </Example>
+</Example>
 
   <Example name="Closure condition that never fires" kind="dont">
 
@@ -670,7 +684,7 @@ Migrate to TypeScript 6 when the ecosystem has caught up and we have bandwidth.
 
 "when the ecosystem has caught up" is not a trigger — nothing ever flips this closed, so it lives
 forever. A debt item without a checkable condition is the status quo.
-  </Example>
+</Example>
 
 </Examples>
 

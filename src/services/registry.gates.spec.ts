@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-unsafe-argument */
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
 import { ModuleRef, Reflector } from '@nestjs/core';
 

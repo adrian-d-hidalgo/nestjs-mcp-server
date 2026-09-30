@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # Node version from .nvmrc (keep in sync)
-ARG NODE_VERSION=24
+ARG NODE_VERSION=26.7
 FROM node:${NODE_VERSION}
 
 # Set working directory

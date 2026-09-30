@@ -3,5 +3,25 @@
 # compile native bindings / generate metadata on install.
 allowBuilds:
   '@nestjs/core': true
+  '@parcel/watcher': false
   '@swc/core': true
   unrs-resolver: true
+minimumReleaseAgeExclude:
+  - '@nestjs/common@12.1.2'
+  - '@nestjs/core@12.1.2'
+  - '@nestjs/platform-express@12.1.2'
+  - '@nestjs/testing@12.1.2'
+  - '@swc/core-darwin-arm64@1.16.13'
+  - '@swc/core-darwin-x64@1.16.13'
+  - '@swc/core-linux-arm-gnueabihf@1.16.13'
+  - '@swc/core-linux-arm64-gnu@1.16.13'
+  - '@swc/core-linux-arm64-musl@1.16.13'
+  - '@swc/core-linux-ppc64-gnu@1.16.13'
+  - '@swc/core-linux-s390x-gnu@1.16.13'
+  - '@swc/core-linux-x64-gnu@1.16.13'
+  - '@swc/core-linux-x64-musl@1.16.13'
+  - '@swc/core-win32-arm64-msvc@1.16.13'
+  - '@swc/core-win32-ia32-msvc@1.16.13'
+  - '@swc/core-win32-x64-msvc@1.16.13'
+  - '@swc/core@1.16.13'
+  - knip@6.39.0
