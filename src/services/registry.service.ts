@@ -44,6 +44,13 @@ import {
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
 
+/**
+ * What a caller sees when a guard denies it. Fixed on purpose: naming the
+ * method or the guard would let an unauthorized caller map the implementation
+ * by probing. Both names go to the log instead.
+ */
+const GUARD_DENIED_MESSAGE = 'Access denied';
+
 @Injectable()
 export class RegistryService {
   constructor(
@@ -248,7 +255,7 @@ export class RegistryService {
             undefined,
             'guards',
           );
-          throw new Error(`Access denied by guard on ${methodName}`);
+          throw new Error(GUARD_DENIED_MESSAGE);
         }
 
         // CanActivate is typed for ExecutionContext; MCP guards receive McpExecutionContext.
@@ -260,8 +267,14 @@ export class RegistryService {
           ? await lastValueFrom(result)
           : await result;
 
-        if (!allowed)
-          throw new Error(`Access denied by guard on ${methodName}`);
+        if (!allowed) {
+          this.logger.debug(
+            `Denying "${methodName}": guard ${guardInstance.constructor.name} refused the call.`,
+            'guards',
+          );
+
+          throw new Error(GUARD_DENIED_MESSAGE);
+        }
       }
     })();
   }

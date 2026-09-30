@@ -261,15 +261,21 @@ describe('RegistryService', () => {
       jest
         .spyOn(service as any, 'getHandlerArgs')
         .mockReturnValue({ type: 'tool' });
+      const debug = jest.spyOn(service['logger'], 'debug');
 
-      await expect(
-        service['runGuards'](
-          instance,
-          methodName,
-          sdkContext() as McpContext,
-          args,
-        ),
-      ).rejects.toThrow(/Access denied by guard/);
+      const denial = service['runGuards'](
+        instance,
+        methodName,
+        sdkContext() as McpContext,
+        args,
+      );
+
+      // The caller gets a fixed message; the method name goes to the log only.
+      await expect(denial).rejects.toThrow(/^Access denied$/);
+      expect(debug).toHaveBeenCalledWith(
+        expect.stringContaining(methodName),
+        'guards',
+      );
     });
   });
 });
