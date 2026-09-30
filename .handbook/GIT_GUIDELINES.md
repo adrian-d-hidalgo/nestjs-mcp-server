@@ -29,12 +29,12 @@ This document outlines our Git workflow, branch naming conventions, and commit m
 
 We follow a trunk-based development workflow with the following branches:
 
-| Branch Type   | Created From | PR Target | Purpose                                        |
-| ------------- | ------------ | --------- | ---------------------------------------------- |
-| `main`        | -            | -         | Stable production code, published to `@latest` |
-| `feature/*`   | `main`       | `main`    | New features and enhancements                  |
-| `bugfix/*`    | `main`       | `main`    | Bug fixes                                      |
-| `next`        | `main`       | `main`    | Pre-releases, published to `@next` (optional)  |
+| Branch Type | Created From | PR Target | Purpose                                        |
+| ----------- | ------------ | --------- | ---------------------------------------------- |
+| `main`      | -            | -         | Stable production code, published to `@latest` |
+| `feature/*` | `main`       | `main`    | New features and enhancements                  |
+| `bugfix/*`  | `main`       | `main`    | Bug fixes                                      |
+| `next`      | `main`       | `main`    | Pre-releases, published to `@next` (optional)  |
 
 ## Workflow Diagram
 
@@ -58,6 +58,7 @@ gitGraph
 ```
 
 **Key points:**
+
 - All development branches are created from `main`
 - All branches create PRs to `main`
 - Stable releases are triggered manually via GitHub Actions workflow dispatch
@@ -102,12 +103,12 @@ We use conventional commits for clear and structured history. **Commit types det
 
 ### Version Bump by Commit Type
 
-| Commit Type | Version Bump | Example |
-|-------------|--------------|---------|
-| `fix:` | PATCH | 0.4.0 → 0.4.1 |
-| `feat:` | MINOR | 0.4.0 → 0.5.0 |
-| `feat!:` or `BREAKING CHANGE:` footer | MAJOR | 0.4.0 → 1.0.0 |
-| `docs:`, `chore:`, `test:`, `style:`, `refactor:` | No release | - |
+| Commit Type                                       | Version Bump | Example       |
+| ------------------------------------------------- | ------------ | ------------- |
+| `fix:`                                            | PATCH        | 0.4.0 → 0.4.1 |
+| `feat:`                                           | MINOR        | 0.4.0 → 0.5.0 |
+| `feat!:` or `BREAKING CHANGE:` footer             | MAJOR        | 0.4.0 → 1.0.0 |
+| `docs:`, `chore:`, `test:`, `style:`, `refactor:` | No release   | -             |
 
 ### Examples
 
@@ -175,13 +176,13 @@ All releases are automated via **semantic-release**:
 
 There are exactly two ways a release runs:
 
-| Trigger | Branch | Result |
-| ------- | ------ | ------ |
+| Trigger                                              | Branch | Result                      |
+| ---------------------------------------------------- | ------ | --------------------------- |
 | **GitHub Actions → Release → Run workflow** (manual) | `main` | Stable version on `@latest` |
-| Any push (automatic) | `next` | Pre-release on `@next` |
+| Any push (automatic)                                 | `next` | Pre-release on `@next`      |
 
 Stable releases are deliberately manual so that several merged PRs can be batched into one
-version. The manual run accepts a `dry_run` input that reports the version it *would* publish
+version. The manual run accepts a `dry_run` input that reports the version it _would_ publish
 without publishing anything — use it before any major.
 
 ## Release Process
@@ -240,7 +241,7 @@ breaking major — before it reaches `@latest`.
 
 5. Delete `next`. It is recreated from `main` the next time a pre-release is needed. Leaving it
    configured in `.releaserc.js` while the branch does not exist is harmless — semantic-release
-   only requires that the branch it is *currently running on* be configured.
+   only requires that the branch it is _currently running on_ be configured.
 
 ### Version Freeze
 

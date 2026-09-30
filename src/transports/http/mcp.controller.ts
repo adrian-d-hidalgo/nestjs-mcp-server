@@ -1,5 +1,5 @@
 import { All, Controller, Req, Res, VERSION_NEUTRAL } from '@nestjs/common';
-import { Response } from 'express';
+import type { Response } from 'express';
 
 import type { AuthenticatedRequest } from '../../interfaces/handler-context.interface';
 import { McpHttpService } from './mcp-http.service';
