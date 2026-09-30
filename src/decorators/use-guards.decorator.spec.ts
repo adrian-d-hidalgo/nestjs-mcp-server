@@ -2,6 +2,8 @@
 /* eslint-disable @typescript-eslint/unbound-method */
 import { CanActivate } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
+
+import type { McpExecutionContext, McpGuard } from '../interfaces';
 import { MCP_GUARDS, UseGuards } from './user-guard.decorator';
 
 class TestGuard implements CanActivate {
@@ -79,5 +81,34 @@ describe('UseGuards Decorator', () => {
 
     const metadata = reflector.get(MCP_GUARDS, TestResolver);
     expect(metadata).toEqual([TestGuard, AnotherGuard]);
+  });
+
+  it('accepts a guard typed with McpExecutionContext through McpGuard', () => {
+    // Before McpGuard, `implements CanActivate` with an McpExecutionContext
+    // parameter did not compile under strict mode (TS2416).
+    class HeaderGuard implements McpGuard {
+      canActivate(context: McpExecutionContext): boolean {
+        return Boolean(context.getRequest().headers.authorization);
+      }
+    }
+
+    class TypedGuard implements McpGuard<{ tenant: string }> {
+      canActivate(context: McpExecutionContext<{ tenant: string }>): boolean {
+        return context.getAuthInfo?.()?.extra?.tenant === 'acme';
+      }
+    }
+
+    class TestResolver {
+      @UseGuards(HeaderGuard, TypedGuard)
+      guardedMethod() {
+        return 'test';
+      }
+    }
+
+    const guards = reflector.get(
+      MCP_GUARDS,
+      TestResolver.prototype.guardedMethod,
+    );
+    expect(guards).toEqual([HeaderGuard, TypedGuard]);
   });
 });

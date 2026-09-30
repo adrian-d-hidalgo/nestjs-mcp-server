@@ -18,10 +18,10 @@ export interface McpRegistrationContext {
   request: AuthenticatedRequest;
 
   /**
-   * Validated token info, present only if auth middleware (for example
-   * `requireBearerAuth` from `@modelcontextprotocol/express`) populated
-   * `req.auth` before the MCP controller ran. Always guard with optional
-   * chaining.
+   * The effective `AuthInfo`: what `McpModuleOptions.auth.strategies`
+   * produced and `auth.authorizers` narrowed. Undefined when `auth` is not
+   * configured (unless something upstream set `req.auth`) or the request is
+   * anonymous under `auth.optional`. Always guard with optional chaining.
    */
   authInfo?: AuthInfo;
 

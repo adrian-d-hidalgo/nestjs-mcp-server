@@ -6,7 +6,7 @@ import { ResourcesResolver } from './resources.resolver';
 @Module({
   imports: [
     McpModule.forRoot({
-      name: 'tools',
+      name: 'resources',
       version: '1.0.0',
       logging: {
         enabled: true,

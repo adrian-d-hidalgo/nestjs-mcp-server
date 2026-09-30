@@ -37,4 +37,28 @@ describe('Resolver Decorator', () => {
     expect(instance.someMethod()).toBe('test');
     expect(reflector.get(MCP_RESOLVER, MyResolver)).toBe('my-namespace');
   });
+
+  describe('options object', () => {
+    it('keeps MCP_RESOLVER as the name, or true without one', () => {
+      @Resolver({ name: 'notes', scopes: ['notes:read'] })
+      class Named {}
+      @Resolver({ public: true })
+      class Unnamed {}
+
+      expect(reflector.get(MCP_RESOLVER, Named)).toBe('notes');
+      expect(reflector.get(MCP_RESOLVER, Unnamed)).toBe(true);
+    });
+
+    it('validates scope-tokens at declaration', () => {
+      expect(() => Resolver({ scopes: ['a b'] as [string] })).toThrow(
+        /@Resolver scopes.*scope-token/,
+      );
+    });
+
+    it('refuses public together with scopes at declaration', () => {
+      expect(() => Resolver({ public: true, scopes: ['notes:read'] })).toThrow(
+        /@Resolver.*public.*scopes/,
+      );
+    });
+  });
 });

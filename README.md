@@ -57,6 +57,19 @@
   - [Guard Example](#guard-example)
   - [MCP Execution Context](#mcp-execution-context)
   - [Guards with Dependency Injection](#guards-with-dependency-injection)
+- [Authentication \& authorization](#authentication--authorization)
+  - [Configuring `auth`](#configuring-auth)
+  - [Writing a strategy](#writing-a-strategy)
+  - [OAuth discovery (`protectedResource`)](#oauth-discovery-protectedresource)
+  - [Trying OAuth end to end](#trying-oauth-end-to-end)
+  - [Request authorizers (Layer 2a)](#request-authorizers-layer-2a)
+  - [Per-capability scopes (Layer 2b)](#per-capability-scopes-layer-2b)
+  - [Resolver defaults](#resolver-defaults)
+  - [Public capabilities](#public-capabilities)
+  - [Typed identity (`getAuthInfo`)](#typed-identity-getauthinfo)
+  - [Which tool for which job](#which-tool-for-which-job)
+  - [Choosing where to authorize](#choosing-where-to-authorize)
+  - [Things to know](#things-to-know)
 - [Statelessness](#statelessness)
 - [Transport Options](#transport-options)
 - [MCP 2026-07-28 features](#mcp-2026-07-28-features)
@@ -356,6 +369,7 @@ A Resolver is a class that groups related MCP capabilities. **All** MCP capabili
 - **No `@Injectable()` Needed:** Resolver classes are automatically treated as providers by the MCP module and **do not** require the `@Injectable()` decorator.
 - **Dependency Injection:** Standard NestJS dependency injection works within Resolver constructors.
 - **Namespacing:** You can optionally provide a string argument to `@Resolver('my_namespace')` to namespace the capabilities within that resolver.
+- **Access defaults:** `@Resolver({ name, scopes, public, hideOutOfScope })` sets defaults for every capability of the class — see [Resolver defaults](#resolver-defaults).
 - **Guards:** Guards can be applied at the class level using `@UseGuards()`.
 
 **Example:**
@@ -627,8 +641,10 @@ interface McpCapabilityGate {
 interface McpRegistrationContext {
   /** The HTTP request whose capability set is being assembled. */
   request: Request; // express
-  /** Validated token info, if auth middleware populated `req.auth`. */
-  authInfo?: AuthInfo; // @modelcontextprotocol/sdk/server/auth/types
+  /** The effective AuthInfo produced by `auth.strategies` / `auth.authorizers`. */
+  authInfo?: AuthInfo; // import type { AuthInfo } from '@nestjs-mcp/server'
+  /** 'modern' (2026-07-28) or 'legacy' (2025-era clients). */
+  era: ProtocolEra;
 }
 ```
 
@@ -725,7 +741,7 @@ A failing gate never affects the capabilities beside it, and never turns the req
 - **No `listChanged` notification is emitted.** Every toggle is applied before the server is connected to its transport, where the SDK gates notification dispatch. This library never sends `notifications/tools/list_changed` or its prompt/resource equivalents. Do not expect a connected client to be told that something changed — nothing changes mid-session.
 - **Keep gates cheap — they are on the request path.** Every `tools/list` and every `tools/call` settles every gate before the client is served, so a gate that queries a database is a per-request database query. This is the most important behavioural change in 2.0 for anyone already using the option. The library bounds what it can: registration stays synchronous, all gates settle in **one concurrency wave** (the added latency is the slowest single gate, not the sum), and each distinct gate class is both resolved from the container and _asked_ **once per request** however many capabilities share it. What it cannot bound is the gate itself — do your caching in the injected service, at provider scope. There is **no built-in timeout**: a gate that never settles leaves the request unanswered.
 - **A gate with no registration context fails closed.** Both built-in transports always pass a context. If you call `RegistryService.registerAll(server)` yourself with a single argument, any capability declaring a _gate_ is disabled and the reason is logged. Static `true` / `false` and capabilities with no `enabled` option are unaffected.
-- **`authInfo` may be `undefined`.** It is only populated when auth middleware (for example the SDK's `requireBearerAuth`) ran before the MCP controller. Write `context.authInfo?.scopes` — a gate that dereferences it unguarded throws, and then fails closed, which silently removes the capability.
+- **`authInfo` may be `undefined`.** It is only populated when an `auth` strategy authenticated the caller (see [Authentication & authorization](#authentication--authorization)), or when middleware upstream set `req.auth`. Write `context.authInfo?.scopes` — a gate that dereferences it unguarded throws, and then fails closed, which silently removes the capability.
 - **Request-scoped gate providers are not supported.** A gate is resolved with `moduleRef.get(..., { strict: false })`, falling back to `moduleRef.create`. Neither handles a request-scoped provider cleanly. Use a singleton gate that reads what it needs from the registration context.
 
 ### This is not a replacement for guards
@@ -800,6 +816,13 @@ import { GlobalAuthGuard } from './guards/global-auth.guard';
 export class AppModule {}
 ```
 
+Guards attached with `@UseGuards` receive an `McpExecutionContext`, not Nest's
+`ExecutionContext`. Implement `McpGuard` (optionally `McpGuard<YourExtra>` for a
+typed identity) rather than `CanActivate`: `CanActivate` types its parameter as
+`ExecutionContext`, so `implements CanActivate` with an `McpExecutionContext`
+parameter does not compile under strict mode. `@UseGuards` accepts both. Global
+`APP_GUARD` guards are ordinary Nest guards and keep using `CanActivate`.
+
 ### Resolver-level guards
 
 This is a custom feature of this library. Resolver-level guards are applied using the `@UseGuards()` decorator (exported from `@nestjs-mcp/server`) on a Resolver class. All MCP methods (`@Prompt`, `@Resource`, `@Tool`) **within that specific resolver** will be protected by these guards. Use this to enforce logic (e.g., role checks) for a group of related capabilities.
@@ -850,11 +873,11 @@ A guard for Resolver or Method-level protection:
 
 ```ts
 // src/guards/my-mcp.guard.ts
-import { CanActivate, Injectable } from '@nestjs/common';
-import { McpExecutionContext } from '@nestjs-mcp/server';
+import { Injectable } from '@nestjs/common';
+import { McpExecutionContext, McpGuard } from '@nestjs-mcp/server';
 
 @Injectable()
-export class MyMcpGuard implements CanActivate {
+export class MyMcpGuard implements McpGuard {
   canActivate(context: McpExecutionContext): boolean {
     const request = context.getRequest();
     const userAgent = request.headers['user-agent'];
@@ -878,11 +901,11 @@ When implementing **Resolver-level** or **Method-level** guards using
 `McpExecutionContext`. It provides access to MCP-specific information:
 
 ```typescript
-import { CanActivate, Injectable } from '@nestjs/common';
-import { McpExecutionContext } from '@nestjs-mcp/server';
+import { Injectable } from '@nestjs/common';
+import { McpExecutionContext, McpGuard } from '@nestjs-mcp/server';
 
 @Injectable()
-export class McpAuthGuard implements CanActivate {
+export class McpAuthGuard implements McpGuard {
   canActivate(context: McpExecutionContext): boolean {
     // The request this capability was INVOKED on — not the connection
     // handshake, as it was before 2.0.
@@ -911,6 +934,9 @@ export class McpAuthGuard implements CanActivate {
 - `getArgs()` — the arguments passed to the MCP handler being invoked. Their
   shape depends on the capability type; narrow on the `type` discriminator.
 - `getClass()` / `getHandler()` — the resolver class and method.
+- `getAuthInfo?.()` — the effective `AuthInfo` (after `auth.authorizers`), or
+  `undefined` for an anonymous request. Optional on the interface so existing
+  test doubles keep compiling.
 - `getSessionId()` was **removed in 2.0**. Protocol revision 2026-07-28 retired
   sessions, so there is no id to return and no store to look one up in.
 - This is not Nest's `ExecutionContext`: there is no `switchToHttp()`. Use
@@ -923,7 +949,7 @@ as a provider:
 
 ```typescript
 @Injectable()
-export class AuthGuard implements CanActivate {
+export class AuthGuard implements McpGuard {
   constructor(private readonly tokens: TokenService) {}
 
   async canActivate(context: McpExecutionContext): Promise<boolean> {
@@ -942,7 +968,465 @@ export class AuthGuard implements CanActivate {
 export class AppModule {}
 ```
 
-> Guards without `@Injectable()` still work but won't receive injected dependencies.
+> A guard class the container cannot resolve or create **denies** the call and
+> logs an error (since 2.1). Register guards with dependencies as providers.
+
+---
+
+## Authentication & authorization
+
+**Bring your own authentication.** The library does not decide _how_ callers
+authenticate, nor _where_ the credential travels. Your application registers
+**authentication strategies** — an API key in the header, query parameter or
+cookie of your choice, Basic auth, a session cookie, a client certificate, a
+JWT, an opaque OAuth token: anything that can be read from the HTTP request.
+The library provides the infrastructure around them: it runs them before the
+MCP handler, writes the `401`/`403`/`429` answers with the challenges your
+strategies declare, carries the resulting identity to authorizers, gates,
+guards and handlers, and — only if you use OAuth — serves the discovery
+metadata. **Authorization** is a separate layer you own: request authorizers,
+per-capability `scopes`, gates and guards.
+
+```
+HTTP request ─► Layer 1  authentication (strategies, once per request)     ─► req.auth: AuthInfo | 401
+             ─► Layer 2a request authorization (authorizers, once per request) ─► req.auth narrowed | 403
+             ─► Layer 2b capability authorization (scopes, gates, guards)   ─► handler | 403 / hidden / denied
+```
+
+Evaluation order for one request: **strategies → authorizers → gates (`enabled`,
+at registration) → the SDK's `scopes` challenge → guards (`@UseGuards`) →
+handler.** Absent `auth`, the endpoint behaves exactly as before.
+
+### Configuring `auth`
+
+```typescript
+import { Module } from '@nestjs/common';
+import { McpModule } from '@nestjs-mcp/server';
+
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'notes',
+      version: '1.0.0',
+      auth: {
+        strategies: [ApiKeyStrategy, JwtStrategy], // in order; first AuthInfo wins
+        authorizers: [WorkspaceAuthorizer], // optional, see below
+        optional: false, // default: unrecognized caller → 401
+        hideOutOfScope: false, // default: see "Per-capability scopes"
+        protectedResource: {
+          // optional: OAuth discovery, see below
+          resource: 'https://notes.example.com/mcp',
+          authorizationServers: ['https://auth.example.com'],
+          scopesSupported: ['notes:read', 'notes:write'],
+          resourceName: 'Notes',
+        },
+      },
+    }),
+  ],
+  // Strategies and authorizers are ordinary providers, so they can inject
+  // services. They may be declared in any module.
+  providers: [ApiKeyStrategy, JwtStrategy, WorkspaceAuthorizer, NotesResolver],
+})
+export class AppModule {}
+```
+
+Every strategy and authorizer is resolved from the container at boot. A class
+that cannot be resolved **stops the application from starting** — the library
+never falls back to `new`, which would bypass DI.
+
+With `forRootAsync`, declare the classes in `providers` next to the module, and
+pass the static `protectedResourceMetadata: true` flag if the factory returns a
+`protectedResource` (Nest fixes controllers before the factory runs):
+
+```typescript
+McpModule.forRootAsync({
+  imports: [ConfigModule],
+  inject: [ConfigService],
+  providers: [JwtStrategy],
+  protectedResourceMetadata: true,
+  useFactory: (config: ConfigService) => ({
+    name: 'notes',
+    version: '1.0.0',
+    auth: {
+      strategies: [JwtStrategy],
+      protectedResource: {
+        resource: config.getOrThrow('MCP_RESOURCE'),
+        authorizationServers: [config.getOrThrow('OAUTH_ISSUER')],
+      },
+    },
+  }),
+});
+```
+
+### Writing a strategy
+
+A strategy returns the SDK's `AuthInfo` (re-exported from this package), `null`
+("no credentials for me, try the next one"), or throws:
+
+| Outcome                                             | HTTP answer                                                                |
+| --------------------------------------------------- | -------------------------------------------------------------------------- |
+| returns `AuthInfo`                                  | continues; later strategies are skipped                                    |
+| every strategy returns `null`                       | `401` + `WWW-Authenticate` with every registered challenge (no `error=`)   |
+| `throw new McpUnauthorizedError(description)`       | `401` `{"error":"unauthorized"}` + the registered challenges; stops        |
+| `throw new OAuthError(OAuthErrorCode.InvalidToken)` | `401` + Bearer `error="invalid_token"` challenge (OAuth strategies); stops |
+| `throw new McpHttpError(status, body, headers)`     | written as-is (e.g. `429` with `Retry-After`)                              |
+| anything else                                       | `500`, logged without headers or token                                     |
+
+`AuthInfo` is the MCP SDK's identity type (it is what handlers receive as
+`ctx.http.authInfo`), whatever the method: `clientId` is the id of the
+authenticated principal and `token` the credential that was presented. Both are
+required, and `expiresAt` is in **seconds** since the epoch. A returned
+`AuthInfo` without a string `token`, a string `clientId` and a `scopes` array of
+strings, or with an `expiresAt` that is clearly milliseconds (above `1e11`), is
+a bug answered `500`; one whose `expiresAt` has already passed is answered `401
+invalid_token`. Put application
+identity (user id, key id, workspace) in `AuthInfo.extra`. `CORS` preflight
+(`OPTIONS`) is never authenticated. Never put the credential in an error
+message: an unexpected error is logged by its class and message.
+
+**Challenges.** A strategy may declare `readonly challenge` — the RFC 9110
+challenge that tells clients how to present its credential, e.g.
+`ApiKey header="x-api-key"` or `Basic realm="notes"`. Every `401` lists all
+declared challenges; when `protectedResource` is set, the Bearer challenge with
+`resource_metadata` comes first (MCP clients look for it). With no declared
+challenge and no `protectedResource`, the header is a bare `Bearer`. A
+`challenge` that is not one valid RFC 9110 challenge stops the application at
+boot, and so does a `scopesSupported` or decorator `scopes` entry that is not an
+OAuth scope-token (no spaces, quotes, backslashes or control characters).
+
+**API key from a header you choose** (not OAuth; no OAuth vocabulary needed):
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import {
+  AuthenticatedRequest,
+  AuthInfo,
+  McpAuthStrategy,
+  McpUnauthorizedError,
+} from '@nestjs-mcp/server';
+
+@Injectable()
+export class ApiKeyStrategy implements McpAuthStrategy {
+  readonly challenge = 'ApiKey header="x-api-key"';
+
+  constructor(private readonly keys: ApiKeyService) {}
+
+  async authenticate(req: AuthenticatedRequest): Promise<AuthInfo | null> {
+    const key = req.headers['x-api-key'];
+    if (typeof key !== 'string') return null; // not mine
+
+    const record = await this.keys.find(key);
+    if (!record) throw new McpUnauthorizedError('Unknown API key');
+
+    return { token: key, clientId: record.id, scopes: record.scopes };
+  }
+}
+```
+
+The credential's location is entirely the strategy's decision: read
+`req.query.api_key`, `req.cookies.session`, `req.socket.getPeerCertificate()`
+or any header. Prefer headers: query strings end up in access logs and proxies,
+and the MCP authorization spec forbids them for OAuth access tokens.
+
+**API key via Bearer** is the same strategy reading `Authorization`. Return
+`null` for a Bearer value that is not one of your keys (for example, one with a
+JWT's `xxx.yyy.zzz` shape) so a JWT strategy later in the list still gets it.
+
+**JWT with [`jose`](https://github.com/panva/jose)** — checking the audience is
+the strategy's job (RFC 8707): a token minted for another resource must not be
+accepted.
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
+import {
+  AuthenticatedRequest,
+  AuthInfo,
+  McpAuthStrategy,
+  OAuthError,
+  OAuthErrorCode,
+} from '@nestjs-mcp/server';
+
+const JWKS = createRemoteJWKSet(
+  new URL('https://auth.example.com/.well-known/jwks.json'),
+);
+
+@Injectable()
+export class JwtStrategy implements McpAuthStrategy {
+  async authenticate(req: AuthenticatedRequest): Promise<AuthInfo | null> {
+    // The auth-scheme is case-insensitive (RFC 9110 §11.1).
+    const match = /^Bearer +(\S+)$/i.exec(req.headers.authorization ?? '');
+    if (!match) return null;
+    const token = match[1];
+
+    try {
+      const { payload } = await jwtVerify(token, JWKS, {
+        issuer: 'https://auth.example.com',
+        audience: 'https://notes.example.com/mcp',
+        requiredClaims: ['exp'], // a token without expiry never stops working
+      });
+      const clientId = [payload.client_id, payload.sub].find(
+        (claim): claim is string => typeof claim === 'string',
+      );
+      if (!clientId) {
+        throw new OAuthError(OAuthErrorCode.InvalidToken, 'No client id');
+      }
+      return {
+        token,
+        clientId,
+        scopes: String(payload.scope ?? '')
+          .split(' ')
+          .filter(Boolean),
+        expiresAt: payload.exp, // seconds
+        extra: { sub: payload.sub },
+      };
+    } catch {
+      throw new OAuthError(OAuthErrorCode.InvalidToken, 'Invalid access token');
+    }
+  }
+}
+```
+
+### OAuth discovery (`protectedResource`)
+
+With `protectedResource` set, the library serves the RFC 9728 Protected Resource
+Metadata document at the path derived from `resource`
+(`https://notes.example.com/mcp` → `/.well-known/oauth-protected-resource/mcp`)
+and advertises it as `resource_metadata` on the challenges the library builds:
+the `401` for missing or `invalid_token` credentials and the `403`
+`insufficient_scope` step-up. An `McpAccessDeniedError`, an `McpHttpError`, or
+an `McpUnauthorizedError` carrying its own challenge is written as thrown. That is
+how OAuth-capable MCP clients (claude.ai, ChatGPT) find your authorization
+server. The library does **not** serve authorization-server metadata — that
+belongs to the AS.
+
+### Trying OAuth end to end
+
+[`examples/oauth`](./examples/oauth) runs an MCP server protected by OAuth 2.1
+next to a mock authorization server that behaves like a real provider, with no
+Docker and no provider account. How to run it, the demo users and clients, the
+failure scenarios and how to swap the mock for Auth0, Okta or Keycloak are in
+the [example's README](./examples/oauth/README.md).
+
+### Request authorizers (Layer 2a)
+
+An `McpAuthorizer` runs once per request after authentication, receives the
+`AuthInfo` so far and returns the one to continue with. Use it for anything that
+changes the caller's _effective_ scopes — it must run before the SDK sees the
+request, because the SDK evaluates `scopes` before any guard:
+
+```typescript
+@Injectable()
+export class WorkspaceAuthorizer implements McpAuthorizer {
+  constructor(private readonly members: MembershipService) {}
+
+  async authorize(
+    req: AuthenticatedRequest,
+    auth: AuthInfo,
+  ): Promise<AuthInfo> {
+    const workspace = String(req.headers['x-workspace']);
+    const role = await this.members.roleOf(auth.clientId, workspace);
+    if (!role) throw new McpAccessDeniedError('Not a member of this workspace'); // 403 access_denied
+
+    return {
+      ...auth,
+      scopes: auth.scopes.filter((scope) => role.allows(scope)), // key ∩ role
+      extra: { ...auth.extra, workspace },
+    };
+  }
+}
+```
+
+Throw `McpAccessDeniedError` for `403 { "error": "access_denied" }` (nothing a
+re-consent could fix), or `new OAuthError(OAuthErrorCode.InsufficientScope, …)`
+for a `403` step-up challenge. The returned `AuthInfo` is what gates,
+`scopes`, guards (`context.getAuthInfo()`) and handlers (`ctx.http.authInfo`)
+see — both read it with [`getAuthInfo(ctx)`](#typed-identity-getauthinfo).
+
+### Per-capability scopes (Layer 2b)
+
+`@Tool`, `@Resource` and `@Prompt` accept `scopes`:
+
+```typescript
+@Tool({ name: 'add_note', paramsSchema: AddNote, scopes: ['notes:write'] })
+```
+
+The SDK checks them **before** dispatch against the effective `AuthInfo`.
+`auth.scopeSatisfies(granted, required)` overrides the default check (every
+required scope granted). What happens when they are not held depends on
+`hideOutOfScope`:
+
+| `hideOutOfScope`  | Listed? | Calling it                                            | Use when                                                                        |
+| ----------------- | ------- | ----------------------------------------------------- | ------------------------------------------------------------------------------- |
+| `false` (default) | yes     | `403 insufficient_scope`, `scope="<required scopes>"` | the grant lacks a scope the user can consent to (OAuth step-up)                 |
+| `true`            | no      | "disabled"                                            | the narrowing comes from something re-consent cannot fix, e.g. a workspace role |
+
+A request without `AuthInfo` is not challenged when `auth` is not configured
+(matching the SDK's `requireScopes`). When `auth` is configured with
+`optional: true`, an anonymous request finds scoped capabilities disabled.
+
+With `auth` configured, `tools/list`, `prompts/list`, `resources/list` and
+`resources/templates/list` default to private, zero-TTL cache hints, since the
+lists are per caller. Explicit `server.cacheHints` win.
+
+### Resolver defaults
+
+`@Resolver` also accepts an options object whose `scopes`, `public` and
+`hideOutOfScope` become the defaults for every capability of the class. The
+string form, `@Resolver('notes')`, is unchanged.
+
+```typescript
+@Resolver({ name: 'notes', scopes: ['notes:read'] })
+export class NotesResolver {
+  @Tool({ name: 'list_notes' }) // requires notes:read (inherited)
+  listNotes() {}
+
+  @Tool({ name: 'add_note', scopes: ['notes:write'] }) // requires notes:write only
+  addNote() {}
+
+  @Tool({ name: 'about', public: true }) // no scopes: public drops them
+  about() {}
+}
+```
+
+Precedence is **capability > resolver > module**: a capability's `scopes`
+**replace** the resolver's (they are not merged), a capability's `public`
+overrides the resolver's, and `hideOutOfScope` on a capability or resolver
+overrides `auth.hideOutOfScope`. A capability declaring its own `scopes` inside
+a `@Resolver({ public: true })` class is protected, not public. Scope tokens
+are validated when the class is defined, as on the method decorators.
+
+### Public capabilities
+
+`public: true` on `@Tool`, `@Resource` or `@Prompt` (or on `@Resolver`) opens a
+capability to callers **no strategy recognized**, while `auth` stays mandatory
+for everything else:
+
+```typescript
+@Tool({ name: 'search_docs', public: true })
+searchDocs() {}
+```
+
+When `auth` is configured without `optional: true` and every strategy returns
+`null`, the request is normally answered `401`. If the module declares at least
+one public capability, the already-parsed JSON-RPC body is inspected instead, and
+the request is served anonymously only if **every** message in it (one message
+or a batch) is:
+
+- a handshake or liveness message — `initialize`, `server/discover`, `ping`, any
+  `notifications/*`;
+- a list — `tools/list`, `prompts/list`, `resources/list`,
+  `resources/templates/list` — which then lists **only** public capabilities;
+- a `tools/call`, `prompts/get` or `resources/read` naming a public tool, prompt,
+  resource URI, or a URI matching a public resource template.
+
+Anything else — another method, a non-public target, a missing or malformed
+body, a `GET` — gets the same `401` with the same challenges as before. For an
+anonymous request every non-public capability is disabled (unlisted, and
+"disabled" if called directly), so nothing but public capabilities is reachable.
+
+- **Credentials change nothing.** A request with valid credentials sees and calls
+  capabilities exactly as without `public`; public ones are available to
+  everyone.
+- **`public` and `scopes` are mutually exclusive.** Declaring both on the same
+  capability (or on the same `@Resolver`) throws when the class is defined:
+  "anyone" and "only a grant holding X" contradict each other, and silently
+  picking one would either expose or lock away something by accident.
+- **No public capability, no change.** Without one, the authentication path is
+  exactly the same as before — the body is never inspected.
+- **`optional: true` keeps its meaning.** Every anonymous request is let through
+  without body inspection, unscoped capabilities stay visible to it, and scoped
+  ones are disabled.
+- **The handshake is public too.** With any public capability, `initialize` and
+  `server/discover` — including the server's `instructions` — are readable
+  anonymously, so keep nothing confidential there.
+- **Both protocol eras.** The check runs on the parsed body before the SDK sees
+  the request, so 2025-era clients (e.g. `@modelcontextprotocol/sdk` v1) work
+  anonymously too: `initialize` → `tools/list` → a public `tools/call`.
+
+### Typed identity (`getAuthInfo`)
+
+`getAuthInfo<TExtra>(ctx)` returns the effective `AuthInfo` — what the
+strategies produced and the authorizers shaped — from a handler's `McpContext`
+or a guard's `McpExecutionContext`, with `extra` typed as `TExtra`
+(`McpAuthInfo<TExtra>`). It is `undefined` for an anonymous request.
+
+```typescript
+type WorkspaceExtra = { workspace: string }; // a type alias, not an interface
+
+@Tool({ name: 'list_notes', scopes: ['notes:read'] })
+listNotes(ctx: McpContext) {
+  const workspace = getAuthInfo<WorkspaceExtra>(ctx)?.extra?.workspace;
+  return this.notes.listFor(workspace); // the service decides which rows
+}
+
+@Injectable()
+export class OwnerGuard implements McpGuard<WorkspaceExtra> {
+  canActivate(context: McpExecutionContext<WorkspaceExtra>) {
+    return getAuthInfo<WorkspaceExtra>(context)?.extra?.workspace !== undefined;
+  }
+}
+```
+
+`TExtra` is an assertion about what **your** strategies and authorizers put in
+`extra`, not a runtime check. `McpExecutionContext` takes the same optional
+type parameter; without it, `getAuthInfo()` returns the SDK's `AuthInfo` as
+before. Use a type alias for `TExtra`: an interface would need an index
+signature, which lets any key through.
+
+### Which tool for which job
+
+| Mechanism            | Runs                                   | Answers                           | Use for                                                 |
+| -------------------- | -------------------------------------- | --------------------------------- | ------------------------------------------------------- |
+| strategy             | once per request                       | `401`                             | recognizing the caller                                  |
+| authorizer           | once per request, after authentication | `403` / narrowed `AuthInfo`       | tenant/workspace membership, role ∩ key scopes          |
+| `scopes`             | per capability, before dispatch        | `403 insufficient_scope` / hidden | OAuth scopes a capability requires                      |
+| gate (`enabled`)     | per capability, at registration        | hidden + "disabled"               | discovery-level visibility from arbitrary logic         |
+| guard (`@UseGuards`) | per invocation, before the handler     | tool error                        | per-call checks on arguments or resources being touched |
+
+### Choosing where to authorize
+
+Each layer answers a different question. **The library never authorizes data**:
+it decides whether a caller may reach an operation, never which records that
+operation may touch.
+
+| Where                 | Answers                                                                                  | Shape                                                               | Failure the client sees                       |
+| --------------------- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------- | --------------------------------------------- |
+| `scopes`              | what the credential/app was **granted**, per operation                                   | declarative, like a permission decorator on a controller method     | `403 insufficient_scope` (step-up), or hidden |
+| guards (`@UseGuards`) | your application's rules for one operation (arguments, time, feature flags)              | code, per invocation                                                | a **tool error**                              |
+| authorizers           | who the caller is **for this request**: tenant/workspace, role ∩ credential scopes       | code, once per request; shapes the `AuthInfo` everything else reads | `403 access_denied` / narrowed scopes         |
+| application services  | **data-level** authorization — "is this record in this workspace?" — the source of truth | your domain code, called by the handler with `getAuthInfo(ctx)`     | whatever your handler returns                 |
+| `public`              | which operations need no identity at all                                                 | declarative, per capability or resolver                             | `401` for everything else                     |
+| resolver defaults     | the common `scopes` / `public` / `hideOutOfScope` of a group of operations               | declarative, on `@Resolver({ … })`                                  | as `scopes` / `public`                        |
+| typed identity        | how handlers and guards read the caller                                                  | `getAuthInfo<TExtra>(ctx)`                                          | —                                             |
+
+**Why a scope failure is a `403` but a guard failure is a tool error.** `scopes`
+are known before dispatch, so the SDK can refuse the HTTP request itself with a
+`403` and a `WWW-Authenticate` challenge an OAuth client knows how to act on
+(re-consent with more scopes). A guard runs inside the dispatched call: by then
+the MCP request has been accepted and the HTTP response is committed to a
+JSON-RPC result, so the only honest answer left is an error result for that
+tool call. Put anything a client could fix by re-authorizing in `scopes` (or an
+authorizer); keep guards for rules re-consent cannot change.
+
+### Things to know
+
+- **Global `APP_GUARD`s also run on `/mcp`.** A REST guard registered globally
+  will see MCP traffic too; apply REST guards per controller instead. They run
+  **before** the MCP controller authenticates the request, so `req.auth` is
+  still `undefined` there: authorize MCP callers with `auth.authorizers`,
+  `@UseGuards` on resolvers, or capability gates, which all see the `AuthInfo`.
+- **The MCP endpoint and the metadata route are unversioned.** `/mcp` and
+  `/.well-known/oauth-protected-resource…` are served `VERSION_NEUTRAL`, so they
+  stay at those paths even when the app enables URI versioning.
+- **Global prefix.** If you call `app.setGlobalPrefix()`, exclude the MCP routes:
+  `app.setGlobalPrefix('api', { exclude: ['mcp', '.well-known/{*path}'] })`.
+- **Unresolvable guards now deny** (since 2.1). A `@UseGuards` class the container
+  cannot resolve used to fall back to `new Guard()`; it is now a denial plus an
+  error log, matching gates.
+
+See [`examples/auth`](./examples/auth) for a runnable server with an API-key
+strategy, a JWT strategy, a tenant authorizer and scoped tools.
 
 ---
 
@@ -1288,7 +1772,7 @@ handle from a tool and have the model pass it back as an argument instead.
 
 ```diff
   @Injectable()
-  export class AuthGuard implements CanActivate {
+  export class AuthGuard implements McpGuard {
 -   constructor(private readonly sessionManager: SessionManager) {}
 -
     canActivate(context: McpExecutionContext): boolean {

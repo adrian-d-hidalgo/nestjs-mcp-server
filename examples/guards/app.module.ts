@@ -30,7 +30,7 @@ export class GlobalLogGuard implements CanActivate {
 @Module({
   imports: [
     McpModule.forRoot({
-      name: 'tools',
+      name: 'guards',
       version: '1.0.0',
       logging: {
         enabled: true,

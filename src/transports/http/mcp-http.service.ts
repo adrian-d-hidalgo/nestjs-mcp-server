@@ -10,10 +10,12 @@ import {
   Injectable,
   OnApplicationShutdown,
   OnModuleInit,
+  Optional,
 } from '@nestjs/common';
 import { AsyncLocalStorage } from 'async_hooks';
 import { Response } from 'express';
 
+import { McpAuthService } from '../../auth/mcp-auth.service';
 import type { AuthenticatedRequest } from '../../interfaces/handler-context.interface';
 import {
   MCP_REQUEST_SCOPE,
@@ -72,6 +74,8 @@ export class McpHttpService implements OnModuleInit, OnApplicationShutdown {
     private readonly als: AsyncLocalStorage<McpRequestScope>,
     private readonly registry: RegistryService,
     private readonly logger: McpLoggerService,
+    @Optional()
+    private readonly auth?: McpAuthService,
   ) {}
 
   onModuleInit(): void {
@@ -98,9 +102,18 @@ export class McpHttpService implements OnModuleInit, OnApplicationShutdown {
    *
    * `req.body` is handed to the SDK as the pre-parsed body so it never has to
    * re-read (or clone) the already-drained Node stream.
+   *
+   * When `auth` is configured, strategies and authorizers run first, for both
+   * protocol eras; a refused request is answered here and never reaches the
+   * SDK. The resulting `req.auth` is forwarded by `toNodeHandler` as the SDK's
+   * `authInfo`, which is what the per-capability scope challenge reads.
    */
-  handle(req: AuthenticatedRequest, res: Response): Promise<void> {
-    return this.als.run({ request: req }, () =>
+  async handle(req: AuthenticatedRequest, res: Response): Promise<void> {
+    if (this.auth?.enabled && !(await this.auth.authenticate(req, res))) {
+      return;
+    }
+
+    await this.als.run({ request: req }, () =>
       this.nodeHandler(req, res, req.body),
     );
   }

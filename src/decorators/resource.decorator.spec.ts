@@ -139,4 +139,39 @@ describe('Resource Decorator', () => {
 
     expect(metadata.cacheHint).toEqual({ ttlMs: 1000, cacheScope: 'public' });
   });
+
+  it.each([
+    ['a space', ['notes:read notes:write']],
+    ['a quote', ['notes"read']],
+    ['a control character', ['notes\u0000read']],
+    ['an empty scope', ['']],
+    ['no scope at all', []],
+  ])('rejects scopes holding %s at declaration', (_label, scopes) => {
+    expect(() =>
+      Resource({ name: 'bad', uri: 'res://x', scopes } as unknown as Parameters<
+        typeof Resource
+      >[0]),
+    ).toThrow(/@Resource "bad" scopes.*scope-token/);
+  });
+
+  it('accepts valid scope-tokens', () => {
+    expect(() =>
+      Resource({
+        name: 'good',
+        uri: 'res://x',
+        scopes: ['notes:read', 'https://x/y'],
+      }),
+    ).not.toThrow();
+  });
+
+  it('refuses public together with scopes at declaration', () => {
+    expect(() =>
+      Resource({
+        name: 'both',
+        uri: 'res://x',
+        public: true,
+        scopes: ['notes:read'],
+      }),
+    ).toThrow(/@Resource "both".*public.*scopes/);
+  });
 });

@@ -3,7 +3,10 @@ import { DynamicModule, Module, Provider } from '@nestjs/common';
 import { DiscoveryModule } from '@nestjs/core';
 import { AsyncLocalStorage } from 'async_hooks';
 
+import { McpAuthService } from './auth/mcp-auth.service';
+import { McpProtectedResourceController } from './auth/mcp-protected-resource.controller';
 import {
+  MCP_AUTH_OPTIONS,
   MCP_LOGGING_OPTIONS,
   MCP_MODULE_OPTIONS,
   MCP_REQUEST_SCOPE,
@@ -34,11 +37,26 @@ const CORE_PROVIDERS: Provider[] = [
   DiscoveryService,
   McpLoggerService,
   McpHttpService,
+  McpAuthService,
   {
     provide: MCP_REQUEST_SCOPE,
     useValue: new AsyncLocalStorage(),
   },
 ];
+
+/**
+ * Cache hints applied to list results when `auth` is configured.
+ *
+ * With authentication, a list is per caller — `hideOutOfScope`, gates and
+ * authorizers all shape it — so it must never be served from a shared cache or
+ * reused after the caller's grant changes. Explicit `server.cacheHints` win.
+ */
+const PER_CALLER_LIST_CACHE_HINTS: NonNullable<ServerOptions['cacheHints']> = {
+  'tools/list': { ttlMs: 0, cacheScope: 'private' },
+  'prompts/list': { ttlMs: 0, cacheScope: 'private' },
+  'resources/list': { ttlMs: 0, cacheScope: 'private' },
+  'resources/templates/list': { ttlMs: 0, cacheScope: 'private' },
+};
 
 @Module({
   imports: [DiscoveryModule],
@@ -61,6 +79,12 @@ export class McpCoreModule {
       ...(options?.protocolOptions || {}),
       ...(options?.server || {}),
     };
+    if (options.auth) {
+      serverOptions.cacheHints = {
+        ...PER_CALLER_LIST_CACHE_HINTS,
+        ...serverOptions.cacheHints,
+      };
+    }
     const loggingOptions: McpLoggingOptions = {
       enabled: options.logging?.enabled !== false,
       level: options.logging?.level || 'verbose',
@@ -103,6 +127,11 @@ export class McpCoreModule {
         inject: [MCP_MODULE_OPTIONS],
       },
       {
+        provide: MCP_AUTH_OPTIONS,
+        useFactory: (mcpOptions: McpModuleOptions) => mcpOptions.auth,
+        inject: [MCP_MODULE_OPTIONS],
+      },
+      {
         provide: MCP_SERVER_OPTIONS,
         useFactory: (mcpOptions: McpModuleOptions) => {
           const { serverInfo, serverOptions, loggingOptions } =
@@ -131,7 +160,12 @@ export class McpCoreModule {
     return {
       module: McpCoreModule,
       imports,
-      controllers: [McpController],
+      controllers: [
+        McpController,
+        ...(options.auth?.protectedResource
+          ? [McpProtectedResourceController]
+          : []),
+      ],
       providers: [
         ...(options.providers || []),
         {
@@ -150,6 +184,10 @@ export class McpCoreModule {
           provide: MCP_TRANSPORT_OPTIONS,
           useValue: options.transport,
         },
+        {
+          provide: MCP_AUTH_OPTIONS,
+          useValue: options.auth,
+        },
       ],
       global: true,
     };
@@ -163,14 +201,21 @@ export class McpCoreModule {
    * @returns Dynamic module configuration
    */
   static forRootAsync(options: McpModuleAsyncOptions): DynamicModule {
-    const { imports = [] } = options;
+    const { imports = [], providers = [] } = options;
     const asyncProviders = this.createAsyncProviders(options);
 
     return {
       module: McpCoreModule,
       imports,
-      controllers: [McpController],
-      providers: [...asyncProviders, ...CORE_PROVIDERS],
+      // Static: Nest fixes controllers before `useFactory` runs, so whether to
+      // serve the metadata endpoint cannot come from the factory's result.
+      controllers: [
+        McpController,
+        ...(options.protectedResourceMetadata
+          ? [McpProtectedResourceController]
+          : []),
+      ],
+      providers: [...providers, ...asyncProviders, ...CORE_PROVIDERS],
       global: true,
     };
   }

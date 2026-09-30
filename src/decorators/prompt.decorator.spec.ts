@@ -109,4 +109,33 @@ describe('Prompt Decorator', () => {
     );
     expect('enabled' in metadata).toBe(false);
   });
+
+  it.each([
+    ['a space', ['notes:read notes:write']],
+    ['a quote', ['notes"read']],
+    ['a control character', ['notes\u0000read']],
+    ['an empty scope', ['']],
+    ['no scope at all', []],
+  ])('rejects scopes holding %s at declaration', (_label, scopes) => {
+    expect(() =>
+      Prompt({ name: 'bad', scopes } as unknown as Parameters<
+        typeof Prompt
+      >[0]),
+    ).toThrow(/@Prompt "bad" scopes.*scope-token/);
+  });
+
+  it('accepts valid scope-tokens', () => {
+    expect(() =>
+      Prompt({
+        name: 'good',
+        scopes: ['notes:read', 'https://x/y'],
+      }),
+    ).not.toThrow();
+  });
+
+  it('refuses public together with scopes at declaration', () => {
+    expect(() =>
+      Prompt({ name: 'both', public: true, scopes: ['notes:read'] }),
+    ).toThrow(/@Prompt "both".*public.*scopes/);
+  });
 });

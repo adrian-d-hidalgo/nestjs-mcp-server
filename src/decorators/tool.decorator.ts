@@ -1,6 +1,8 @@
 import { Icon, ToolAnnotations } from '@modelcontextprotocol/server';
 import { SetMetadata } from '@nestjs/common';
 
+import { assertCapabilityAccess } from '../services/capability-scopes';
+
 import type { McpCapabilityToggle } from '../interfaces/registration-context.interface';
 import type { McpSchema } from '../mcp.types';
 
@@ -11,6 +13,42 @@ export interface ToolBaseOptions {
    * Evaluated once per request; omit for the default (always enabled).
    */
   enabled?: McpCapabilityToggle;
+  /**
+   * OAuth scopes the caller must hold to call this tool.
+   *
+   * Checked by the MCP SDK **before** dispatch, against the effective
+   * `AuthInfo` (after `auth.authorizers`). A caller lacking them gets `403
+   * insufficient_scope` naming these scopes — or, with `auth.hideOutOfScope`,
+   * finds the capability disabled and unlisted. A request with no `AuthInfo`
+   * is not challenged when `auth` is not configured; when it is configured
+   * (`optional: true`), an anonymous request finds the capability disabled.
+   *
+   * Each entry must be an OAuth scope-token (no spaces, quotes, backslashes
+   * or control characters); an invalid one throws when the class is defined.
+   */
+  scopes?: [string, ...string[]];
+  /**
+   * Lets a caller no `auth.strategies` recognized call this tool.
+   *
+   * Only meaningful when `auth` is configured without `optional: true`: such
+   * a request is normally answered `401`, but one whose every JSON-RPC
+   * message is a handshake (`initialize`, `server/discover`, `ping`,
+   * `notifications/*`), a list, or a call/get/read of a public capability is
+   * served anonymously, and it sees **only** public capabilities. A request
+   * carrying valid credentials is unaffected — public capabilities are
+   * available to everyone.
+   *
+   * Cannot be combined with `scopes` (throws when the class is defined).
+   * Overrides a `@Resolver({ public })` default.
+   * @default false
+   */
+  public?: boolean;
+  /**
+   * Overrides `auth.hideOutOfScope` (and a `@Resolver({ hideOutOfScope })`
+   * default) for this capability: `true` disables it for a caller whose grant
+   * does not satisfy its `scopes`, `false` keeps it listed and challenges.
+   */
+  hideOutOfScope?: boolean;
   /** Human-readable display name, shown in place of `name` where available. */
   title?: string;
   /**
@@ -84,6 +122,10 @@ export const MCP_TOOL = '__mcp_tool__';
  * @param options Tool configuration
  */
 export function Tool(options: ToolOptions) {
+  // Fails at class definition — before the app boots — on a scope no OAuth
+  // client could ever be granted or challenged with.
+  assertCapabilityAccess(options, `@Tool "${options.name}"`);
+
   return function (
     target: object,
     propertyKey: string,

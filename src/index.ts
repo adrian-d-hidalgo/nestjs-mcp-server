@@ -14,6 +14,9 @@ export * from './services';
 // Decorators
 export * from './decorators';
 
+// Authentication strategies, request authorizers and their errors
+export * from './auth';
+
 // The stateless MCP endpoint. `McpHttpService` is exported for its `notify`
 // facade, which publishes change events onto open `subscriptions/listen`
 // streams — the only way this library can emit `list_changed`.
