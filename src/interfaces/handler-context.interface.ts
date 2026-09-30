@@ -52,4 +52,47 @@ export interface McpContext extends ServerContext {
    * repeated headers arrive as `string[]`, and absent ones as `undefined`.
    */
   readonly headers: IncomingHttpHeaders;
+
+  /**
+   * Reports progress on this invocation to the client that made it, as a
+   * `notifications/progress` correlated with the client's `progressToken`.
+   *
+   * - **No token, no-op.** Progress is sent only when the request carried
+   *   `_meta.progressToken`; otherwise this resolves without sending. Clients
+   *   are not obliged to ask for progress, and most do not.
+   * - **Modern era under `responseMode: 'json'`** — the SDK drops mid-call
+   *   notifications there, so nothing is sent and one warning is logged per
+   *   application (per `RegistryService` instance) the first time a handler
+   *   reports progress. `'auto'` (the default)
+   *   and `'sse'` deliver it; on `'auto'` the first frame turns the response
+   *   into an SSE stream.
+   * - **Legacy (2025) era** — always delivered over SSE, whatever the
+   *   `responseMode`.
+   * - **Never rejects.** A progress update that cannot be delivered (the
+   *   exchange already ended) is logged at `debug` and dropped, so
+   *   fire-and-forget calls are safe.
+   * - **Safe to detach.** It never reads `this`, so it can be handed to a
+   *   service as a plain callback: `importer.run(rows, ctx.reportProgress)`.
+   *
+   * `message` reaches the caller verbatim: do not put secrets or other
+   * tenants' data in it. Monotonic `progress` values are the caller's
+   * responsibility; nothing is validated or throttled.
+   *
+   * @param progress Progress so far; should increase with every call.
+   * @param total The total to reach, when known.
+   * @param message A human-readable description of the current step.
+   *
+   * @example
+   * ```typescript
+   * for (let i = 1; i <= files.length; i++) {
+   *   await analyze(files[i - 1]);
+   *   await ctx.reportProgress(i, files.length, `analyzed ${i}/${files.length}`);
+   * }
+   * ```
+   */
+  readonly reportProgress: (
+    progress: number,
+    total?: number,
+    message?: string,
+  ) => Promise<void>;
 }

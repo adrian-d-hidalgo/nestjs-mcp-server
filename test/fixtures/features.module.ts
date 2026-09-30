@@ -7,8 +7,10 @@ import {
   createRequestStateCodec,
   InputRequiredResult,
   inputRequired,
+  GetPromptResult,
   McpContext,
   McpModule,
+  Prompt,
   ReadResourceResult,
   Resolver,
   Resource,
@@ -224,3 +226,79 @@ class ResumableResolver {
   providers: [ResumableResolver],
 })
 export class ResumableModule {}
+
+/**
+ * Handlers that report progress through `McpContext.reportProgress`.
+ *
+ * Kept out of `FeaturesResolver` so the listings the other suites assert on do
+ * not change.
+ */
+@Resolver('progress')
+class ProgressResolver {
+  @Tool({
+    name: 'count_up',
+    description: 'Counts to `steps`, reporting progress at every step',
+    paramsSchema: z.object({ steps: z.number().int().min(1).max(20) }),
+  })
+  async countUp(
+    params: { steps: number },
+    ctx: McpContext,
+  ): Promise<CallToolResult> {
+    for (let i = 1; i <= params.steps; i++) {
+      await ctx.reportProgress(i, params.steps, `step ${i}/${params.steps}`);
+    }
+
+    return { content: [{ type: 'text', text: `counted to ${params.steps}` }] };
+  }
+
+  @Prompt({
+    name: 'assemble_briefing',
+    description: 'Assembles a prompt in two reported stages',
+  })
+  async assembleBriefing(ctx: McpContext): Promise<GetPromptResult> {
+    await ctx.reportProgress(1, 2, 'gathering');
+    await ctx.reportProgress(2, 2, 'assembling');
+
+    return {
+      messages: [
+        { role: 'user', content: { type: 'text', text: 'briefing ready' } },
+      ],
+    };
+  }
+}
+
+/** Progress-reporting handlers on the default `responseMode` (`'auto'`). */
+@Module({
+  imports: [McpModule.forRoot({ name: 'progress', version: '1.0.0' })],
+  providers: [ProgressResolver],
+})
+export class ProgressModule {}
+
+/** Progress-reporting handlers with every response forced onto SSE. */
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'progress-sse',
+      version: '1.0.0',
+      transport: { responseMode: 'sse' },
+    }),
+  ],
+  providers: [ProgressResolver],
+})
+export class SseProgressModule {}
+
+/**
+ * The same handlers under `responseMode: 'json'`, where the SDK drops mid-call
+ * notifications on modern-era requests.
+ */
+@Module({
+  imports: [
+    McpModule.forRoot({
+      name: 'progress-json',
+      version: '1.0.0',
+      transport: { responseMode: 'json' },
+    }),
+  ],
+  providers: [ProgressResolver],
+})
+export class JsonProgressModule {}

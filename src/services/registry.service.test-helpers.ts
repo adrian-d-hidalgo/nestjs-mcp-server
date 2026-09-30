@@ -1,6 +1,7 @@
 import type { ModuleRef, Reflector } from '@nestjs/core';
 
 import type { McpRegistrationContext } from '../interfaces/registration-context.interface';
+import type { McpTransportOptions } from '../mcp.types';
 import type { DiscoveryService } from './discovery.service';
 import type { McpLoggerService } from './logger.service';
 import { RegistryService } from './registry.service';
@@ -40,13 +41,17 @@ export function sdkContext(method = 'tools/call'): unknown {
 /**
  * A `RegistryService` built from plain mocks, for the "unit tests for private
  * logic" suites. The container resolves nothing: `get` and `create` both throw.
+ * `transportOptions` stands in for the injected `MCP_TRANSPORT_OPTIONS`.
  */
-export function createPrivateLogicHarness() {
+export function createPrivateLogicHarness(
+  transportOptions?: McpTransportOptions,
+) {
   const mockDiscovery = {
     getAllMethodsWithMetadata: jest.fn(),
   };
   const mockLogger = {
     log: jest.fn(),
+    warn: jest.fn(),
     error: jest.fn(),
     debug: jest.fn(),
   };
@@ -73,6 +78,8 @@ export function createPrivateLogicHarness() {
     mockLogger as unknown as McpLoggerService,
     mockReflector as unknown as Reflector,
     mockModuleRef as unknown as ModuleRef,
+    undefined,
+    transportOptions,
   );
 
   return { service, mockDiscovery, mockLogger, mockReflector, mockServer };

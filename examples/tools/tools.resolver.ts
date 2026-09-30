@@ -6,6 +6,14 @@ import { McpContext, Resolver, Tool } from '../../src';
 const ParamsSchema = z.object({ value: z.string() });
 type ParamsSchemaType = z.infer<typeof ParamsSchema>;
 
+const ProgressParamsSchema = z.object({
+  steps: z.number().int().min(1).max(20),
+});
+type ProgressParamsSchemaType = z.infer<typeof ProgressParamsSchema>;
+
+const sleep = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
 /**
  * Renders the parts of the handler context that are useful to see over the
  * wire.
@@ -173,6 +181,34 @@ export class ToolsResolver {
         { type: 'text', text: `Params: ${JSON.stringify(params)}` },
         { type: 'text', text: `Context: ${describe(_ctx)}` },
       ],
+    };
+  }
+
+  /**
+   * 9. Progress: `ctx.reportProgress` once per step.
+   *
+   * Delivered only when the client sent a `progressToken` (a no-op otherwise).
+   * On the default `responseMode: 'auto'` the first update turns the response
+   * into an SSE stream: progress frames first, then the result.
+   */
+  @Tool({
+    name: 'tool_with_progress',
+    description: 'Works through `steps` steps, reporting progress on each',
+    paramsSchema: ProgressParamsSchema,
+  })
+  async toolWithProgress(
+    params: ProgressParamsSchemaType,
+    ctx: McpContext,
+  ): Promise<CallToolResult> {
+    const { steps } = params;
+
+    for (let i = 1; i <= steps; i++) {
+      await sleep(200);
+      await ctx.reportProgress(i, steps, `step ${i}/${steps}`);
+    }
+
+    return {
+      content: [{ type: 'text', text: `Completed ${steps} steps` }],
     };
   }
 }

@@ -1,11 +1,14 @@
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
 
+import { MCP_RESOLVER } from '../decorators';
+import type { McpContext } from '../interfaces/handler-context.interface';
 import { RegistryService } from './registry.service';
 import {
   createPrivateLogicHarness,
   type MockMethod,
   type PrivateLogicHarness,
   requestContext,
+  sdkContext,
 } from './registry.service.test-helpers';
 
 describe('RegistryService', () => {
@@ -466,6 +469,225 @@ describe('RegistryService', () => {
           expect.stringContaining('Test stack trace'),
           undefined,
           'prompts',
+        );
+      });
+    });
+
+    describe('handler context: reportProgress', () => {
+      class ProgressResolver {}
+      Reflect.defineMetadata(MCP_RESOLVER, { name: 'p' }, ProgressResolver);
+
+      /** The last argument a resolver method received. */
+      const lastArg = (handler: jest.Mock): McpContext =>
+        (handler.mock.calls[0] as unknown[]).at(-1) as McpContext;
+
+      /** The callback handed to the SDK — always its last argument. */
+      const sdkCallback = (register: jest.Mock) =>
+        (register.mock.calls[0] as unknown[]).at(-1) as (
+          ...args: unknown[]
+        ) => Promise<unknown>;
+
+      const discover = (metadata: Record<string, unknown>) => {
+        const handler = jest.fn().mockReturnValue('ok');
+        mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          { metadata, instance: new ProgressResolver(), handler },
+        ]);
+        return handler;
+      };
+
+      it('hands a tool handler a callable reportProgress', async () => {
+        const handler = discover({ name: 'progress_tool' });
+        await service['registerTools'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+
+        await sdkCallback(mockServer.registerTool)({ a: 1 }, sdkContext());
+
+        const ctx = lastArg(handler);
+        expect(typeof ctx.reportProgress).toBe('function');
+        await expect(ctx.reportProgress(1, 2)).resolves.toBeUndefined();
+      });
+
+      it('hands a prompt handler a callable reportProgress', async () => {
+        const handler = discover({ name: 'progress_prompt' });
+        await service['registerPrompts'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+
+        await sdkCallback(mockServer.registerPrompt)(
+          { a: '1' },
+          sdkContext('prompts/get'),
+        );
+
+        const ctx = lastArg(handler);
+        expect(typeof ctx.reportProgress).toBe('function');
+        await expect(ctx.reportProgress(1)).resolves.toBeUndefined();
+      });
+
+      it('hands a resource handler a callable reportProgress', async () => {
+        const handler = discover({
+          name: 'progress_resource',
+          uri: 'progress://doc',
+        });
+        await service['registerResources'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+
+        await sdkCallback(mockServer.registerResource)(
+          new URL('progress://doc'),
+          sdkContext('resources/read'),
+        );
+
+        const ctx = lastArg(handler);
+        expect(typeof ctx.reportProgress).toBe('function');
+        await expect(ctx.reportProgress(1)).resolves.toBeUndefined();
+      });
+
+      it("sends through the invocation's own SDK context", async () => {
+        const handler = discover({ name: 'progress_tool' });
+        await service['registerTools'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+        const notify = jest.fn().mockResolvedValue(undefined);
+
+        await sdkCallback(mockServer.registerTool)(
+          {},
+          {
+            mcpReq: {
+              id: 7,
+              method: 'tools/call',
+              _meta: { progressToken: 0 },
+              notify,
+            },
+          },
+        );
+        await lastArg(handler).reportProgress(1, 2, 'half');
+
+        expect(notify).toHaveBeenCalledWith({
+          method: 'notifications/progress',
+          params: { progressToken: 0, progress: 1, total: 2, message: 'half' },
+        });
+      });
+
+      it('is not shadowed by a same-named member of the SDK context', async () => {
+        const handler = discover({ name: 'progress_tool' });
+        await service['registerTools'](
+          mockServer as unknown as McpServer,
+          requestContext(),
+          [],
+        );
+        const notify = jest.fn().mockResolvedValue(undefined);
+        const sdkReportProgress = jest.fn().mockResolvedValue(undefined);
+
+        // A future SDK adding `reportProgress` to its context must not replace
+        // ours: the library's version is built after the spread.
+        await sdkCallback(mockServer.registerTool)(
+          {},
+          {
+            mcpReq: {
+              id: 3,
+              method: 'tools/call',
+              _meta: { progressToken: 'p' },
+              notify,
+            },
+            reportProgress: sdkReportProgress,
+          },
+        );
+        const ctx = lastArg(handler);
+        await ctx.reportProgress(1);
+
+        expect(ctx.reportProgress).not.toBe(sdkReportProgress);
+        expect(sdkReportProgress).not.toHaveBeenCalled();
+        expect(notify).toHaveBeenCalledWith({
+          method: 'notifications/progress',
+          params: { progressToken: 'p', progress: 1 },
+        });
+      });
+
+      it('keeps the warn-once state per registry instance', async () => {
+        const invocation = {
+          mcpReq: {
+            id: 1,
+            method: 'tools/call',
+            _meta: { progressToken: 't' },
+            notify: jest.fn().mockResolvedValue(undefined),
+          },
+        };
+
+        // Two apps in one process: each must warn once, independently.
+        const harnesses = [
+          createPrivateLogicHarness({ responseMode: 'json' }),
+          createPrivateLogicHarness({ responseMode: 'json' }),
+        ];
+
+        for (const harness of harnesses) {
+          const handler = jest.fn().mockReturnValue('ok');
+          harness.mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+            {
+              metadata: { name: 'progress_tool' },
+              instance: new ProgressResolver(),
+              handler,
+            },
+          ]);
+          await harness.service['registerTools'](
+            harness.mockServer as unknown as McpServer,
+            requestContext(),
+            [],
+          );
+          await sdkCallback(harness.mockServer.registerTool)({}, invocation);
+          await lastArg(handler).reportProgress(1);
+        }
+
+        expect(harnesses[0].mockLogger.warn).toHaveBeenCalledTimes(1);
+        expect(harnesses[1].mockLogger.warn).toHaveBeenCalledTimes(1);
+      });
+
+      it('warns once per registry under responseMode json, across invocations', async () => {
+        const json = createPrivateLogicHarness({ responseMode: 'json' });
+        const handler = jest.fn().mockReturnValue('ok');
+        json.mockDiscovery.getAllMethodsWithMetadata.mockReturnValue([
+          {
+            metadata: { name: 'progress_tool' },
+            instance: new ProgressResolver(),
+            handler,
+          },
+        ]);
+        const notify = jest.fn().mockResolvedValue(undefined);
+        const invocation = {
+          mcpReq: {
+            id: 1,
+            method: 'tools/call',
+            _meta: { progressToken: 't' },
+            notify,
+          },
+        };
+
+        // Two separate requests, each with its own registration pass.
+        for (let i = 0; i < 2; i++) {
+          json.mockServer.registerTool.mockClear();
+          handler.mockClear();
+          await json.service['registerTools'](
+            json.mockServer as unknown as McpServer,
+            requestContext(),
+            [],
+          );
+          await sdkCallback(json.mockServer.registerTool)({}, invocation);
+          await lastArg(handler).reportProgress(1);
+        }
+
+        expect(notify).not.toHaveBeenCalled();
+        expect(json.mockLogger.warn).toHaveBeenCalledTimes(1);
+        expect(json.mockLogger.warn).toHaveBeenCalledWith(
+          expect.stringContaining("'json'"),
+          'progress',
         );
       });
     });
