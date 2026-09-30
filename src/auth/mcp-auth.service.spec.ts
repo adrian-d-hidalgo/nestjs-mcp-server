@@ -395,6 +395,7 @@ describe('McpAuthService', () => {
       expect(JSON.parse(written.body ?? '{}')).toEqual(
         expect.objectContaining({ error: 'server_error' }),
       );
+      expect(written.body).not.toContain('database down');
       expect(logger.error).toHaveBeenCalledWith(
         expect.stringContaining('database down'),
         undefined,
