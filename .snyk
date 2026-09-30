@@ -1,0 +1,14 @@
+# Snyk (https://snyk.io) policy file
+#
+# Excludes paths that never ship from Snyk Code. `package.json` `files` publishes
+# only `dist`, `README.md` and `LICENSE`, so `src/` stays fully scanned.
+#
+# - test/: fixtures by design — demo credentials, JWTs the tests mint and
+#   inspect, and a local HTTP mock authorization server.
+# - examples/: runnable demos with DEMO ONLY credentials
+#   (see examples/oauth/demo-users.ts).
+---
+exclude:
+  global:
+    - test/**
+    - examples/**
