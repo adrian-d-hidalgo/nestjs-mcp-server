@@ -64,6 +64,11 @@ describe('McpLoggerService', () => {
       );
     });
 
+    it('should not forward an undefined trace as a message', () => {
+      service.error('test error', undefined, 'tools');
+      expect(errorSpy).toHaveBeenCalledWith('test error', '@mcp:tools');
+    });
+
     it('should format context correctly', () => {
       service.log('test', 'MyContext');
       expect(logSpy).toHaveBeenCalledWith('test', '@mcp:MyContext');

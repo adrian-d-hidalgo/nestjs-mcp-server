@@ -6,6 +6,7 @@ import type { Server } from 'http';
 import type { AddressInfo } from 'net';
 
 import { AppModule } from '../examples/auth/app.module';
+import { e2eLogger } from './support/logger';
 
 /**
  * Apps that turn on URI versioning must still serve the MCP endpoint and the
@@ -21,7 +22,7 @@ describe('URI versioning (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication({ logger: e2eLogger() });
     app.enableVersioning({ type: VersioningType.URI, defaultVersion: '1' });
     await app.listen(0);
 

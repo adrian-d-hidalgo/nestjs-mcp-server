@@ -6,6 +6,7 @@ import type { Server } from 'http';
 import type { AddressInfo } from 'net';
 
 import { AppModule } from '../examples/dynamic/app.module';
+import { e2eLogger } from './support/logger';
 
 /**
  * The gate design on the wire.
@@ -38,7 +39,7 @@ describe('Dynamic capabilities (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication({ logger: e2eLogger() });
     await app.listen(0);
 
     const server = app.getHttpServer() as Server;

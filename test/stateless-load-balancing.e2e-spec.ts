@@ -6,6 +6,7 @@ import type { Server } from 'http';
 import type { AddressInfo } from 'net';
 
 import { AppModule } from '../examples/tools/app.module';
+import { e2eLogger } from './support/logger';
 
 /**
  * The acceptance proof for issue #121.
@@ -46,7 +47,7 @@ describe('Stateless load balancing (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    const app = fixture.createNestApplication();
+    const app = fixture.createNestApplication({ logger: e2eLogger() });
     await app.listen(0);
 
     const httpServer = app.getHttpServer() as Server;

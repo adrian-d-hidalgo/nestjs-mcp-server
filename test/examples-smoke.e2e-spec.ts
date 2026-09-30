@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Server } from 'http';
 import type { AddressInfo } from 'net';
+import { e2eLogger } from './support/logger';
 
 /**
  * Every example boots and serves.
@@ -105,7 +106,9 @@ describe('Examples smoke (e2e)', () => {
         imports: [mod.AppModule as never],
       }).compile();
 
-      const app: INestApplication = fixture.createNestApplication();
+      const app: INestApplication = fixture.createNestApplication({
+        logger: e2eLogger(),
+      });
       await app.listen(0);
 
       try {

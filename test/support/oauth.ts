@@ -7,6 +7,7 @@ import type { AddressInfo } from 'net';
 import { OAuthExampleModule } from '../../examples/oauth/app.module';
 import { MockAuthorizationServer } from '../../examples/oauth/mock-authorization-server';
 import { resolveOAuthConfig } from '../../examples/oauth/oauth.config';
+import { e2eLogger } from './logger';
 
 /**
  * Shared helpers of the OAuth e2e specs (`test/oauth-*.e2e-spec.ts`): they run
@@ -175,7 +176,7 @@ export const bootExample = async (
   const fixture = await Test.createTestingModule({
     imports: [OAuthExampleModule.forConfig(config)],
   }).compile();
-  const app = fixture.createNestApplication({ logger: false });
+  const app = fixture.createNestApplication({ logger: e2eLogger() });
   await app.init();
   server.on('request', app.getHttpAdapter().getInstance() as RequestListener);
 

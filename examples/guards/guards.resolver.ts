@@ -1,5 +1,5 @@
 import { CallToolResult, GetPromptResult } from '@modelcontextprotocol/server';
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 
 import {
@@ -13,16 +13,20 @@ import {
 } from '../../src';
 
 export class ResolverLogGuard implements McpGuard {
+  private readonly logger = new Logger(ResolverLogGuard.name);
+
   canActivate(): boolean {
-    console.log('[ResolverLogGuard] Resolver-level guard executed');
+    this.logger.debug('Resolver-level guard executed');
 
     return true;
   }
 }
 
 export class MethodLogGuard implements McpGuard {
+  private readonly logger = new Logger(MethodLogGuard.name);
+
   canActivate(): boolean {
-    console.log('[MethodLogGuard] Method-level guard executed');
+    this.logger.debug('Method-level guard executed');
 
     return true;
   }
@@ -45,13 +49,14 @@ export class MethodLogGuard implements McpGuard {
  */
 @Injectable()
 export class AuthHeaderGuard implements McpGuard {
+  private readonly logger = new Logger(AuthHeaderGuard.name);
+
   canActivate(context: McpExecutionContext): boolean {
     const request = context.getRequest();
     const authorization = request.headers.authorization;
 
-    console.log(
-      '[AuthHeaderGuard] Authorization on this call:',
-      authorization ? 'present' : 'absent',
+    this.logger.debug(
+      `Authorization on this call: ${authorization ? 'present' : 'absent'}`,
     );
 
     return Boolean(authorization);

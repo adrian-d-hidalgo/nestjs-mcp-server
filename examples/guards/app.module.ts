@@ -2,6 +2,7 @@ import {
   CanActivate,
   ExecutionContext,
   Injectable,
+  Logger,
   Module,
 } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
@@ -12,16 +13,18 @@ import { GuardsResolver, AuthHeaderGuard } from './guards.resolver';
 
 @Injectable()
 export class GlobalLogGuard implements CanActivate {
-  canActivate(context: ExecutionContext): boolean {
-    console.log('Global guard executed', '[GlobalLogGuard]');
+  private readonly logger = new Logger(GlobalLogGuard.name);
 
+  canActivate(context: ExecutionContext): boolean {
     // Global guards receive standard ExecutionContext
     // For HTTP contexts (including MCP over HTTP), switchToHttp() works
     const request = context.switchToHttp().getRequest<Request>();
+    const body = request.body as { method?: string } | undefined;
 
-    console.log('headers', request.headers);
-    console.log('params', request.params);
-    console.log('body', request.body);
+    // A summary, not the raw headers: those may carry credentials.
+    this.logger.debug(
+      `Global guard executed: ${request.method} ${request.path} (MCP method: ${body?.method ?? 'none'})`,
+    );
 
     return true;
   }

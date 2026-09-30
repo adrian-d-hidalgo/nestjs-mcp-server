@@ -16,6 +16,7 @@ import {
   Resource,
   Tool,
 } from '../src';
+import { e2eLogger } from './support/logger';
 
 /**
  * `public` capabilities and `@Resolver({ … })` access defaults through a real
@@ -124,7 +125,7 @@ const listen = async (
   const fixture = await Test.createTestingModule({
     imports: [PublicTestModule],
   }).compile();
-  const app = fixture.createNestApplication({ logger: false });
+  const app = fixture.createNestApplication({ logger: e2eLogger() });
   await app.listen(0);
   const server = app.getHttpServer() as Server;
   return {

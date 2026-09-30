@@ -25,7 +25,9 @@ export class McpLoggerService implements LoggerService {
       level: options?.level || 'verbose',
     };
 
-    this.logger = new Logger('MCP');
+    // No instance context: Nest would append it after ours, demoting ours to
+    // an extra message line. The '@mcp' prefix already names the source.
+    this.logger = new Logger();
   }
 
   /**
@@ -100,7 +102,13 @@ export class McpLoggerService implements LoggerService {
     }
 
     const formattedContext = this.formatContext(context);
-    this.logger.error(message, trace, formattedContext);
+    // Nest's Logger takes variadic params: an explicit `undefined` trace is
+    // printed as a second message, and the context no longer lands as one.
+    if (trace === undefined) {
+      this.logger.error(message, formattedContext);
+    } else {
+      this.logger.error(message, trace, formattedContext);
+    }
   }
 
   /**

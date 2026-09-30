@@ -7,7 +7,7 @@
  * `mock-authorization-server.ts` for what the mock does and does not do.
  */
 import { BadRequestException } from '@nestjs/common';
-import { createHash, randomBytes, timingSafeEqual } from 'crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto';
 
 import { DemoClient } from './demo-clients';
 
@@ -99,12 +99,15 @@ export const sameUrl = (a: string | undefined, b: string): boolean => {
 
 export const randomToken = (): string => randomBytes(32).toString('base64url');
 
-/** Constant-time string comparison (hashing equalises the lengths). */
+/** Per-process key: the MACs below are only ever compared, never stored. */
+const COMPARE_KEY = randomBytes(32);
+
+const mac = (value: string): Buffer =>
+  createHmac('sha256', COMPARE_KEY).update(value).digest();
+
+/** Constant-time string comparison (the HMAC equalises the lengths). */
 export const safeEqual = (a: string, b: string): boolean =>
-  timingSafeEqual(
-    createHash('sha256').update(a).digest(),
-    createHash('sha256').update(b).digest(),
-  );
+  timingSafeEqual(mac(a), mac(b));
 
 export const intersect = (a: string[], b: string[]): string[] =>
   a.filter((item) => b.includes(item));

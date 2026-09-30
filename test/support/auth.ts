@@ -21,6 +21,7 @@ import {
   Resolver,
   Tool,
 } from '../../src';
+import { e2eLogger } from './logger';
 
 /**
  * Shared fixtures of the auth e2e specs (`test/auth*.e2e-spec.ts`): the
@@ -194,7 +195,7 @@ export const listen = async (
   const fixture = await Test.createTestingModule({
     imports: [module as never],
   }).compile();
-  const app = fixture.createNestApplication({ logger: false });
+  const app = fixture.createNestApplication({ logger: e2eLogger() });
   await app.listen(0);
   const server = app.getHttpServer() as Server;
   const baseUrl = `http://localhost:${(server.address() as AddressInfo).port}`;

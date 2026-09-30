@@ -6,7 +6,7 @@ import type {
   ServerContext,
 } from '@modelcontextprotocol/server';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
-import type { CanActivate, Type } from '@nestjs/common';
+import type { CanActivate, ExecutionContext, Type } from '@nestjs/common';
 import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ModuleRef, Reflector } from '@nestjs/core';
 import { isObservable, lastValueFrom } from 'rxjs';
@@ -251,8 +251,10 @@ export class RegistryService {
           throw new Error(`Access denied by guard on ${methodName}`);
         }
 
-        // Cast to any since MCP guards receive McpExecutionContext, not ExecutionContext
-        const result = guardInstance.canActivate(context as any);
+        // CanActivate is typed for ExecutionContext; MCP guards receive McpExecutionContext.
+        const result = guardInstance.canActivate(
+          context as unknown as ExecutionContext,
+        );
         // An Observable is truthy: it must be subscribed to, as Nest does.
         const allowed = isObservable(result)
           ? await lastValueFrom(result)

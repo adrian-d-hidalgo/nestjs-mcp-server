@@ -7,6 +7,7 @@ import type { Server } from 'http';
 import type { AddressInfo } from 'net';
 
 import { AppModule } from '../examples/tools/app.module';
+import { e2eLogger } from './support/logger';
 
 describe('Concurrent clients (e2e)', () => {
   let app: INestApplication;
@@ -17,7 +18,7 @@ describe('Concurrent clients (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = moduleFixture.createNestApplication();
+    app = moduleFixture.createNestApplication({ logger: e2eLogger() });
     await app.listen(0);
 
     const server = app.getHttpServer() as Server;

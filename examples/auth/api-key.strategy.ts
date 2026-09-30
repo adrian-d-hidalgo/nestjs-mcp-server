@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { createHash, timingSafeEqual } from 'node:crypto';
+import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 
 import {
   AuthenticatedRequest,
@@ -9,8 +9,11 @@ import {
 } from '../../src';
 import { API_KEYS } from './auth.constants';
 
+/** Per-process key: the MACs below are only ever compared, never stored. */
+const COMPARE_KEY = randomBytes(32);
+
 const digest = (value: string): Buffer =>
-  createHash('sha256').update(value).digest();
+  createHmac('sha256', COMPARE_KEY).update(value).digest();
 
 /**
  * The scopes of a known key, or `undefined`.
