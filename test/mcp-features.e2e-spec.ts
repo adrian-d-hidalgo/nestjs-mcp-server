@@ -11,6 +11,7 @@ import {
   StreamingModule,
   StrictModule,
 } from './fixtures/features.module';
+import { e2eLogger } from './support/logger';
 
 /**
  * The 2026-07-28 capability surface, on the wire.
@@ -64,7 +65,7 @@ const boot = async (mod: unknown): Promise<[INestApplication, string]> => {
     imports: [mod as never],
   }).compile();
 
-  const app = fixture.createNestApplication();
+  const app = fixture.createNestApplication({ logger: e2eLogger() });
   await app.listen(0);
 
   const server = app.getHttpServer() as Server;

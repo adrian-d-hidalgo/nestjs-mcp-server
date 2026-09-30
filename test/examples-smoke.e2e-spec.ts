@@ -2,6 +2,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import type { Server } from 'http';
 import type { AddressInfo } from 'net';
+import { e2eLogger } from './support/logger';
 
 /**
  * Every example boots and serves.
@@ -37,7 +38,21 @@ interface ListBody {
  * `-32601 Method not found` to `tools/list`, because a server with no tools
  * never advertises the `tools` capability.
  */
-const EXAMPLES: { dir: string; expectsCapabilities: boolean }[] = [
+/**
+ * `headers` for `auth`, which answers `401` to an unauthenticated request; the
+ * key is one of the example's documented demo keys.
+ *
+ * `expectsChallenge` for `oauth`, which accepts only tokens from the
+ * authorization server it mounts, bound to the port in its configuration.
+ * Its smoke check is the anonymous `401` OAuth discovery challenge; the full
+ * flow is in `test/oauth-*.e2e-spec.ts`.
+ */
+const EXAMPLES: {
+  dir: string;
+  expectsCapabilities: boolean;
+  headers?: Record<string, string>;
+  expectsChallenge?: boolean;
+}[] = [
   { dir: 'tools', expectsCapabilities: true },
   { dir: 'prompts', expectsCapabilities: true },
   { dir: 'resources', expectsCapabilities: true },
@@ -45,10 +60,20 @@ const EXAMPLES: { dir: string; expectsCapabilities: boolean }[] = [
   { dir: 'guards', expectsCapabilities: true },
   { dir: 'dynamic', expectsCapabilities: true },
   { dir: 'for-root-async', expectsCapabilities: false },
+  {
+    dir: 'auth',
+    expectsCapabilities: true,
+    headers: { 'x-api-key': 'demo-read-write-key' },
+  },
+  { dir: 'oauth', expectsCapabilities: true, expectsChallenge: true },
 ];
 
 describe('Examples smoke (e2e)', () => {
-  const list = async (baseUrl: string, method: string): Promise<ListBody> => {
+  const list = async (
+    baseUrl: string,
+    method: string,
+    extraHeaders: Record<string, string> = {},
+  ): Promise<ListBody> => {
     const response = await fetch(`${baseUrl}/mcp`, {
       method: 'POST',
       headers: {
@@ -57,6 +82,7 @@ describe('Examples smoke (e2e)', () => {
         'MCP-Protocol-Version': '2026-07-28',
         'Mcp-Method': method,
         'Mcp-Name': '',
+        ...extraHeaders,
       },
       body: JSON.stringify({
         jsonrpc: '2.0',
@@ -71,7 +97,7 @@ describe('Examples smoke (e2e)', () => {
 
   it.each(EXAMPLES)(
     'examples/$dir boots and serves the protocol',
-    async ({ dir, expectsCapabilities }) => {
+    async ({ dir, expectsCapabilities, headers, expectsChallenge }) => {
       const mod = (await import(`../examples/${dir}/app.module`)) as {
         AppModule: unknown;
       };
@@ -80,7 +106,9 @@ describe('Examples smoke (e2e)', () => {
         imports: [mod.AppModule as never],
       }).compile();
 
-      const app: INestApplication = fixture.createNestApplication();
+      const app: INestApplication = fixture.createNestApplication({
+        logger: e2eLogger(),
+      });
       await app.listen(0);
 
       try {
@@ -88,10 +116,23 @@ describe('Examples smoke (e2e)', () => {
         const port = (server.address() as AddressInfo).port;
         const baseUrl = `http://localhost:${port}`;
 
+        if (expectsChallenge) {
+          const response = await fetch(`${baseUrl}/mcp`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'ping' }),
+          });
+          expect(response.status).toBe(401);
+          expect(response.headers.get('www-authenticate')).toContain(
+            'resource_metadata=',
+          );
+          return;
+        }
+
         const [tools, prompts, resources] = await Promise.all([
-          list(baseUrl, 'tools/list'),
-          list(baseUrl, 'prompts/list'),
-          list(baseUrl, 'resources/list'),
+          list(baseUrl, 'tools/list', headers),
+          list(baseUrl, 'prompts/list', headers),
+          list(baseUrl, 'resources/list', headers),
         ]);
 
         const total =

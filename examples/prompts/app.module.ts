@@ -7,7 +7,7 @@ import { PromptsResolver } from './prompts.resolver';
 @Module({
   imports: [
     McpModule.forRoot({
-      name: 'tools',
+      name: 'prompts',
       version: '1.0.0',
       logging: {
         enabled: true,

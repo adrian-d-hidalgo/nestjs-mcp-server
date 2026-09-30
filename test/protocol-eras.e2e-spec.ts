@@ -6,6 +6,7 @@ import type { Server } from 'http';
 import type { AddressInfo } from 'net';
 
 import { AppModule } from '../examples/tools/app.module';
+import { e2eLogger } from './support/logger';
 
 /**
  * Both protocol eras against the single `/mcp` endpoint.
@@ -49,7 +50,7 @@ describe('Protocol eras (e2e)', () => {
       imports: [AppModule],
     }).compile();
 
-    app = fixture.createNestApplication();
+    app = fixture.createNestApplication({ logger: e2eLogger() });
     await app.listen(0);
 
     const server = app.getHttpServer() as Server;

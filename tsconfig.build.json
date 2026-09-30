@@ -6,6 +6,7 @@
     "test",
     "dist",
     "**/*spec.ts",
+    "**/*.test-helpers.ts",
     "scripts",
     "examples"
   ]

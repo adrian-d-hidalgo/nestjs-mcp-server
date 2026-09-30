@@ -6,9 +6,10 @@ import type {
   ServerContext,
 } from '@modelcontextprotocol/server';
 import { McpServer, ResourceTemplate } from '@modelcontextprotocol/server';
-import type { CanActivate, Type } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import type { CanActivate, ExecutionContext, Type } from '@nestjs/common';
+import { Inject, Injectable, Optional } from '@nestjs/common';
 import { ModuleRef, Reflector } from '@nestjs/core';
+import { isObservable, lastValueFrom } from 'rxjs';
 
 import {
   MCP_GUARDS,
@@ -25,64 +26,23 @@ import type {
   AuthenticatedRequest,
   McpContext,
 } from '../interfaces/handler-context.interface';
-import type {
-  McpCapabilityGate,
-  McpCapabilityToggle,
-  McpRegistrationContext,
-} from '../interfaces/registration-context.interface';
+import type { McpRegistrationContext } from '../interfaces/registration-context.interface';
+import { MCP_AUTH_OPTIONS } from '../mcp.constants';
+import type { McpAuthOptions } from '../mcp.types';
 import type { McpHandlerArgs } from '../types/handler-args.types';
+import {
+  applyCapabilityToggle,
+  CapabilityDisableError,
+  type PendingCapabilityGate,
+  settlePendingGates,
+} from './capability-gates';
+import {
+  applyScopeVisibility,
+  resolveCapabilityAccess,
+  scopeChallenge,
+} from './capability-scopes';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
-
-/** The four SDK registration handles, all of which expose `disable()`. */
-type McpCapabilityHandle =
-  | RegisteredPrompt
-  | RegisteredResource
-  | RegisteredResourceTemplate
-  | RegisteredTool;
-
-/**
- * A capability that is registered and whose gate has not been consulted yet.
- *
- * Registration is synchronous by design: every SDK call, and every `disable()`
- * for a static `enabled: false`, completes before the first `await`. Anything
- * gated by a class lands here instead and is settled in one concurrency wave
- * once all three register methods have returned.
- *
- * The list is local to a `registerAll` call and released with it — no handle is
- * retained beyond the call.
- */
-interface PendingCapabilityGate {
-  handle: McpCapabilityHandle;
-  /** Capability label used in the log line, e.g. `Tool`. */
-  label: string;
-  name: string;
-  /** Logger context — `tools`, `prompts` or `resources`. */
-  scope: string;
-  Gate: Type<McpCapabilityGate>;
-}
-
-/**
- * A gate's answer, plus why it was negative when the gate could not be asked.
- *
- * The reason travels with the verdict instead of being logged where it is
- * produced, so a shared gate can be consulted once while each capability it
- * disables still gets a log line naming it.
- */
-interface GateVerdict {
-  enabled: boolean;
-  reason?: string;
-}
-
-/**
- * Memoises each gate class's verdict for the life of one `registerAll` call.
- *
- * Keyed by class, not by capability: the registration context is one object
- * for the whole call, so ten tools sharing `AdminGate` ask it once rather than
- * ten times. Never outlives the call — a verdict reused across requests would
- * defeat the entire point of evaluating per request.
- */
-type GateVerdictCache = Map<Type<McpCapabilityGate>, Promise<GateVerdict>>;
 
 @Injectable()
 export class RegistryService {
@@ -91,6 +51,9 @@ export class RegistryService {
     private readonly logger: McpLoggerService,
     private readonly reflector: Reflector,
     private readonly moduleRef: ModuleRef,
+    @Optional()
+    @Inject(MCP_AUTH_OPTIONS)
+    private readonly authOptions?: McpAuthOptions,
   ) {}
 
   /**
@@ -132,75 +95,7 @@ export class RegistryService {
     await this.registerPrompts(server, context, pending);
     await this.registerTools(server, context, pending);
 
-    await this.settlePendingGates(pending, context);
-  }
-
-  /**
-   * Settles every deferred gate in one concurrency wave.
-   *
-   * Each evaluation is written so it can never reject, so `Promise.all` never
-   * short-circuits: one failing gate can neither abort the wave nor strip the
-   * capabilities beside it, and nothing escapes into the transport's
-   * `try/catch` to turn the request into a 500.
-   */
-  private async settlePendingGates(
-    pending: PendingCapabilityGate[],
-    context: McpRegistrationContext,
-  ): Promise<void> {
-    if (!pending.length) return;
-
-    // Call-local: one verdict per distinct gate class per request, released
-    // with the call.
-    const cache: GateVerdictCache = new Map();
-
-    await Promise.all(
-      pending.map(async (capability) => {
-        const enabled = await this.isCapabilityEnabled(
-          capability,
-          context,
-          cache,
-        );
-
-        if (!enabled) {
-          this.disableCapability(
-            capability.handle,
-            capability.label,
-            capability.name,
-            capability.scope,
-          );
-        }
-      }),
-    );
-  }
-
-  /**
-   * Resolves a capability gate class through the Nest container.
-   *
-   * Mirrors {@link resolveGuard} with one deliberate divergence: there is no
-   * `new Gate()` fallback. A gate built with `new` bypasses DI, leaving every
-   * injected field `undefined`, and such a gate either throws or returns
-   * something accidentally truthy — a fail-**open**, which this design forbids.
-   * `moduleRef.create` already covers a dependency-free class, so the third
-   * fallback would buy nothing and risk the one outcome that is unacceptable.
-   *
-   * Never rejects: `null` means "could not resolve", which the caller turns
-   * into a disabled capability plus a log line naming it.
-   */
-  private async resolveGate(
-    Gate: Type<McpCapabilityGate>,
-  ): Promise<McpCapabilityGate | null> {
-    try {
-      return this.moduleRef.get<McpCapabilityGate>(Gate, { strict: false });
-    } catch {
-      try {
-        return await this.moduleRef.create<McpCapabilityGate>(Gate);
-      } catch {
-        // Logged by the caller, which knows which capability is affected. One
-        // resolution can be shared by many capabilities, so logging here would
-        // name the gate but not the capability the consumer is looking for.
-        return null;
-      }
-    }
+    await settlePendingGates(this.moduleRef, this.logger, pending, context);
   }
 
   private getDecoratorType(method: Type<any> | undefined): string | null {
@@ -260,9 +155,18 @@ export class RegistryService {
     }
   }
 
+  /**
+   * Resolves a guard class through the Nest container.
+   *
+   * Fails **closed**, like the capability-gate resolver: there is no `new Guard()`
+   * fallback. A guard built with `new` bypasses DI, leaving every injected
+   * field `undefined`, and such a guard either throws or answers something
+   * accidentally truthy. `null` means "could not resolve", which
+   * {@link runGuards} turns into a denial plus a log line naming the guard.
+   */
   private async resolveGuard(
-    Guard: CanActivate | { new (): CanActivate },
-  ): Promise<CanActivate> {
+    Guard: CanActivate | { new (...args: any[]): CanActivate },
+  ): Promise<CanActivate | null> {
     if (typeof Guard !== 'function') {
       return Guard;
     }
@@ -273,7 +177,7 @@ export class RegistryService {
       try {
         return await this.moduleRef.create<CanActivate>(Guard);
       } catch {
-        return new Guard();
+        return null;
       }
     }
   }
@@ -331,13 +235,30 @@ export class RegistryService {
       getContext: () => mcpContext,
       getArgs: <T = any>() => handlerArgs as T,
       getRequest: <R = AuthenticatedRequest>() => mcpContext.request as R,
+      getAuthInfo: () => mcpContext.http?.authInfo ?? mcpContext.request.auth,
     };
 
     return (async () => {
       for (const Guard of allGuards) {
         const guardInstance = await this.resolveGuard(Guard);
-        // Cast to any since MCP guards receive McpExecutionContext, not ExecutionContext
-        const allowed = await guardInstance.canActivate(context as any);
+
+        if (!guardInstance) {
+          this.logger.error(
+            `Denying "${methodName}": its guard ${typeof Guard === 'function' ? Guard.name : 'instance'} could not be resolved from the container. Register it as a provider.`,
+            undefined,
+            'guards',
+          );
+          throw new Error(`Access denied by guard on ${methodName}`);
+        }
+
+        // CanActivate is typed for ExecutionContext; MCP guards receive McpExecutionContext.
+        const result = guardInstance.canActivate(
+          context as unknown as ExecutionContext,
+        );
+        // An Observable is truthy: it must be subscribed to, as Nest does.
+        const allowed = isObservable(result)
+          ? await lastValueFrom(result)
+          : await result;
 
         if (!allowed)
           throw new Error(`Access denied by guard on ${methodName}`);
@@ -392,155 +313,6 @@ export class RegistryService {
   }
 
   /**
-   * Applies a capability's `enabled` toggle at registration time.
-   *
-   * Synchronous on purpose — this is the hot path every capability walks:
-   *
-   * - absent / `true` — nothing happens, and nothing is deferred.
-   * - `false` — disabled immediately, with no container round-trip.
-   * - a gate class — deferred to the concurrency wave in `registerAll`.
-   *
-   * @param toggle The capability's `enabled` option, if it declared one.
-   * @param handle The SDK registration handle just bound for this capability.
-   * @param label Capability label used in the log line, e.g. `Tool`.
-   * @param name The capability name.
-   * @param scope Logger context — `tools`, `prompts` or `resources`.
-   * @param pending The `registerAll` call's list of deferred gates.
-   */
-  private applyCapabilityToggle(
-    toggle: McpCapabilityToggle | undefined,
-    handle: McpCapabilityHandle,
-    label: string,
-    name: string,
-    scope: string,
-    pending: PendingCapabilityGate[],
-  ): void {
-    if (toggle === undefined || toggle === true) return;
-
-    if (toggle === false) {
-      this.disableCapability(handle, label, name, scope);
-      return;
-    }
-
-    pending.push({ handle, label, name, scope, Gate: toggle });
-  }
-
-  /**
-   * Asks a capability's gate whether it is available to this request.
-   *
-   * Fails **closed** on every failure mode, because failing open would silently
-   * expose a capability the consumer intended to gate:
-   *
-   * 1. `isEnabled` throws synchronously.
-   * 2. `isEnabled` returns a **rejecting** promise — a distinct path, which is
-   *    why the `try` wraps the `await` and not merely the call.
-   * 3. the gate class cannot be resolved from the container.
-   *
-   * Never rejects, so the surrounding `Promise.all` can never short-circuit.
-   *
-   * @param capability The deferred capability and its gate class.
-   * @param context The request context.
-   * @param cache Per-call memo, so N capabilities sharing one gate class cost
-   * one container resolution and one `isEnabled` call between them.
-   */
-  private async isCapabilityEnabled(
-    capability: PendingCapabilityGate,
-    context: McpRegistrationContext,
-    cache: GateVerdictCache,
-  ): Promise<boolean> {
-    const { Gate, name, scope } = capability;
-
-    let verdict = cache.get(Gate);
-
-    if (!verdict) {
-      verdict = this.evaluateGate(Gate, context);
-      cache.set(Gate, verdict);
-    }
-
-    const { enabled, reason } = await verdict;
-
-    // Logged here, per capability, rather than inside `evaluateGate`: the gate
-    // is consulted once and shared, but the consumer needs to know which
-    // capability of theirs vanished, not merely that some gate failed.
-    if (reason) {
-      this.logger.error(`Disabling "${name}": ${reason}`, undefined, scope);
-    }
-
-    return enabled;
-  }
-
-  /**
-   * Resolves a gate class and asks it, once per request.
-   *
-   * Shared by every capability declaring the same gate, so the verdict is
-   * computed once and the failure reason is returned rather than logged — the
-   * caller logs it against each affected capability by name.
-   */
-  private async evaluateGate(
-    Gate: Type<McpCapabilityGate>,
-    context: McpRegistrationContext,
-  ): Promise<GateVerdict> {
-    const gate = await this.resolveGate(Gate);
-
-    if (!gate) {
-      return {
-        enabled: false,
-        reason: `its "enabled" gate ${Gate.name} could not be resolved from the container. Register it as a provider.`,
-      };
-    }
-
-    try {
-      // The await is inside the try on purpose: a rejected promise and a
-      // synchronous throw are different code paths, and wrapping only the call
-      // would catch the second and miss the first.
-      const result = await gate.isEnabled(context);
-
-      // Strict comparison, not truthiness: anything that is not exactly `true`
-      // — including a value a JavaScript caller slipped past the types — is
-      // treated as a denial rather than accidentally exposing the capability.
-      return { enabled: result === true };
-    } catch (error) {
-      return {
-        enabled: false,
-        reason: `its "enabled" gate ${Gate.name} failed: ${error}`,
-      };
-    }
-  }
-
-  /**
-   * Disables a capability whose `enabled` toggle resolved to `false`.
-   *
-   * The `disable()` call is isolated from the surrounding registration
-   * `try/catch` deliberately. If it threw there, the outer handler would log
-   * "Error registering <name>" and the capability would stay **enabled** —
-   * failing open, the exact inversion of the consumer's intent. Here the
-   * failure gets its own log line that says the capability is still exposed.
-   *
-   * @param handle The SDK registration handle returned by `registerTool` /
-   * `registerPrompt` / `registerResource`.
-   * @param label Capability label used in the log line, e.g. `Tool`.
-   * @param name The capability name.
-   * @param scope Logger context — `tools`, `prompts` or `resources`.
-   */
-  private disableCapability(
-    handle: McpCapabilityHandle,
-    label: string,
-    name: string,
-    scope: string,
-  ): void {
-    try {
-      handle.disable();
-      this.logger.log(`${label} "${name}" disabled for this request.`, scope);
-    } catch (error) {
-      this.logger.error(
-        `Failed to disable ${label.toLowerCase()} "${name}": it remains enabled for this request. ${error}`,
-        undefined,
-        scope,
-      );
-    }
-  }
-
-  /**
    * Returns `Promise<void>` but performs no awaited work, deliberately.
    *
    * Registration is synchronous by contract: every SDK call and every static
@@ -570,6 +342,9 @@ export class RegistryService {
         this.wrappedHandler(instance, handler, args, context);
 
       try {
+        // The capability's own access options over its resolver's defaults.
+        const access = resolveCapabilityAccess(metadata, instance.constructor);
+
         // The handle is bound so the toggle can disable it, then released with
         // the loop iteration. Retaining handles is out of scope by design.
         //
@@ -583,6 +358,11 @@ export class RegistryService {
           ...('metadata' in metadata ? metadata.metadata : {}),
           ...(metadata.cacheHint !== undefined
             ? { cacheHint: metadata.cacheHint }
+            : {}),
+          ...(access.scopes !== undefined
+            ? {
+                scopeChallenge: scopeChallenge(this.authOptions, access.scopes),
+              }
             : {}),
         };
 
@@ -611,7 +391,23 @@ export class RegistryService {
           );
         }
 
-        this.applyCapabilityToggle(
+        if (
+          applyScopeVisibility(
+            this.authOptions,
+            this.logger,
+            access,
+            handle,
+            'Resource',
+            metadata.name,
+            'resources',
+            context,
+          )
+        ) {
+          continue;
+        }
+
+        applyCapabilityToggle(
+          this.logger,
           metadata.enabled,
           handle,
           'Resource',
@@ -620,6 +416,8 @@ export class RegistryService {
           pending,
         );
       } catch (error) {
+        // Fail closed: a capability that had to be withheld stayed enabled.
+        if (error instanceof CapabilityDisableError) throw error;
         this.logger.error(
           `Error registering resource ${metadata.name}: ${error}`,
           undefined,
@@ -660,6 +458,9 @@ export class RegistryService {
         this.wrappedHandler(instance, handler, args, context);
 
       try {
+        // The capability's own access options over its resolver's defaults.
+        const access = resolveCapabilityAccess(metadata, instance.constructor);
+
         // v2 exposes a single `registerPrompt(name, config, cb)`; the option
         // permutations that used to select between four positional overloads
         // are now just optional config fields.
@@ -675,11 +476,35 @@ export class RegistryService {
             ...(metadata.title !== undefined ? { title: metadata.title } : {}),
             ...(metadata.icons !== undefined ? { icons: metadata.icons } : {}),
             ...(metadata._meta !== undefined ? { _meta: metadata._meta } : {}),
+            ...(access.scopes !== undefined
+              ? {
+                  scopeChallenge: scopeChallenge(
+                    this.authOptions,
+                    access.scopes,
+                  ),
+                }
+              : {}),
           },
           wrappedHandler,
         );
 
-        this.applyCapabilityToggle(
+        if (
+          applyScopeVisibility(
+            this.authOptions,
+            this.logger,
+            access,
+            handle,
+            'Prompt',
+            metadata.name,
+            'prompts',
+            context,
+          )
+        ) {
+          continue;
+        }
+
+        applyCapabilityToggle(
+          this.logger,
           metadata.enabled,
           handle,
           'Prompt',
@@ -688,6 +513,8 @@ export class RegistryService {
           pending,
         );
       } catch (error) {
+        // Fail closed: a capability that had to be withheld stayed enabled.
+        if (error instanceof CapabilityDisableError) throw error;
         this.logger.error(
           `Error registering prompt ${metadata.name}: ${error}`,
           undefined,
@@ -724,6 +551,9 @@ export class RegistryService {
         this.wrappedHandler(instance, handler, args, context);
 
       try {
+        // The capability's own access options over its resolver's defaults.
+        const access = resolveCapabilityAccess(metadata, instance.constructor);
+
         // v2 exposes a single `registerTool(name, config, cb)`. The eight
         // option permutations that used to select between positional overloads
         // are now just optional config fields.
@@ -745,11 +575,35 @@ export class RegistryService {
               : {}),
             ...(metadata.icons !== undefined ? { icons: metadata.icons } : {}),
             ...(metadata._meta !== undefined ? { _meta: metadata._meta } : {}),
+            ...(access.scopes !== undefined
+              ? {
+                  scopeChallenge: scopeChallenge(
+                    this.authOptions,
+                    access.scopes,
+                  ),
+                }
+              : {}),
           },
           wrappedHandler,
         );
 
-        this.applyCapabilityToggle(
+        if (
+          applyScopeVisibility(
+            this.authOptions,
+            this.logger,
+            access,
+            handle,
+            'Tool',
+            metadata.name,
+            'tools',
+            context,
+          )
+        ) {
+          continue;
+        }
+
+        applyCapabilityToggle(
+          this.logger,
           metadata.enabled,
           handle,
           'Tool',
@@ -758,6 +612,8 @@ export class RegistryService {
           pending,
         );
       } catch (error) {
+        // Fail closed: a capability that had to be withheld stayed enabled.
+        if (error instanceof CapabilityDisableError) throw error;
         this.logger.error(
           `Error registering tool ${metadata.name}: ${error}`,
           undefined,

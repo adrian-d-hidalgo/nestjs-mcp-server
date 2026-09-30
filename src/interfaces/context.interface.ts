@@ -1,5 +1,7 @@
 import type { Type } from '@nestjs/common';
+import type { Observable } from 'rxjs';
 
+import type { McpAuthInfo } from '../mcp.types';
 import type { McpHandlerArgs } from '../types/handler-args.types';
 import type {
   AuthenticatedRequest,
@@ -12,8 +14,14 @@ import type {
  *
  * Unlike NestJS's ExecutionContext, this interface is tailored specifically
  * for MCP protocol operations and does not include HTTP/WebSocket/RPC abstractions.
+ *
+ * @template TExtra The shape of `AuthInfo.extra` your strategies and
+ * authorizers produce; see {@link McpAuthInfo}. Defaults to the SDK's untyped
+ * record, so `McpExecutionContext` alone means exactly what it did in 2.0.0.
  */
-export interface McpExecutionContext {
+export interface McpExecutionContext<
+  TExtra extends Record<string, unknown> = Record<string, unknown>,
+> {
   /**
    * Returns the context type identifier.
    * Always returns 'mcp' for MCP execution contexts.
@@ -72,4 +80,48 @@ export interface McpExecutionContext {
    * @template R - The request type (defaults to Express Request)
    */
   getRequest<R = AuthenticatedRequest>(): R;
+
+  /**
+   * The effective `AuthInfo` for this invocation — what the configured
+   * `auth.strategies` produced and `auth.authorizers` narrowed — or
+   * `undefined` for an anonymous request.
+   *
+   * Optional so existing implementers and test doubles of this interface keep
+   * compiling; the library's own context always provides it.
+   *
+   * Typed through the interface's `TExtra` parameter — declare the guard's
+   * parameter as `McpExecutionContext<TenantExtra>` — or read it with
+   * `getAuthInfo<TenantExtra>(context)`. With the default parameter this is
+   * the SDK's `AuthInfo`, as in 2.0.0.
+   */
+  getAuthInfo?(): McpAuthInfo<TExtra> | undefined;
+}
+
+/**
+ * A guard for MCP capabilities, attached with `@UseGuards` on a resolver or a
+ * capability method.
+ *
+ * Implement this instead of Nest's `CanActivate` when the guard reads the
+ * {@link McpExecutionContext}: `CanActivate` types its parameter as Nest's
+ * `ExecutionContext`, so `implements CanActivate` with an `McpExecutionContext`
+ * parameter does not compile under strict mode. `@UseGuards` accepts both.
+ *
+ * @template TExtra The shape of `AuthInfo.extra`, as in {@link McpExecutionContext}.
+ *
+ * @example
+ * ```typescript
+ * @Injectable()
+ * export class HeaderGuard implements McpGuard {
+ *   canActivate(context: McpExecutionContext): boolean {
+ *     return Boolean(context.getRequest().headers.authorization);
+ *   }
+ * }
+ * ```
+ */
+export interface McpGuard<
+  TExtra extends Record<string, unknown> = Record<string, unknown>,
+> {
+  canActivate(
+    context: McpExecutionContext<TExtra>,
+  ): boolean | Promise<boolean> | Observable<boolean>;
 }

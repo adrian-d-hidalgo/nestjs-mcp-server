@@ -106,7 +106,9 @@ export class PromptsResolver {
     description:
       'Recommends products based on user preferences and requirements',
     argsSchema: z.object({
-      category: z.string(),
+      // An enum, not a string: an unknown category is a validation error the
+      // client can show, not a crash in the lookup below.
+      category: z.enum(['electronics', 'clothing', 'home', 'beauty']),
       budget: z.string(),
       preferences: z.string().optional(),
     }),
@@ -116,13 +118,12 @@ export class PromptsResolver {
     budget,
     preferences,
   }: {
-    category: string;
+    category: 'electronics' | 'clothing' | 'home' | 'beauty';
     budget: string;
     preferences?: string;
   }): GetPromptResult {
     // Parse inputs
-    const parsedCategory = category as
-      'electronics' | 'clothing' | 'home' | 'beauty';
+    const parsedCategory = category;
     const parsedBudget = parseFloat(budget);
     const parsedPreferences = preferences
       ? preferences.split(',').map((p) => p.trim())

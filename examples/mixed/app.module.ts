@@ -6,7 +6,7 @@ import { MixedResolver } from './mixed.resolver';
 @Module({
   imports: [
     McpModule.forRoot({
-      name: 'tools',
+      name: 'mixed',
       version: '1.0.0',
       logging: {
         enabled: true,

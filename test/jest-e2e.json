@@ -6,5 +6,6 @@
   "testTimeout": 30000,
   "transform": {
     "^.+\\.(t|j)s$": ["@swc/jest"]
-  }
+  },
+  "transformIgnorePatterns": ["/node_modules/(?!(\\.pnpm/)?jose[@/])"]
 }

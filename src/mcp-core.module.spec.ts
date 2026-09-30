@@ -3,17 +3,20 @@
 /* eslint-disable @typescript-eslint/no-unsafe-return */
 /* eslint-disable @typescript-eslint/require-await */
 /* eslint-disable @typescript-eslint/no-unused-vars */
+import { DynamicModule } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { McpCoreModule } from './mcp-core.module';
+import { McpProtectedResourceController } from './auth/mcp-protected-resource.controller';
 import {
+  MCP_AUTH_OPTIONS,
   MCP_LOGGING_OPTIONS,
   MCP_MODULE_OPTIONS,
   MCP_REQUEST_SCOPE,
   MCP_SERVER_OPTIONS,
   MCP_TRANSPORT_OPTIONS,
 } from './mcp.constants';
-import { McpModuleOptions } from './mcp.types';
+import { McpModuleOptions, ServerOptions } from './mcp.types';
 import { McpController, McpHttpService } from './transports/http';
 
 describe('McpCoreModule', () => {
@@ -350,6 +353,111 @@ describe('McpCoreModule', () => {
       expect(testModule.get(MCP_REQUEST_SCOPE)).toBeDefined();
 
       await testModule.close();
+    });
+  });
+
+  describe('auth', () => {
+    const auth = {
+      strategies: [],
+      protectedResource: {
+        resource: 'https://example.com/mcp',
+        authorizationServers: ['https://as.example.com'],
+      },
+    };
+
+    const serverOptionsOf = (module: DynamicModule) =>
+      module.providers?.find((p: any) => p.provide === MCP_SERVER_OPTIONS) as {
+        useValue: { options: ServerOptions };
+      };
+
+    it('forRoot provides the auth options token', () => {
+      const module = McpCoreModule.forRoot({
+        name: 's',
+        version: '1',
+        auth,
+      });
+
+      const provider = module.providers?.find(
+        (p: any) => p.provide === MCP_AUTH_OPTIONS,
+      ) as any;
+      expect(provider.useValue).toBe(auth);
+    });
+
+    it('forRoot registers the metadata controller only with protectedResource', () => {
+      expect(
+        McpCoreModule.forRoot({ name: 's', version: '1', auth }).controllers,
+      ).toEqual([McpController, McpProtectedResourceController]);
+      expect(
+        McpCoreModule.forRoot({
+          name: 's',
+          version: '1',
+          auth: { strategies: [] },
+        }).controllers,
+      ).toEqual([McpController]);
+    });
+
+    it('forRoot defaults list results to private zero-TTL cache hints with auth', () => {
+      const withAuth = serverOptionsOf(
+        McpCoreModule.forRoot({
+          name: 's',
+          version: '1',
+          auth: { strategies: [] },
+          server: { cacheHints: { 'tools/list': { ttlMs: 5 } } },
+        }),
+      );
+      const withoutAuth = serverOptionsOf(
+        McpCoreModule.forRoot({ name: 's', version: '1' }),
+      );
+
+      expect(withAuth.useValue.options.cacheHints).toEqual({
+        // An explicit hint wins.
+        'tools/list': { ttlMs: 5 },
+        'prompts/list': { ttlMs: 0, cacheScope: 'private' },
+        'resources/list': { ttlMs: 0, cacheScope: 'private' },
+        'resources/templates/list': { ttlMs: 0, cacheScope: 'private' },
+      });
+      expect(withoutAuth.useValue.options.cacheHints).toBeUndefined();
+    });
+
+    it('forRootAsync reads auth from the factory result', () => {
+      const module = McpCoreModule.forRootAsync({
+        useFactory: () => ({ name: 's', version: '1', auth }),
+      });
+
+      const provider = module.providers?.find(
+        (p: any) => p.provide === MCP_AUTH_OPTIONS,
+      ) as any;
+      expect(provider.inject).toContain(MCP_MODULE_OPTIONS);
+      const factory = provider.useFactory as (
+        options: McpModuleOptions,
+      ) => unknown;
+      expect(factory({ name: 's', version: '1', auth })).toBe(auth);
+    });
+
+    it('forRootAsync registers the metadata controller only with the static flag', () => {
+      const flagged = McpCoreModule.forRootAsync({
+        useFactory: () => ({ name: 's', version: '1', auth }),
+        protectedResourceMetadata: true,
+      });
+      const unflagged = McpCoreModule.forRootAsync({
+        useFactory: () => ({ name: 's', version: '1', auth }),
+      });
+
+      expect(flagged.controllers).toEqual([
+        McpController,
+        McpProtectedResourceController,
+      ]);
+      expect(unflagged.controllers).toEqual([McpController]);
+    });
+
+    it('forRootAsync registers the providers declared next to it', () => {
+      const custom = { provide: 'STRATEGY', useValue: {} };
+      const module = McpCoreModule.forRootAsync({
+        useFactory: () => ({ name: 's', version: '1' }),
+        providers: [custom],
+      });
+
+      expect(module.providers).toContainEqual(custom);
     });
   });
 });

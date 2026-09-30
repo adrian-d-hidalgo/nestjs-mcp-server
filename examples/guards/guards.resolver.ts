@@ -1,27 +1,32 @@
 import { CallToolResult, GetPromptResult } from '@modelcontextprotocol/server';
-import { CanActivate, Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { z } from 'zod';
 
 import {
   McpContext,
   McpExecutionContext,
+  McpGuard,
   Prompt,
   Resolver,
   Tool,
   UseGuards,
 } from '../../src';
 
-export class ResolverLogGuard implements CanActivate {
-  canActivate(_context: any): boolean {
-    console.log('[ResolverLogGuard] Resolver-level guard executed');
+export class ResolverLogGuard implements McpGuard {
+  private readonly logger = new Logger(ResolverLogGuard.name);
+
+  canActivate(): boolean {
+    this.logger.debug('Resolver-level guard executed');
 
     return true;
   }
 }
 
-export class MethodLogGuard implements CanActivate {
-  canActivate(_context: any): boolean {
-    console.log('[MethodLogGuard] Method-level guard executed');
+export class MethodLogGuard implements McpGuard {
+  private readonly logger = new Logger(MethodLogGuard.name);
+
+  canActivate(): boolean {
+    this.logger.debug('Method-level guard executed');
 
     return true;
   }
@@ -43,14 +48,15 @@ export class MethodLogGuard implements CanActivate {
  * expiring credentials work as an authorization mechanism should.
  */
 @Injectable()
-export class AuthHeaderGuard implements CanActivate {
-  canActivate(context: any): boolean {
-    const request = (context as McpExecutionContext).getRequest();
+export class AuthHeaderGuard implements McpGuard {
+  private readonly logger = new Logger(AuthHeaderGuard.name);
+
+  canActivate(context: McpExecutionContext): boolean {
+    const request = context.getRequest();
     const authorization = request.headers.authorization;
 
-    console.log(
-      '[AuthHeaderGuard] Authorization on this call:',
-      authorization ? 'present' : 'absent',
+    this.logger.debug(
+      `Authorization on this call: ${authorization ? 'present' : 'absent'}`,
     );
 
     return Boolean(authorization);

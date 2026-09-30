@@ -159,4 +159,42 @@ describe('Tool Decorator', () => {
     expect(metadata.icons).toHaveLength(1);
     expect(metadata._meta).toEqual({ 'com.example/team': 'platform' });
   });
+
+  it.each([
+    ['a space', ['notes:read notes:write']],
+    ['a quote', ['notes"read']],
+    ['a control character', ['notes\u0000read']],
+    ['an empty scope', ['']],
+    ['no scope at all', []],
+  ])('rejects scopes holding %s at declaration', (_label, scopes) => {
+    expect(() =>
+      Tool({ name: 'bad', scopes } as unknown as Parameters<typeof Tool>[0]),
+    ).toThrow(/@Tool "bad" scopes.*scope-token/);
+  });
+
+  it('accepts valid scope-tokens', () => {
+    expect(() =>
+      Tool({
+        name: 'good',
+        scopes: ['notes:read', 'https://x/y'],
+      }),
+    ).not.toThrow();
+  });
+
+  it('stores public and hideOutOfScope in the metadata', () => {
+    class Access {
+      @Tool({ name: 'open', public: true, hideOutOfScope: true })
+      open() {}
+    }
+    const metadata = reflector.get(MCP_TOOL, Access.prototype.open);
+
+    expect(metadata.public).toBe(true);
+    expect(metadata.hideOutOfScope).toBe(true);
+  });
+
+  it('refuses public together with scopes at declaration', () => {
+    expect(() =>
+      Tool({ name: 'both', public: true, scopes: ['notes:read'] }),
+    ).toThrow(/@Tool "both".*public.*scopes/);
+  });
 });

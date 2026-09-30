@@ -1,7 +1,11 @@
 import { DynamicModule, Module } from '@nestjs/common';
 
 import { McpCoreModule } from './mcp-core.module';
-import { McpFeatureOptions, McpModuleOptions } from './mcp.types';
+import {
+  McpFeatureOptions,
+  McpModuleAsyncOptions,
+  McpModuleOptions,
+} from './mcp.types';
 
 @Module({})
 export class McpModule {
@@ -18,13 +22,7 @@ export class McpModule {
   /**
    * Configure the MCP module asynchronously (e.g. with ConfigModule)
    */
-  static forRootAsync(options: {
-    imports?: any[];
-    useFactory: (
-      ...args: any[]
-    ) => Promise<McpModuleOptions> | McpModuleOptions;
-    inject?: any[];
-  }): DynamicModule {
+  static forRootAsync(options: McpModuleAsyncOptions): DynamicModule {
     return {
       module: McpModule,
       imports: [McpCoreModule.forRootAsync(options)],

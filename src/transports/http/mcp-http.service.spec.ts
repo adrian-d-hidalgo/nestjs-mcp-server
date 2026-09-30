@@ -7,6 +7,7 @@ import { Response } from 'express';
 
 import type { AuthenticatedRequest } from '../../interfaces/handler-context.interface';
 import type { McpServerOptions, McpTransportOptions } from '../../mcp.types';
+import type { McpAuthService } from '../../auth/mcp-auth.service';
 import { McpLoggerService } from '../../services/logger.service';
 import { RegistryService } from '../../services/registry.service';
 import type { McpRequestScope } from './mcp-http.service';
@@ -47,7 +48,10 @@ describe('McpHttpService', () => {
     options: {},
   };
 
-  const build = (transportOptions?: McpTransportOptions) => {
+  const build = (
+    transportOptions?: McpTransportOptions,
+    auth?: Pick<McpAuthService, 'enabled' | 'authenticate'>,
+  ) => {
     als = new AsyncLocalStorage<McpRequestScope>();
     registry = { registerAll: jest.fn().mockResolvedValue(undefined) };
     logger = { log: jest.fn(), error: jest.fn(), debug: jest.fn() };
@@ -58,6 +62,7 @@ describe('McpHttpService', () => {
       als,
       registry as unknown as RegistryService,
       logger as unknown as McpLoggerService,
+      auth as McpAuthService | undefined,
     );
   };
 
@@ -217,6 +222,46 @@ describe('McpHttpService', () => {
       await service.handle(request, response);
 
       expect(nodeHandler).toHaveBeenCalledWith(request, response, request.body);
+    });
+
+    it('authenticates before the SDK sees the request when auth is enabled', async () => {
+      const authenticate = jest.fn().mockResolvedValue(true);
+      service = build(undefined, { enabled: true, authenticate });
+      service.onModuleInit();
+      const nodeHandler: jest.Mock = jest.fn().mockResolvedValue(undefined);
+      internals(service).nodeHandler = nodeHandler;
+      const request = createRequest();
+      const response = createResponse();
+
+      await service.handle(request, response);
+
+      expect(authenticate).toHaveBeenCalledWith(request, response);
+      expect(nodeHandler).toHaveBeenCalled();
+    });
+
+    it('never reaches the SDK when authentication refused the request', async () => {
+      const authenticate = jest.fn().mockResolvedValue(false);
+      service = build(undefined, { enabled: true, authenticate });
+      service.onModuleInit();
+      const nodeHandler: jest.Mock = jest.fn().mockResolvedValue(undefined);
+      internals(service).nodeHandler = nodeHandler;
+
+      await service.handle(createRequest(), createResponse());
+
+      expect(nodeHandler).not.toHaveBeenCalled();
+    });
+
+    it('skips authentication when auth is not configured', async () => {
+      const authenticate = jest.fn();
+      service = build(undefined, { enabled: false, authenticate });
+      service.onModuleInit();
+      const nodeHandler: jest.Mock = jest.fn().mockResolvedValue(undefined);
+      internals(service).nodeHandler = nodeHandler;
+
+      await service.handle(createRequest(), createResponse());
+
+      expect(authenticate).not.toHaveBeenCalled();
+      expect(nodeHandler).toHaveBeenCalled();
     });
   });
 

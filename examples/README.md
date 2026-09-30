@@ -22,6 +22,12 @@ This directory contains ready-to-use example MCP servers demonstrating how to us
 - **dynamic/**  
   Shows the `enabled` option, which decides per connection whether a capability is advertised and invocable. Contains a statically disabled tool; `AdminGate`, a gate class with an **injected** `PermissionsService` answering **asynchronously** on the `x-role` request header; a slow gate sharing that same service; and the three fail-closed paths — a gate that throws, a gate whose promise rejects, and a gate class the container cannot resolve. Also gates a prompt and a resource, plus a statically disabled prompt and resource. Connect with `x-role: admin` to see `admin_only_tool`, `admin_only_prompt` and `admin_only_resource` appear in their lists.
 
+- **auth/**  
+  Pluggable authentication and request authorization: an API-key strategy (`x-api-key`), a JWT strategy verified with `jose`, a tenant authorizer that narrows scopes by the `x-tenant` header, tools with `scopes`, `hideOutOfScope: true`, and RFC 9728 metadata at `/.well-known/oauth-protected-resource/mcp`. On boot it prints the demo keys and a demo JWT to paste into the Inspector. The JWTs are signed with a public demo secret unless `JWT_SECRET` is set; that fallback is refused under `NODE_ENV=production` or with a non-loopback `MCP_RESOURCE`/`JWT_ISSUER`.
+
+- **oauth/**  
+  A real OAuth 2.1 flow without Docker or accounts: the MCP endpoint protected by a JWKS-verifying JWT strategy (`jose`), next to an in-process **mock authorization server** (RFC 8414 metadata, authorization code + PKCE, resource indicators, refresh-token rotation, token revocation). The mock behaves like a hosted provider: users sign in on a login page and approve a consent screen, and clients are pre-registered (`notes-inspector` public, `notes-confidential` confidential); dynamic client registration is **off by default** (`OAUTH_DYNAMIC_REGISTRATION=true` turns it on). Demo and tests only — it refuses to mount under `NODE_ENV=production` or on a non-loopback `BASE_URL`/`MCP_RESOURCE`. Run it with `PORT=3200 EXAMPLE=oauth pnpm start:example` and connect an OAuth-capable client (Inspector, Claude Code) to `http://localhost:3200/mcp`. See [oauth/README.md](./oauth/README.md) for swapping the mock for Auth0, Okta or Keycloak.
+
 - **for-root-async/**  
   Example of asynchronous module configuration of the MCP module using `forRootAsync` and environment variables.
 

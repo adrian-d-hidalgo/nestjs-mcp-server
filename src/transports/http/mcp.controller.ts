@@ -1,4 +1,4 @@
-import { All, Controller, Req, Res } from '@nestjs/common';
+import { All, Controller, Req, Res, VERSION_NEUTRAL } from '@nestjs/common';
 import { Response } from 'express';
 
 import type { AuthenticatedRequest } from '../../interfaces/handler-context.interface';
@@ -16,8 +16,12 @@ import { McpHttpService } from './mcp-http.service';
  * Mounted as a controller rather than middleware on purpose: Nest middleware
  * runs *before* guards, so mounting there would silently stop application-wide
  * `APP_GUARD` guards from ever seeing MCP traffic.
+ *
+ * `VERSION_NEUTRAL` keeps the endpoint at `/mcp` when the app enables URI
+ * versioning; otherwise a `defaultVersion` would move it to `/v1/mcp` and
+ * break every configured client.
  */
-@Controller()
+@Controller({ version: VERSION_NEUTRAL })
 export class McpController {
   constructor(private readonly service: McpHttpService) {}
 

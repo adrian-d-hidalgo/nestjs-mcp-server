@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 
 /**
  * Stands in for whatever a real deployment asks: a database, an entitlements
@@ -13,6 +13,7 @@ import { Injectable } from '@nestjs/common';
  */
 @Injectable()
 export class PermissionsService {
+  private readonly logger = new Logger(PermissionsService.name);
   private readonly adminClients = new Set(['admin-client']);
 
   /** Simulates the latency of a real lookup, on the connect path. */
@@ -23,8 +24,8 @@ export class PermissionsService {
   async isAdmin(role?: string, clientId?: string): Promise<boolean> {
     await PermissionsService.delay(10);
 
-    console.log(
-      `[PermissionsService] consulted for role=${role ?? 'none'} clientId=${clientId ?? 'none'}`,
+    this.logger.debug(
+      `consulted for role=${role ?? 'none'} clientId=${clientId ?? 'none'}`,
     );
 
     return role === 'admin' || (!!clientId && this.adminClients.has(clientId));

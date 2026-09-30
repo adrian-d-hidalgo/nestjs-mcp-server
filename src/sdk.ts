@@ -81,3 +81,20 @@ export type {
   ToolAnnotations,
   Variables,
 } from '@modelcontextprotocol/server';
+
+// ---------------------------------------------------------------------------
+// Authentication and authorization
+//
+// What an `McpAuthStrategy` / `McpAuthorizer` throws to produce a spec-shaped
+// challenge, the RFC 9728 metadata type the library serves, and the RFC 8707
+// resource-indicator helpers a strategy uses to check a token's audience.
+// ---------------------------------------------------------------------------
+export {
+  checkResourceAllowed,
+  getOAuthProtectedResourceMetadataUrl,
+  OAuthError,
+  OAuthErrorCode,
+  resourceUrlFromServerUrl,
+} from '@modelcontextprotocol/server';
+
+export type { OAuthProtectedResourceMetadata } from '@modelcontextprotocol/server';

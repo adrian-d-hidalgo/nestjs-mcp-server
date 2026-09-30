@@ -7,7 +7,8 @@ export const MCP_GUARDS = '__mcp_guards__';
 
 /**
  * Decorator to attach one or more guards to a Resolver class or method.
- * Accepts guard classes or instances implementing CanActivate.
+ * Accepts guard classes or instances implementing `McpGuard` (or Nest's
+ * `CanActivate`); they receive an `McpExecutionContext`.
  *
  * @param guards One or more guard classes or instances
  * @example
