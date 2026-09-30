@@ -43,6 +43,7 @@
     - [Tool Annotations](#tool-annotations)
     - [ToolOptions Variants](#tooloptions-variants)
   - [McpContext Argument](#mcpcontext-argument)
+    - [Reporting progress](#reporting-progress)
 - [Dynamic Capabilities](#dynamic-capabilities)
   - [Static toggle](#static-toggle)
   - [Capability gate](#capability-gate)
@@ -72,6 +73,7 @@
   - [Things to know](#things-to-know)
 - [Statelessness](#statelessness)
 - [Transport Options](#transport-options)
+  - [Progress and `responseMode`](#progress-and-responsemode)
 - [MCP 2026-07-28 features](#mcp-2026-07-28-features)
 - [Migrating from `1.x` to `2.x`](#migrating-from-1x-to-2x)
 - [Inspector Playground](#inspector-playground)
@@ -579,6 +581,8 @@ All MCP capability methods (`@Prompt`, `@Resource`, `@Tool`) receive an
 
 - `request` — the live Express request for **this** call
 - `headers` — shorthand for `request.headers`
+- `reportProgress(progress, total?, message?)` — sends a progress update to the
+  caller; see [Reporting progress](#reporting-progress)
 
 **Usage Example:**
 
@@ -624,6 +628,48 @@ export class AuthResolver {
   1.x keeps compiling and starts receiving a different (correct) value.
 - `ctx` is **not JSON-serializable**: `request` is an Express object with
   circular references, so `JSON.stringify(ctx)` throws. Read the fields you need.
+
+#### Reporting progress
+
+A long-running tool, prompt or resource can tell the caller how far along it is:
+
+```ts
+@Tool({
+  name: 'analyze_files',
+  paramsSchema: z.object({ files: z.array(z.string()) }),
+})
+async analyzeFiles(
+  params: { files: string[] },
+  ctx: McpContext,
+): Promise<CallToolResult> {
+  const total = params.files.length;
+
+  for (let i = 0; i < total; i++) {
+    await this.analyzer.analyze(params.files[i]);
+    await ctx.reportProgress(i + 1, total, `analyzed ${i + 1}/${total}`);
+  }
+
+  return { content: [{ type: 'text', text: `analyzed ${total} files` }] };
+}
+```
+
+`reportProgress` sends a `notifications/progress` correlated with the
+`progressToken` the client put in the request's `_meta`:
+
+- **No token, no-op.** A client that did not ask for progress (most do not)
+  gets nothing, and the call answers exactly as it would have without it.
+- **Never rejects.** An update that can no longer be delivered — the exchange
+  already ended — is logged at `debug` and dropped. `void ctx.reportProgress(…)`
+  is safe.
+- **Safe to detach.** It never reads `this`, so it can be passed to a service as
+  a plain callback: `await importer.run(rows, ctx.reportProgress)`.
+- **Whether it is delivered depends on `responseMode`** — see
+  [Progress and `responseMode`](#progress-and-responsemode).
+- No validation or throttling: keep `progress` increasing, and keep the update
+  rate sensible.
+
+> ⚠️ `message` reaches the caller verbatim. Do not put secrets, credentials or
+> other tenants' data in progress messages.
 
 ---
 
@@ -1522,6 +1568,28 @@ McpModule.forRoot({
 | `keepAliveMs`      | SSE comment-frame keepalive. Default `15000`.                                                          |
 | `maxSubscriptions` | Cap on open `subscriptions/listen` streams. Default `1024`.                                            |
 | `bus`              | Change-event bus for `subscriptions/listen`. Swap for Redis to fan out notifications across instances. |
+
+#### Progress and `responseMode`
+
+Whether [`ctx.reportProgress`](#reporting-progress) reaches the client depends on
+the protocol era of the request and on `responseMode`:
+
+| Request era                 | `'auto'` (default) | `'sse'`            | `'json'`                             |
+| --------------------------- | ------------------ | ------------------ | ------------------------------------ |
+| Modern (2026-07-28)         | Delivered          | Delivered          | **Dropped** — one warning, see below |
+| Legacy (2025, SDK fallback) | Delivered over SSE | Delivered over SSE | Delivered over SSE                   |
+
+- **Modern + `'json'`.** The SDK drops mid-call notifications in this mode. The
+  first time a handler calls `reportProgress`, one `warn` line is logged under
+  `@mcp:progress`; the SDK also prints its own `console.warn` once at boot for
+  any `'json'` endpoint. The call itself still succeeds.
+- **Legacy era.** The SDK's legacy fallback always answers a call over SSE and
+  does not apply `responseMode`, so progress is delivered in every mode.
+- **The SSE upgrade on `'auto'`.** Without progress, a modern call answers a
+  single `application/json` body. After the first progress frame the response
+  is `200 text/event-stream` — progress frames, then the result. From then on a
+  later error rides inside the stream as a JSON-RPC error, not as an HTTP status:
+  a client that keys on the status code sees `200`.
 
 Server-wide protocol options live under `server`, passed verbatim to the SDK:
 

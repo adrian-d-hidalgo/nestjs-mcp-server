@@ -27,8 +27,8 @@ import type {
   McpContext,
 } from '../interfaces/handler-context.interface';
 import type { McpRegistrationContext } from '../interfaces/registration-context.interface';
-import { MCP_AUTH_OPTIONS } from '../mcp.constants';
-import type { McpAuthOptions } from '../mcp.types';
+import { MCP_AUTH_OPTIONS, MCP_TRANSPORT_OPTIONS } from '../mcp.constants';
+import type { McpAuthOptions, McpTransportOptions } from '../mcp.types';
 import type { McpHandlerArgs } from '../types/handler-args.types';
 import {
   applyCapabilityToggle,
@@ -43,6 +43,7 @@ import {
 } from './capability-scopes';
 import { DiscoveryService } from './discovery.service';
 import { McpLoggerService } from './logger.service';
+import { buildReportProgress, type ProgressWarnState } from './report-progress';
 
 /**
  * What a caller sees when a guard denies it. Fixed on purpose: naming the
@@ -53,6 +54,12 @@ const GUARD_DENIED_MESSAGE = 'Access denied';
 
 @Injectable()
 export class RegistryService {
+  /**
+   * Whether the `responseMode: 'json'` progress warning has been logged. Per
+   * instance, not module-global: separate Nest apps in one process each warn.
+   */
+  private readonly progressWarnState: ProgressWarnState = { warned: false };
+
   constructor(
     private readonly discoveryService: DiscoveryService,
     private readonly logger: McpLoggerService,
@@ -61,6 +68,9 @@ export class RegistryService {
     @Optional()
     @Inject(MCP_AUTH_OPTIONS)
     private readonly authOptions?: McpAuthOptions,
+    @Optional()
+    @Inject(MCP_TRANSPORT_OPTIONS)
+    private readonly transportOptions?: McpTransportOptions,
   ) {}
 
   /**
@@ -285,7 +295,7 @@ export class RegistryService {
    * The SDK hands its own `ServerContext` as the final argument. This replaces
    * it with an {@link McpContext} — the same object plus the Express request
    * this invocation arrived on, captured from the registration context this
-   * closure was built with.
+   * closure was built with, and a `reportProgress` bound to this invocation.
    *
    * That capture is what replaced the 1.x session lookup. Before 2.0 this
    * method read `extra.sessionId`, rejected the call outright when it was
@@ -312,10 +322,19 @@ export class RegistryService {
 
     const sdkContext = args[args.length - 1] as ServerContext;
 
+    // `reportProgress` comes after the spread, so a same-named SDK member
+    // added later cannot silently shadow it.
     const mcpContext: McpContext = {
       ...sdkContext,
       request: context.request,
       headers: context.request.headers,
+      reportProgress: buildReportProgress({
+        sdkContext,
+        era: context.era,
+        responseMode: this.transportOptions?.responseMode,
+        logger: this.logger,
+        warnState: this.progressWarnState,
+      }),
     };
 
     args[args.length - 1] = mcpContext;

@@ -17,6 +17,7 @@ import {
   MCP_TRANSPORT_OPTIONS,
 } from './mcp.constants';
 import { McpModuleOptions, ServerOptions } from './mcp.types';
+import { RegistryService } from './services/registry.service';
 import { McpController, McpHttpService } from './transports/http';
 
 describe('McpCoreModule', () => {
@@ -279,6 +280,25 @@ describe('McpCoreModule', () => {
 
       const mcpOptions = testModule.get(MCP_MODULE_OPTIONS);
       expect(mcpOptions.name).toBe('integration-test-server');
+    });
+
+    it('should hand transport.responseMode from the factory to RegistryService', async () => {
+      // `reportProgress` reads it to detect modern + 'json', where progress is
+      // dropped; the async path must deliver it exactly as forRoot does.
+      const testModule: TestingModule = await Test.createTestingModule({
+        imports: [
+          McpCoreModule.forRootAsync({
+            useFactory: async () => ({
+              name: 'progress-json-server',
+              version: '1.0.0',
+              transport: { responseMode: 'json' as const },
+            }),
+          }),
+        ],
+      }).compile();
+
+      const registry = testModule.get(RegistryService);
+      expect(registry['transportOptions']?.responseMode).toBe('json');
     });
 
     it('should resolve async factory with Promise', async () => {
