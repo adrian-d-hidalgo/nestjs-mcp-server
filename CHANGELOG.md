@@ -1,3 +1,10 @@
+# [3.0.0-next.2](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v3.0.0-next.1...v3.0.0-next.2) (2026-10-01)
+
+
+### Bug Fixes
+
+* **core:** export McpHttpService so applications can inject it ([a5e1cf2](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/a5e1cf2960463fa905e07ffc24d31ed30be19aa9))
+
 # [3.0.0-next.1](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v2.0.0...v3.0.0-next.1) (2026-09-30)
 
 
