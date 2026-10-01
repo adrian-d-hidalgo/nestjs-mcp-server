@@ -45,10 +45,7 @@ const Params = z.object({ id: z.string() });
 @Resolver('namespace')
 export class MyResolver {
   @Tool({ name: 'my_tool', description: 'Does X', paramsSchema: Params })
-  myTool(
-    params: z.infer<typeof Params>,
-    ctx: McpContext,
-  ): CallToolResult {
+  myTool(params: z.infer<typeof Params>, ctx: McpContext): CallToolResult {
     return { content: [{ type: 'text', text: `Result for ${params.id}` }] };
   }
 }
@@ -56,14 +53,14 @@ export class MyResolver {
 
 ## Naming conventions (no-lintable)
 
-| Aspect    | Convention                                                      |
-| --------- | --------------------------------------------------------------- |
-| Files     | `kebab-case.ts`                                                 |
-| Classes   | `PascalCase`                                                    |
-| Methods   | `camelCase`                                                     |
-| MCP names | `snake_case` (e.g. `@Tool({ name: 'my_tool' })`)                |
+| Aspect    | Convention                                                                                |
+| --------- | ----------------------------------------------------------------------------------------- |
+| Files     | `kebab-case.ts`                                                                           |
+| Classes   | `PascalCase`                                                                              |
+| Methods   | `camelCase`                                                                               |
+| MCP names | `snake_case` (e.g. `@Tool({ name: 'my_tool' })`)                                          |
 | Schemas   | Standard Schema for `paramsSchema` / `argsSchema` — e.g. `z.object({…})`, not a raw shape |
-| Types     | SDK types first; then `interface` for shapes, `type` for unions |
+| Types     | SDK types first; then `interface` for shapes, `type` for unions                           |
 
 ## When reading the codebase
 

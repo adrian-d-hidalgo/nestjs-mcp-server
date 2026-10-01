@@ -38,17 +38,18 @@ MAJOR.MINOR.PATCH[-PRERELEASE]
 
 Version bumps are determined automatically by commit message prefixes:
 
-| Commit Type | Version Bump | Example |
-|-------------|--------------|---------|
-| `fix:` | PATCH | 0.4.0 → 0.4.1 |
-| `perf:` | PATCH | 0.4.0 → 0.4.1 |
-| `feat:` | MINOR | 0.4.0 → 0.5.0 |
-| `feat!:` or `BREAKING CHANGE:` | MAJOR | 0.4.0 → 1.0.0 |
-| `docs:`, `chore:`, `test:`, `style:`, `refactor:` | No release | - |
+| Commit Type                                       | Version Bump | Example       |
+| ------------------------------------------------- | ------------ | ------------- |
+| `fix:`                                            | PATCH        | 0.4.0 → 0.4.1 |
+| `perf:`                                           | PATCH        | 0.4.0 → 0.4.1 |
+| `feat:`                                           | MINOR        | 0.4.0 → 0.5.0 |
+| `feat!:` or `BREAKING CHANGE:`                    | MAJOR        | 0.4.0 → 1.0.0 |
+| `docs:`, `chore:`, `test:`, `style:`, `refactor:` | No release   | -             |
 
 **Multiple commits**: When releasing, semantic-release analyzes all commits since the last tag and applies the highest applicable bump.
 
 Example:
+
 ```
 v0.4.0 (last release)
 ├── fix: correct validation        → would be PATCH
@@ -105,8 +106,9 @@ For early testing before a stable release:
    squash), then trigger the Release workflow
 5. **Clean up**: delete `next`; recreate it from `main` when the next pre-release is needed
 
-**Typical progression** — `next` and `main` below are *branches*; the versions in parentheses are
+**Typical progression** — `next` and `main` below are _branches_; the versions in parentheses are
 what each publishes:
+
 ```
 main (0.4.0) → next branch (0.5.0-next.1, 0.5.0-next.2, …) → main (0.5.0)
 ```
@@ -115,15 +117,15 @@ main (0.4.0) → next branch (0.5.0-next.1, 0.5.0-next.2, …) → main (0.5.0)
 
 All versioning and publishing is automated via **semantic-release**:
 
-| Task | Automated? |
-|------|------------|
-| Version calculation | Yes - from commit messages |
-| package.json update | Yes |
-| CHANGELOG.md generation | Yes |
-| Git tag creation | Yes |
-| GitHub Release creation | Yes |
-| npm publishing | Yes |
-| npm tag assignment | Yes |
+| Task                    | Automated?                 |
+| ----------------------- | -------------------------- |
+| Version calculation     | Yes - from commit messages |
+| package.json update     | Yes                        |
+| CHANGELOG.md generation | Yes                        |
+| Git tag creation        | Yes                        |
+| GitHub Release creation | Yes                        |
+| npm publishing          | Yes                        |
+| npm tag assignment      | Yes                        |
 
 **Configuration**: See `.releaserc.js` for semantic-release configuration.
 
@@ -131,10 +133,10 @@ All versioning and publishing is automated via **semantic-release**:
 
 npm tags are assigned automatically based on the release type:
 
-| Branch | npm Tag | Example Installation |
-|--------|---------|---------------------|
-| `main` | `latest` | `npm install @nestjs-mcp/server` |
-| `next` | `next` | `npm install @nestjs-mcp/server@next` |
+| Branch | npm Tag  | Example Installation                  |
+| ------ | -------- | ------------------------------------- |
+| `main` | `latest` | `npm install @nestjs-mcp/server`      |
+| `next` | `next`   | `npm install @nestjs-mcp/server@next` |
 
 The npm tag always matches the branch name — `@semantic-release/npm` derives it from the branch's
 channel, so there is no way to publish a given branch under a different tag without renaming the

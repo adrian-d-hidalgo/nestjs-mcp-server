@@ -1,6 +1,6 @@
 {
   "name": "@nestjs-mcp/server",
-  "version": "2.0.0",
+  "version": "3.0.0-next.2",
   "description": "Modular library for building scalable MCP servers with NestJS, providing decorators and integration patterns as a wrapper for the official MCP TypeScript SDK.",
   "author": "Adrián Darío Hidalgo Flores",
   "license": "MIT",
@@ -50,8 +50,8 @@
     "start:inspector": "npx -y @modelcontextprotocol/inspector@2",
     "lint:check": "eslint \"{src,test,examples}/**/*.ts\"",
     "lint:fix": "eslint \"{src,test,examples}/**/*.ts\" --fix",
-    "format:check": "prettier --check \"{src,test,examples}/**/*.ts\"",
-    "format:fix": "prettier --write \"{src,test,examples}/**/*.ts\"",
+    "format:check": "prettier --check \"{src,test,examples}/**/*.ts\" \"{*,.handbook/**/*,examples/**/*}.md\"",
+    "format:fix": "prettier --write \"{src,test,examples}/**/*.ts\" \"{*,.handbook/**/*,examples/**/*}.md\"",
     "typecheck": "tsc --noEmit",
     "quality:check": "pnpm lint:check && pnpm format:check && pnpm typecheck",
     "quality:fix": "pnpm lint:fix && pnpm format:fix",
@@ -115,7 +115,8 @@
     "{src,test,examples}/**/*.ts": [
       "eslint --fix",
       "prettier --write"
-    ]
+    ],
+    "{*,.handbook/**/*,examples/**/*}.md": "prettier --write"
   },
   "jest": {
     "moduleFileExtensions": [
