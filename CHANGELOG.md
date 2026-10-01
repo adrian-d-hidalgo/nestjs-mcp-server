@@ -1,39 +1,3 @@
-# [3.0.0-next.2](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v3.0.0-next.1...v3.0.0-next.2) (2026-10-01)
-
-
-### Bug Fixes
-
-* **core:** export McpHttpService so applications can inject it ([a5e1cf2](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/a5e1cf2960463fa905e07ffc24d31ed30be19aa9))
-
-# [3.0.0-next.1](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v2.0.0...v3.0.0-next.1) (2026-09-30)
-
-
-* feat(context)!: add reportProgress helper to McpContext ([#134](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/134)) ([0d08bd0](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/0d08bd0cdbcbc31d1d84782c4dd30ae2c0c6dd97)), closes [#96](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/96)
-* feat(deps)!: upgrade all dependencies to their latest versions ([#127](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/127)) ([781b339](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/781b339f1a91b6b2ea2f5c49cb2783a6db48e732)), closes [#113](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/113)
-
-
-### Bug Fixes
-
-* **auth:** answer unexpected auth failures with an explicit generic error ([#131](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/131)) ([bb03cf1](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/bb03cf155513fa888ee70d46e31de95a16f7b187)), closes [#130](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/130)
-* **guards:** stop naming the method and guard in the denial message ([#133](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/133)) ([7f4a3a2](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/7f4a3a2c33f0e8e5d826dd60c8a4477c6c25b88e)), closes [#132](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/132)
-
-
-### Features
-
-* **auth:** add pluggable authentication and capability-level authorization ([#126](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/issues/126)) ([93de373](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/commit/93de3730429dd5beb4aa0a38368128718e01a147))
-
-
-### BREAKING CHANGES
-
-* McpContext has a new required member, reportProgress.
-
-- typed McpContext test doubles must add it, e.g. reportProgress: async () => {}
-- handlers that only receive ctx, and doubles built with `as McpContext`, need no change
-* NestJS 12.1 and Node.js 26.7 or later are now required.
-
-- @nestjs/common, @nestjs/core and @nestjs/platform-express below 12.1.2 are no longer supported
-- engines: node >=26.7, pnpm >=12.8
-
 # [2.0.0](https://github.com/adrian-d-hidalgo/nestjs-mcp-server/compare/v1.0.1...v2.0.0) (2026-09-29)
 
 
