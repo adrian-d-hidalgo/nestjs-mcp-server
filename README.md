@@ -1246,6 +1246,10 @@ how OAuth-capable MCP clients (claude.ai, ChatGPT) find your authorization
 server. The library does **not** serve authorization-server metadata — that
 belongs to the AS.
 
+`McpProtectedResourceController` and `McpController` are exported from the
+package root, so you can decorate them — for example, exclude both from your
+OpenAPI document with `@nestjs/swagger`'s `ApiExcludeController`.
+
 ### Trying OAuth end to end
 
 [`examples/oauth`](./examples/oauth) runs an MCP server protected by OAuth 2.1

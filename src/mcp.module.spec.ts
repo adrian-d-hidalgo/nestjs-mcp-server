@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-unsafe-assignment */
 /* eslint-disable @typescript-eslint/no-unsafe-member-access */
+import { Injectable, Module } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 
 import { McpCoreModule } from './mcp-core.module';
@@ -121,6 +122,34 @@ describe('McpModule', () => {
 
       expect(forFeatureSpy).toHaveBeenCalledWith(options);
       forFeatureSpy.mockRestore();
+    });
+  });
+
+  describe('McpHttpService injection', () => {
+    @Injectable()
+    class Notifier {
+      constructor(readonly mcp: McpHttpService) {}
+    }
+
+    @Module({ providers: [Notifier] })
+    class ConsumerModule {}
+
+    it.each([
+      ['forRoot', () => McpModule.forRoot({ name: 's', version: '1' })],
+      [
+        'forRootAsync',
+        () =>
+          McpModule.forRootAsync({
+            useFactory: () => ({ name: 's', version: '1' }),
+          }),
+      ],
+    ])('is injectable from another module with %s', async (_mode, register) => {
+      const moduleRef = await Test.createTestingModule({
+        imports: [register(), ConsumerModule],
+      }).compile();
+
+      expect(moduleRef.get(Notifier).mcp).toBeInstanceOf(McpHttpService);
+      await moduleRef.close();
     });
   });
 });

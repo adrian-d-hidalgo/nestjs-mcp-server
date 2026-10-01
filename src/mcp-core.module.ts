@@ -61,6 +61,7 @@ const PER_CALLER_LIST_CACHE_HINTS: NonNullable<ServerOptions['cacheHints']> = {
 @Module({
   imports: [DiscoveryModule],
   providers: CORE_PROVIDERS,
+  exports: [McpHttpService],
 })
 export class McpCoreModule {
   /**
